@@ -1,0 +1,39 @@
+# Copyright (c) 2016, the Dart project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE.md file.
+name: rasta
+dependencies:
+  compiler: any
+  expect: any
+  js_ast: any
+  js_runtime: any
+  sdk_library_metadata: any
+  charcode: any
+  collection: any
+  dart2js_info: any
+  package_config: any
+  path: any
+  pub_semver: any
+dependency_overrides:
+  compiler:
+    path: ../../third_party/dart-sdk/pkg/compiler
+  expect:
+    path: ../../third_party/dart-sdk/pkg/expect
+  js_ast:
+    path: ../../third_party/dart-sdk/pkg/js_ast
+  js_runtime:
+    path: ../../third_party/dart-sdk/sdk/lib/_internal/js_runtime
+  sdk_library_metadata:
+    path: ../../third_party/dart-sdk/sdk/lib/_internal/sdk_library_metadata
+  charcode:
+    path: ../../third_party/charcode
+  collection:
+    path: ../../third_party/collection
+  dart2js_info:
+    path: ../../third_party/dart2js_info
+  package_config:
+    path: ../../third_party/package_config
+  path:
+    path: ../../third_party/path
+  pub_semver:
+    path: ../../third_party/pub_semver

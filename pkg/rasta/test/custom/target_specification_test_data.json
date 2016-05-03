@@ -1,0 +1,74 @@
+{
+  "library-root": "../../../../third_party/dart-sdk/sdk/lib/",
+  "packages": ".packages",
+  "platform": "../../../../third_party/dart-sdk/sdk/lib/dart_server.platform",
+  "patches": {
+    "dart:core": [
+      "../../../../third_party/dart-sdk/runtime/lib/core_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/array_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/bool_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/date_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/double_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/errors_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/expando_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/function_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/identical_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/integers_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/invocation_mirror_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/map_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/null_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/object_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/regexp_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/resource_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/stopwatch_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/string_buffer_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/string_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/type_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/uri_patch.dart"
+    ],
+    "dart:io": [
+      "../../../../third_party/dart-sdk/runtime/bin/common_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/directory_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/eventhandler_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/file_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/file_system_entity_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/filter_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/io_service_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/platform_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/process_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/service_object_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/socket_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/stdio_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/bin/secure_socket_patch.dart"
+    ],
+    "dart:async": [
+      "../../../../third_party/dart-sdk/runtime/lib/async_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/deferred_load_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/schedule_microtask_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/timer_patch.dart"
+    ],
+    "dart:collection": [
+      "../../../../third_party/dart-sdk/runtime/lib/collection_patch.dart"
+    ],
+    "dart:convert": [
+      "../../../../third_party/dart-sdk/runtime/lib/convert_patch.dart"
+    ],
+    "dart:internal": [
+      "../../../../third_party/dart-sdk/runtime/lib/internal_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/print_patch.dart",
+      "../../../../third_party/dart-sdk/runtime/lib/symbol_patch.dart"
+    ],
+    "dart:isolate": [
+      "../../../../third_party/dart-sdk/runtime/lib/isolate_patch.dart"
+    ],
+    "dart:math": [
+      "../../../../third_party/dart-sdk/runtime/lib/math_patch.dart"
+    ],
+    "dart:mirrors": [
+      "../../../../third_party/dart-sdk/runtime/lib/mirrors_patch.dart"
+    ],
+    "dart:vmservice": [
+      "../../../../third_party/dart-sdk/runtime/lib/vmservice_patch.dart"
+    ]
+  }
+}

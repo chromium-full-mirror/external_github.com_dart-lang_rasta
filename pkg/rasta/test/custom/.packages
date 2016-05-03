@@ -1,0 +1,17 @@
+# Copyright (c) 2016, the Dart project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE.md file.
+rasta:../../lib
+
+compiler:../../../../third_party/dart-sdk/pkg/compiler/lib
+expect:../../../../third_party/dart-sdk/pkg/expect/lib
+js_ast:../../../../third_party/dart-sdk/pkg/js_ast/lib
+js_runtime:../../../../third_party/dart-sdk/sdk/lib/_internal/js_runtime/lib/
+sdk_library_metadata:../../../../third_party/dart-sdk/sdk/lib/_internal/sdk_library_metadata/lib/
+
+charcode:../../../../third_party/charcode/lib
+collection:../../../../third_party/collection/lib
+dart2js_info:../../../../third_party/dart2js_info/lib
+package_config:../../../../third_party/package_config/lib
+path:../../../../third_party/path/lib
+pub_semver:../../../../third_party/pub_semver/lib
