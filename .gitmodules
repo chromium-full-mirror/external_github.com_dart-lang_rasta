@@ -1,0 +1,21 @@
+[submodule "dart-sdk"]
+	path = third_party/dart-sdk
+	url = git@github.com:peter-ahe-google/dart-sdk.git
+[submodule "package_config"]
+	path = third_party/package_config
+	url = https://chromium.googlesource.com/external/github.com/dart-lang/package_config.git
+[submodule "path"]
+	path = third_party/path
+	url = https://chromium.googlesource.com/external/github.com/dart-lang/path.git
+[submodule "charcode"]
+	path = third_party/charcode
+	url = https://chromium.googlesource.com/external/github.com/dart-lang/charcode.git
+[submodule "dart2js_info"]
+	path = third_party/dart2js_info
+	url = https://github.com/dart-lang/dart2js_info.git
+[submodule "pub_semver"]
+	path = third_party/pub_semver
+	url = https://chromium.googlesource.com/external/github.com/dart-lang/pub_semver.git
+[submodule "collection"]
+	path = third_party/collection
+	url = https://chromium.googlesource.com/external/github.com/dart-lang/collection.git
