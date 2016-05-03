@@ -3,6 +3,8 @@
 # BSD-style license that can be found in the LICENSE.md file.
 rasta:../lib
 
+kernel:../../../third_party/kernel/lib
+
 compiler:../../../third_party/dart-sdk/pkg/compiler/lib
 expect:../../../third_party/dart-sdk/pkg/expect/lib
 js_ast:../../../third_party/dart-sdk/pkg/js_ast/lib

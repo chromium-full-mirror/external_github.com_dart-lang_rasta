@@ -19,3 +19,6 @@
 [submodule "collection"]
 	path = third_party/collection
 	url = https://chromium.googlesource.com/external/github.com/dart-lang/collection.git
+[submodule "kernel"]
+	path = third_party/kernel
+	url = git@github.com:dart-lang/kernel.git
