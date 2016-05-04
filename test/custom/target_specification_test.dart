@@ -13,7 +13,7 @@ import 'package:compiler/src/source_file_provider.dart' show
 import 'package:rasta/target_specification.dart';
 
 const String targetSpecificationLocation =
-    "pkg/rasta/test/custom/target_specification_test_data.json";
+    "test/custom/target_specification_test_data.json";
 
 Uri get targetSpecificationUri => Uri.base.resolve(targetSpecificationLocation);
 
