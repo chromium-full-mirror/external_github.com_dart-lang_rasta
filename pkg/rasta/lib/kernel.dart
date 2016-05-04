@@ -12,6 +12,7 @@ import 'package:kernel/ast.dart' as ir;
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     Element,
+    FunctionElement,
     LibraryElement;
 
 import 'package:compiler/src/dart_types.dart' show
@@ -20,10 +21,15 @@ import 'package:compiler/src/dart_types.dart' show
 import 'custom_compiler.dart' show
     CustomCompiler;
 
+import 'kernel_visitor.dart' show
+    KernelVisitor;
+
 class Kernel {
   final CustomCompiler compiler;
 
   final Map<ClassElement, ir.Class> loadedClasses = <ClassElement, ir.Class>{};
+
+  ir.Library currentLibrary;
 
   Kernel(this.compiler);
 
@@ -32,15 +38,20 @@ class Kernel {
   }
 
   ir.Library libraryToIr(LibraryElement library) {
-    List<ir.Class> classes = <ir.Class>[];
+    if (currentLibrary != null) {
+      throw new StateError("currentLibrary != null");
+    }
+    String name = library.hasLibraryName ? library.name : null;
+    ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
+    currentLibrary = libraryNode;
 
     library.forEachLocalMember((Element e) {
       if (e.isClass) {
-        classes.add(classToIr(e));
+        libraryNode.addClass(classToIr(e));
       }
     });
-    String name = library.hasLibraryName ? library.name : null;
-    return new ir.Library(library.canonicalUri, name: name, classes: classes);
+    currentLibrary = null;
+    return libraryNode;
   }
 
   ir.Class classToIr(ClassElement cls) => loadedClasses.putIfAbsent(cls, () {
@@ -50,16 +61,42 @@ class Kernel {
       supertype = interfaceTypeToIr(cls.supertype);
     }
 
+    ir.Class classNode = new ir.NormalClass(
+        supertype, name: cls.name, isAbstract: cls.isAbstract);
+
+    cls.forEachLocalMember((Element member) {
+      if (member.isFunction) {
+        classNode.addMember(functionToIr(member));
+      }
+    });
+
     // TODO(ahe): Fill in the following typeParameters, implementedTypes,
     // fields, constructors, procedures;
-
-    return new ir.NormalClass(
-        supertype, name: cls.name, isAbstract: cls.isAbstract);
+    return classNode;
   });
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
     ir.Class cls = classToIr(type.element);
     // TODO(ahe): Type arguments.
     return new ir.InterfaceType(cls);
+  }
+
+  ir.Procedure functionToIr(FunctionElement function) {
+    compiler.analyzeElement(function);
+    KernelVisitor visitor = new KernelVisitor(function, function.treeElements);
+    ir.TreeNode body = function.node.body.accept(visitor);
+    {
+      // TODO(ahe): What goes on in this block is temporary as we complete
+      // KernelVisitor.
+      if (body is! ir.Statement) {
+        body = new ir.ExpressionStatement(body);
+      }
+      if (body is! ir.Block) {
+        body = new ir.Block(<ir.Statement>[body]);
+      }
+    }
+    return new ir.Procedure(
+        new ir.Name(function.name, currentLibrary), ir.ProcedureKind.Method,
+        new ir.FunctionNode(body));
   }
 }
