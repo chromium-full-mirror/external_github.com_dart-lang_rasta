@@ -41,7 +41,7 @@ abstract class IoCompilerFactoryMixin implements CompilerFactory {
 
   final Future<FormattingDiagnosticHandler> diagnostics =
       new Future<FormattingDiagnosticHandler>.value(
-          new FormattingDiagnosticHandler()..verbose = true);
+          new FormattingDiagnosticHandler()..verbose = false);
 
   Future<CompilerInput> get input async => (await diagnostics).provider;
 

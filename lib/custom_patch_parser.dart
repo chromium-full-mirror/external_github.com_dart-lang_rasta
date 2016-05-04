@@ -46,13 +46,22 @@ import 'package:compiler/src/patch_parser.dart' show
     PatchElementListener,
     PatchMemberListener;
 
+import 'package:compiler/src/io/source_file.dart' show
+    StringSourceFile;
+
 import 'custom_compiler.dart' show
     CustomCompiler;
 
 import 'package:compiler/src/options.dart' show
     ParserOptions;
 
+const String implicitPatchImportSource = """
+import 'dart:_patch' show
+    patch;
+""";
+
 class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
+  Token implicitPatchImport;
 
   CustomPatchParserTask(CustomCompiler compiler)
       : super(compiler);
@@ -129,6 +138,7 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
       compiler.reporter.internalError(
           originLibrary.compilationUnit, "Parser error in patch file: $e");
     }
+    addSyntheticPatchImport(patchLibrary);
 
     await loader.processLibraryTags(patchLibrary);
 
@@ -136,4 +146,24 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
       // TODO(ahe): Inject or patch [e] into [originLibrary].
     });
   }
+
+  void addSyntheticPatchImport(LibraryElement library) {
+    if (implicitPatchImport == null) {
+      StringSourceFile source = new StringSourceFile.fromName(
+          "implicit_patch_import", implicitPatchImportSource);
+      implicitPatchImport =
+          compiler.scanner.measure(() => new Scanner(source).tokenize());
+    }
+    Listener importListener =
+        new ImportListener(compiler, library.compilationUnit);
+    new PartialPatchParser(importListener, compiler.options).parseImport(
+        implicitPatchImport);
+  }
+}
+
+class ImportListener extends PatchElementListener {
+  ImportListener(CustomCompiler compiler, CompilationUnitElement unit)
+      : super(compiler, unit, compiler);
+
+  bool allowLibraryTags() => true;
 }

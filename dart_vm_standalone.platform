@@ -1,0 +1,55 @@
+# Copyright (c) 2016, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+# The platform for dart on the server with dart2js.
+#
+# Includes dart:io.
+# Does not include dart:html and associated libraries.
+
+[dart-spec]
+spec:3rd edition.
+
+[features]
+# No extra features.
+
+[libraries]
+async: third_party/dart-sdk/sdk/lib/async/async.dart
+collection: third_party/dart-sdk/sdk/lib/collection/collection.dart
+convert: third_party/dart-sdk/sdk/lib/convert/convert.dart
+core: third_party/dart-sdk/sdk/lib/core/core.dart
+developer: third_party/dart-sdk/sdk/lib/developer/developer.dart
+io: third_party/dart-sdk/sdk/lib/io/io.dart
+isolate: third_party/dart-sdk/sdk/lib/isolate/isolate.dart
+math: third_party/dart-sdk/sdk/lib/math/math.dart
+mirrors: third_party/dart-sdk/sdk/lib/mirrors/mirrors.dart
+
+# Imported by third_party/dart-sdk/runtime/bin/eventhandler_patch.dart,
+# investigate if this file should be moved to a location that doesn't have
+# "html" in it's name.
+nativewrappers: third_party/dart-sdk/sdk/lib/html/dartium/nativewrappers.dart
+
+typed_data: third_party/dart-sdk/sdk/lib/typed_data/typed_data.dart
+_native_typed_data: unsupported:
+html: unsupported:
+html_common: unsupported:
+indexed_db: unsupported:
+svg: unsupported:
+web_audio: unsupported:
+web_gl: unsupported:
+web_sql: unsupported:
+_chrome: unsupported:
+js: unsupported:
+_mirror_helper: unsupported:
+_internal: third_party/dart-sdk/sdk/lib/internal/internal.dart
+_js_helper: unsupported:
+_interceptors: unsupported:
+_foreign_helper: unsupported:
+_isolate_helper: unsupported:
+_js_mirrors: unsupported:
+_js_names: unsupported:
+_js_primitives: unsupported:
+_js_embedded_names: unsupported:
+_async_await_error_codes: unsupported:
+_metadata: unsupported:
+_patch: _patch.dart

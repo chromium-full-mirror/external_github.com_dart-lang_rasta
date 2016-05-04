@@ -1,7 +1,7 @@
 {
   "library-root": "third_party/dart-sdk/sdk/lib/",
   "packages": ".packages",
-  "platform": "third_party/dart-sdk/sdk/lib/dart_server.platform",
+  "platform": "dart_vm_standalone.platform",
   "patches": {
     "dart:core": [
       "third_party/dart-sdk/runtime/lib/core_patch.dart",
