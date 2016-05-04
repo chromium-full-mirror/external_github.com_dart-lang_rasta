@@ -7,6 +7,7 @@ library rasta.testa;
 import 'dart:io' show
     Directory,
     File,
+    FileSystemEntity,
     Platform,
     Process,
     stderr,
@@ -16,7 +17,10 @@ import 'dart:isolate' show
     ReceivePort;
 
 import 'dart:async' show
-    StreamController;
+    Future,
+    Stream,
+    StreamController,
+    StreamSubscription;
 
 main() async {
   final ReceivePort port = new ReceivePort();
@@ -46,12 +50,14 @@ main() async {
   try {
     File generated = new File.fromUri(tmp.uri.resolve("generated.dart"));
     await generated.writeAsString("$sb", flush: true);
+    print("==> ${generated.path} <==");
+    print(numberedLines('$sb'));
     String packageConfig = Platform.packageConfig;
     if (packageConfig == null) {
       packageConfig = Platform.script.resolve(".packages").path;
     }
     Process process = await Process.start(Platform.resolvedExecutable,
-        <String>["--packages=$packageConfig", generated.path]);
+        <String>["-c", "--packages=$packageConfig", generated.path]);
     process.stdin.close();
     Future stdoutFuture =
         process.stdout.listen((data) => stdout.add(data)).asFuture();
@@ -108,7 +114,7 @@ Stream<TestDescription> listTests(List<Uri> testRoots) {
   return controller.stream;
 }
 
-void runTests(Map<String, Function> tests) async {
+Future<Null> runTests(Map<String, Function> tests) async {
   final ReceivePort port = new ReceivePort();
   for (String name in tests.keys) {
     print("Running test $name");
@@ -139,4 +145,24 @@ class TestDescription implements Comparable<TestDescription> {
   }
 
   int compareTo(TestDescription other) => "$uri".compareTo("${other.uri}");
+}
+
+String numberedLines(String text) {
+  StringBuffer result = new StringBuffer();
+  int lineNumber = 1;
+  List<String> lines = splitLines(text);
+  int pad = "${lines.length}".length;
+  String fill = " " * pad;
+  for (String line in lines) {
+    String paddedLineNumber = "$fill$lineNumber";
+    paddedLineNumber =
+        paddedLineNumber.substring(paddedLineNumber.length - pad);
+    result.write("$paddedLineNumber: $line");
+    lineNumber++;
+  }
+  return '$result';
+}
+
+List<String> splitLines(String text) {
+  return text.split(new RegExp('^', multiLine: true));
 }

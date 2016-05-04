@@ -109,8 +109,13 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
   Future<LibraryElementX> loadPatchLibrary(
       Uri patchUri, LibraryElement originLibrary, LibraryLoader loader) async {
     Script script = await compiler.readScript(patchUri, originLibrary);
-    LibraryElementX patchLibrary =
-        new LibraryElementX(script, null, originLibrary);
+    LibraryElementX patchLibrary = new LibraryElementX(script, null);
+    {
+      // TODO(ahe): This circumvents an invariant in PatchMixin.applyPatch. How
+      // to correctly do this?
+      originLibrary.patch = patchLibrary;
+      patchLibrary.origin = originLibrary;
+    }
     loader.registerNewLibrary(patchLibrary);
     Token tokens = compiler.scanner.measureElement(patchLibrary.compilationUnit,
         () => new Scanner(script.file).tokenize());
