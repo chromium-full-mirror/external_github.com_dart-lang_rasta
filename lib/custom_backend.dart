@@ -18,7 +18,8 @@ import 'package:compiler/src/compile_time_constants.dart' show
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     FunctionElement,
-    LibraryElement;
+    LibraryElement,
+    MethodElement;
 
 import 'package:compiler/src/common/codegen.dart' show
     CodegenWorkItem;
@@ -47,6 +48,9 @@ import 'package:compiler/src/dart_backend/dart_backend.dart' show
 import 'package:compiler/src/library_loader.dart' show
     LibraryLoader;
 
+import 'package:compiler/src/js_backend/patch_resolver.dart' show
+    PatchResolverTask;
+
 import 'target_specification.dart' show
     TargetSpecification;
 
@@ -72,9 +76,14 @@ class CustomBackend extends Backend {
   @override final ImpactTransformer impactTransformer =
       new CustomImpactTransformer();
 
+  PatchResolverTask patchResolver;
+
   CustomBackend(CustomCompiler compiler, this.target)
       : constantCompilerTask = new DartConstantTask(compiler),
-        super(compiler);
+        super(compiler) {
+    patchResolver = new PatchResolverTask(compiler);
+    tasks.add(patchResolver);
+  }
 
   @override Future onLibraryScanned(
       LibraryElement library, LibraryLoader loader) async {
@@ -112,5 +121,9 @@ class CustomBackend extends Backend {
 
   @override Uri resolvePatchUri(String libraryName, Uri plaformConfigUri) {
     return unimplemented;
+  }
+
+  @override MethodElement resolveExternalFunction(MethodElement element) {
+    return patchResolver.resolveExternalFunction(element);
   }
 }

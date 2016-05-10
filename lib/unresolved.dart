@@ -4,6 +4,8 @@
 
 library rasta.unresolved;
 
+import 'package:kernel/ast.dart' as ir;
+
 import "package:compiler/src/resolution/operators.dart" show
     AssignmentOperator,
     BinaryOperator,
@@ -32,9 +34,9 @@ import "package:compiler/src/universe/selector.dart" show
     Selector;
 
 abstract class RastaUnresolved {
-  void handleUnresolved(Node node);
+  ir.Expression handleUnresolved(Node node);
 
-  void visitUnresolvedClassConstructorInvoke(
+  ir.Expression visitUnresolvedClassConstructorInvoke(
       NewExpression node,
       Element element,
       DartType type,
@@ -44,7 +46,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedCompound(
+  ir.Expression visitUnresolvedCompound(
       Send node,
       Element element,
       AssignmentOperator operator,
@@ -53,7 +55,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedConstructorInvoke(
+  ir.Expression visitUnresolvedConstructorInvoke(
       NewExpression node,
       Element constructor,
       DartType type,
@@ -63,14 +65,14 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedGet(
+  ir.Expression visitUnresolvedGet(
       Send node,
       Element element,
       _) {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedInvoke(
+  ir.Expression visitUnresolvedInvoke(
       Send node,
       Element element,
       NodeList arguments,
@@ -79,7 +81,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedPostfix(
+  ir.Expression visitUnresolvedPostfix(
       Send node,
       Element element,
       IncDecOperator operator,
@@ -87,7 +89,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedPrefix(
+  ir.Expression visitUnresolvedPrefix(
       Send node,
       Element element,
       IncDecOperator operator,
@@ -95,7 +97,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedRedirectingFactoryConstructorInvoke(
+  ir.Expression visitUnresolvedRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -105,7 +107,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSet(
+  ir.Expression visitUnresolvedSet(
       Send node,
       Element element,
       Node rhs,
@@ -113,7 +115,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSetIfNull(
+  ir.Expression visitUnresolvedSetIfNull(
       Send node,
       Element element,
       Node rhs,
@@ -121,7 +123,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticGetterCompound(
+  ir.Expression visitUnresolvedStaticGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
@@ -131,7 +133,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticGetterPostfix(
+  ir.Expression visitUnresolvedStaticGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
@@ -140,7 +142,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticGetterPrefix(
+  ir.Expression visitUnresolvedStaticGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
@@ -149,7 +151,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticGetterSetIfNull(
+  ir.Expression visitUnresolvedStaticGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
@@ -158,7 +160,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticSetterCompound(
+  ir.Expression visitUnresolvedStaticSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
@@ -168,7 +170,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticSetterPostfix(
+  ir.Expression visitUnresolvedStaticSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
@@ -177,7 +179,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticSetterPrefix(
+  ir.Expression visitUnresolvedStaticSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
@@ -186,7 +188,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedStaticSetterSetIfNull(
+  ir.Expression visitUnresolvedStaticSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
@@ -195,7 +197,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperBinary(
+  ir.Expression visitUnresolvedSuperBinary(
       Send node,
       Element element,
       BinaryOperator operator,
@@ -204,7 +206,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperCompound(
+  ir.Expression visitUnresolvedSuperCompound(
       Send node,
       Element element,
       AssignmentOperator operator,
@@ -213,7 +215,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperCompoundIndexSet(
       Send node,
       Element element,
       Node index,
@@ -223,14 +225,14 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGet(
+  ir.Expression visitUnresolvedSuperGet(
       Send node,
       Element element,
       _) {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterCompound(
+  ir.Expression visitUnresolvedSuperGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
@@ -240,7 +242,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperGetterCompoundIndexSet(
       Send node,
       Element element,
       MethodElement setter,
@@ -251,7 +253,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterIndexPostfix(
+  ir.Expression visitUnresolvedSuperGetterIndexPostfix(
       Send node,
       Element element,
       MethodElement setter,
@@ -261,7 +263,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterIndexPrefix(
+  ir.Expression visitUnresolvedSuperGetterIndexPrefix(
       Send node,
       Element element,
       MethodElement setter,
@@ -271,7 +273,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterPostfix(
+  ir.Expression visitUnresolvedSuperGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
@@ -280,7 +282,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterPrefix(
+  ir.Expression visitUnresolvedSuperGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
@@ -289,7 +291,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterSetIfNull(
+  ir.Expression visitUnresolvedSuperGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
@@ -298,7 +300,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperIndex(
+  ir.Expression visitUnresolvedSuperIndex(
       Send node,
       Element element,
       Node index,
@@ -306,16 +308,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperIndexPostfix(
-      Send node,
-      Element element,
-      Node index,
-      IncDecOperator operator,
-      _) {
-    return handleUnresolved(node);
-  }
-
-  void visitUnresolvedSuperIndexPrefix(
+  ir.Expression visitUnresolvedSuperIndexPostfix(
       Send node,
       Element element,
       Node index,
@@ -324,7 +317,16 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperIndexSet(
+  ir.Expression visitUnresolvedSuperIndexPrefix(
+      Send node,
+      Element element,
+      Node index,
+      IncDecOperator operator,
+      _) {
+    return handleUnresolved(node);
+  }
+
+  ir.Expression visitUnresolvedSuperIndexSet(
       Send node,
       Element element,
       Node index,
@@ -333,7 +335,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperInvoke(
+  ir.Expression visitUnresolvedSuperInvoke(
       Send node,
       Element element,
       NodeList arguments,
@@ -342,7 +344,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperPostfix(
+  ir.Expression visitUnresolvedSuperPostfix(
       Send node,
       Element element,
       IncDecOperator operator,
@@ -350,7 +352,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperPrefix(
+  ir.Expression visitUnresolvedSuperPrefix(
       Send node,
       Element element,
       IncDecOperator operator,
@@ -358,7 +360,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetIfNull(
+  ir.Expression visitUnresolvedSuperSetIfNull(
       Send node,
       Element element,
       Node rhs,
@@ -366,7 +368,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterCompound(
+  ir.Expression visitUnresolvedSuperSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
@@ -376,7 +378,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperSetterCompoundIndexSet(
       Send node,
       MethodElement getter,
       Element element,
@@ -387,7 +389,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterIndexPostfix(
+  ir.Expression visitUnresolvedSuperSetterIndexPostfix(
       Send node,
       MethodElement indexFunction,
       Element element,
@@ -397,7 +399,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterIndexPrefix(
+  ir.Expression visitUnresolvedSuperSetterIndexPrefix(
       Send node,
       MethodElement indexFunction,
       Element element,
@@ -407,7 +409,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterPostfix(
+  ir.Expression visitUnresolvedSuperSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
@@ -416,7 +418,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterPrefix(
+  ir.Expression visitUnresolvedSuperSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
@@ -425,7 +427,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterSetIfNull(
+  ir.Expression visitUnresolvedSuperSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
@@ -434,7 +436,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperUnary(
+  ir.Expression visitUnresolvedSuperUnary(
       Send node,
       UnaryOperator operator,
       Element element,
@@ -442,7 +444,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelGetterCompound(
+  ir.Expression visitUnresolvedTopLevelGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
@@ -452,7 +454,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelGetterPostfix(
+  ir.Expression visitUnresolvedTopLevelGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
@@ -461,7 +463,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelGetterPrefix(
+  ir.Expression visitUnresolvedTopLevelGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
@@ -470,7 +472,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelGetterSetIfNull(
+  ir.Expression visitUnresolvedTopLevelGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
@@ -479,7 +481,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelSetterCompound(
+  ir.Expression visitUnresolvedTopLevelSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
@@ -489,7 +491,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelSetterPostfix(
+  ir.Expression visitUnresolvedTopLevelSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
@@ -498,7 +500,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelSetterPrefix(
+  ir.Expression visitUnresolvedTopLevelSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
@@ -507,7 +509,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedTopLevelSetterSetIfNull(
+  ir.Expression visitUnresolvedTopLevelSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
@@ -516,7 +518,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperGetterIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperGetterIndexSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
@@ -526,7 +528,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSetterIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperSetterIndexSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
@@ -536,7 +538,7 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperIndexSetIfNull(
       Send node,
       Element element,
       Node index,
@@ -545,7 +547,11 @@ abstract class RastaUnresolved {
     return handleUnresolved(node);
   }
 
-  void visitUnresolvedSuperSet(Send node, Element element, Node rhs, _) {
+  ir.Expression visitUnresolvedSuperSet(
+      Send node,
+      Element element,
+      Node rhs,
+      _) {
     return handleUnresolved(node);
   }
 }

@@ -22,8 +22,11 @@ import 'package:compiler/src/elements/elements.dart' show
     ErroneousElement,
     FieldElement,
     FunctionElement,
+    FunctionSignature,
     InitializingFormalElement,
+    JumpTarget,
     LocalFunctionElement,
+    LocalParameterElement,
     LocalVariableElement,
     MethodElement,
     Name,
@@ -82,6 +85,7 @@ import 'package:compiler/src/tree/tree.dart' show
     SendSet,
     Statement,
     StringInterpolation,
+    StringInterpolationPart,
     StringJuxtaposition,
     SwitchCase,
     SwitchStatement,
@@ -136,6 +140,9 @@ import 'unresolved.dart' show
 import 'error.dart' show
     RastaError;
 
+import 'kernel.dart' show
+    Kernel;
+
 class KernelVisitor extends Object
     with
         SemanticSendResolvedMixin,
@@ -148,15 +155,23 @@ class KernelVisitor extends Object
         SemanticVisitor, SemanticSendVisitor, SemanticDeclarationVisitor {
   TreeElements elements;
   final FunctionElement function;
+  final Kernel kernel;
+  List<ir.Statement> currentStatements;
 
-  KernelVisitor(this.function, this.elements);
+  final Map<JumpTarget, ir.LabeledStatement> continueTargets =
+      <JumpTarget, ir.LabeledStatement>{};
+
+  final Map<JumpTarget, ir.LabeledStatement> breakTargets =
+      <JumpTarget, ir.LabeledStatement>{};
+
+  KernelVisitor(this.function, this.elements, this.kernel);
 
   KernelVisitor get sendVisitor => this;
 
   KernelVisitor get declVisitor => this;
 
-  void handleUnresolved(Node node) {
-    throw new Unsupported("Unresolved node: $node");
+  ir.Expression handleUnresolved(Node node) {
+    return handleUnsupported(node, "Unresolved node: $node");
   }
 
   void handleError(Node node) {
@@ -172,7 +187,7 @@ class KernelVisitor extends Object
   }
 
   internalError(Spannable spannable, String message) {
-    throw new Unsupported("Not implemented yet.");
+    throw new Unsupported(message);
   }
 
   applyParameters(NodeList parameters, _) {
@@ -183,196 +198,355 @@ class KernelVisitor extends Object
     throw new Unsupported("Not implemented yet.");
   }
 
-  ir.TreeNode visitAssert(Assert node) {
-    return handleUnsupported(node, "Assert");
+  ir.AssertStatement visitAssert(Assert node) {
+    return new ir.AssertStatement(
+        node.condition.accept(this),
+        node.message?.accept(this));
   }
 
-  ir.TreeNode visitAsyncForIn(AsyncForIn node) {
+  ir.Throw visitAsyncForIn(AsyncForIn node) {
     return handleUnsupported(node, "AsyncForIn");
   }
 
-  ir.TreeNode visitAwait(Await node) {
+  ir.Throw visitAwait(Await node) {
     return handleUnsupported(node, "Await");
   }
 
-  ir.TreeNode visitBlock(Block node) {
-    return handleUnsupported(node, "Block");
+  ir.Block visitBlock(Block node) {
+    return generateStatementInBlock(node);
   }
 
-  ir.TreeNode visitBreakStatement(BreakStatement node) {
-    return handleUnsupported(node, "BreakStatement");
+  ir.Block generateStatementInBlock(Statement node) {
+    if (node == null) return null;
+    List<ir.Statement> oldStatements = currentStatements;
+    currentStatements = <ir.Statement>[];
+    try {
+      if (node is Block) {
+        for (Node statement in node.statements.nodes) {
+          ir.Statement irNode = statement.accept(this);
+          if (irNode != null) {
+            currentStatements.add(irNode);
+          }
+        }
+      } else {
+        ir.Statement irNode = node.accept(this);
+        if (irNode != null) {
+          currentStatements.add(irNode);
+        }
+      }
+      return new ir.Block(currentStatements);
+    } finally {
+      currentStatements = oldStatements;
+    }
   }
 
-  ir.TreeNode visitCascade(Cascade node) {
+  ir.BreakStatement visitBreakStatement(BreakStatement node) {
+    return new ir.BreakStatement(getBreakTarget(elements.getTargetOf(node)));
+  }
+
+  ir.Throw visitCascade(Cascade node) {
     return handleUnsupported(node, "Cascade");
   }
 
-  ir.TreeNode visitCascadeReceiver(CascadeReceiver node) {
+  ir.Throw visitCascadeReceiver(CascadeReceiver node) {
     return handleUnsupported(node, "CascadeReceiver");
   }
 
-  ir.TreeNode visitCaseMatch(CaseMatch node) {
+  ir.Throw visitCaseMatch(CaseMatch node) {
     return handleUnsupported(node, "CaseMatch");
   }
 
-  ir.TreeNode visitCatchBlock(CatchBlock node) {
+  ir.Throw visitCatchBlock(CatchBlock node) {
     return handleUnsupported(node, "CatchBlock");
   }
 
-  ir.TreeNode visitConditional(Conditional node) {
-    return handleUnsupported(node, "Conditional");
+  ir.ConditionalExpression visitConditional(Conditional node) {
+    return new ir.ConditionalExpression(
+        node.condition.accept(this),
+        node.thenExpression.accept(this),
+        node.elseExpression.accept(this));
   }
 
-  ir.TreeNode visitContinueStatement(ContinueStatement node) {
-    return handleUnsupported(node, "ContinueStatement");
+  ir.BreakStatement visitContinueStatement(ContinueStatement node) {
+    return new ir.BreakStatement(getContinueTarget(elements.getTargetOf(node)));
   }
 
-  ir.TreeNode visitDoWhile(DoWhile node) {
-    return handleUnsupported(node, "DoWhile");
+  ir.Statement visitDoWhile(DoWhile node) {
+    ir.Statement body = generateStatementInBlock(node.body);
+    ir.Expression condition = node.condition?.accept(this);
+
+    // TODO(ahe): Unify jump target handling between For, While, and Do.
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+
+    if (jumpTarget != null && jumpTarget.isContinueTarget) {
+      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
+      continueTarget.body = body;
+      body.parent = continueTarget;
+      body = continueTarget;
+    }
+
+    ir.Statement result = new ir.DoStatement(body, condition);
+
+    if (jumpTarget != null && jumpTarget.isBreakTarget) {
+      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
+      breakTarget.body = result;
+      result.parent = breakTarget;
+      result = breakTarget;
+    }
+
+    return result;
   }
 
-  ir.TreeNode visitEmptyStatement(EmptyStatement node) {
-    return handleUnsupported(node, "EmptyStatement");
+  ir.EmptyStatement visitEmptyStatement(EmptyStatement node) {
+    return new ir.EmptyStatement();
   }
 
-  ir.TreeNode visitEnum(Enum node) {
+  ir.Throw visitEnum(Enum node) {
     return handleUnsupported(node, "Enum");
   }
 
-  ir.TreeNode visitExpressionStatement(ExpressionStatement node) {
-    return handleUnsupported(node, "ExpressionStatement");
+  ir.ExpressionStatement visitExpressionStatement(ExpressionStatement node) {
+    return new ir.ExpressionStatement(node.expression.accept(this));
   }
 
-  ir.TreeNode visitFor(For node) {
-    return handleUnsupported(node, "For");
+  ir.LabeledStatement getBreakTarget(JumpTarget target) {
+    return breakTargets.putIfAbsent(
+        target, () => new ir.LabeledStatement(null));
   }
 
-  ir.TreeNode visitFunctionDeclaration(FunctionDeclaration node) {
-    return handleUnsupported(node, "FunctionDeclaration");
+  ir.LabeledStatement getContinueTarget(JumpTarget target) {
+    return continueTargets.putIfAbsent(
+        target, () => new ir.LabeledStatement(null));
   }
 
-  ir.TreeNode visitIf(If node) {
-    return handleUnsupported(node, "If");
+  ir.Statement visitFor(For node) {
+    VariableDefinitions initializers =
+        node.initializer?.asVariableDefinitions();
+    ir.Expression initializer;
+    List<ir.VariableDeclaration> variables;
+    if (initializers != null) {
+      ir.Block block = generateStatementInBlock(initializers);
+      variables = new List<ir.VariableDeclaration>.from(block.statements);
+    } else {
+      if (node.initializer != null) {
+        initializer = node.initializer.accept(this);
+      }
+      variables = const <ir.VariableDeclaration>[];
+    }
+    ir.Expression condition = node.condition?.accept(this);
+    List<ir.Expression> updates = <ir.Expression>[];
+    for (Expression update in node.update) {
+      updates.add(update.accept(this));
+    }
+    ir.Statement body = generateStatementInBlock(node.body);
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+
+    if (jumpTarget != null && jumpTarget.isContinueTarget) {
+      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
+      continueTarget.body = body;
+      body.parent = continueTarget;
+      body = continueTarget;
+    }
+    ir.ForStatement forStatement = new ir.ForStatement(
+        variables, condition, updates, body);
+    ir.Statement result = forStatement;
+    if (jumpTarget != null && jumpTarget.isBreakTarget) {
+      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
+      breakTarget.body = result;
+      result.parent = breakTarget;
+      result = breakTarget;
+    }
+    if (initializer != null) {
+      result = new ir.Block(<ir.Statement>[
+          new ir.ExpressionStatement(initializer), result]);
+    }
+    return result;
   }
 
-  ir.TreeNode visitLabel(Label node) {
+  ir.ExpressionStatement visitFunctionDeclaration(FunctionDeclaration node) {
+    return handleUnsupportedStatement(node, "FunctionDeclaration");
+  }
+
+  ir.IfStatement visitIf(If node) {
+    return new ir.IfStatement(
+        node.condition.accept(this),
+        generateStatementInBlock(node.thenPart),
+        generateStatementInBlock(node.elsePart));
+  }
+
+  ir.Throw visitLabel(Label node) {
     return handleUnsupported(node, "Label");
   }
 
-  ir.TreeNode visitLabeledStatement(LabeledStatement node) {
-    return handleUnsupported(node, "LabeledStatement");
+  ir.LabeledStatement visitLabeledStatement(LabeledStatement node) {
+    ir.LabeledStatement result = new ir.LabeledStatement(null);
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+    if (jumpTarget != null) {
+      assert(breakTargets[jumpTarget] == null);
+      breakTargets[jumpTarget] = result;
+      assert(continueTargets[jumpTarget] == null);
+      continueTargets[jumpTarget] = result;
+    }
+
+    ir.Statement body = generateStatementInBlock(node.statement);
+
+    result.body = body;
+    body.parent = result;
+    return result;
   }
 
-  ir.TreeNode visitLiteralBool(LiteralBool node) {
-    return handleUnsupported(node, "LiteralBool");
+  ir.BoolLiteral visitLiteralBool(LiteralBool node) {
+    return new ir.BoolLiteral(node.value);
   }
 
-  ir.TreeNode visitLiteralDouble(LiteralDouble node) {
-    return handleUnsupported(node, "LiteralDouble");
+  ir.DoubleLiteral visitLiteralDouble(LiteralDouble node) {
+    return new ir.DoubleLiteral(node.value);
   }
 
-  ir.TreeNode visitLiteralInt(LiteralInt node) {
-    return handleUnsupported(node, "LiteralInt");
+  ir.IntLiteral visitLiteralInt(LiteralInt node) {
+    return new ir.IntLiteral(node.value);
   }
 
-  ir.TreeNode visitLiteralList(LiteralList node) {
-    return handleUnsupported(node, "LiteralList");
+  ir.ListLiteral visitLiteralList(LiteralList node) {
+    // TODO(ahe): Type arguments.
+    List<ir.Expression> elements = <ir.Expression>[];
+    for (Expression element in node.elements.nodes) {
+      elements.add(element.accept(this));
+    }
+    return new ir.ListLiteral(elements)
+        // TODO(ahe): Constness should be validated.
+        ..isConst = node.isConst;
   }
 
-  ir.TreeNode visitLiteralMap(LiteralMap node) {
-    return handleUnsupported(node, "LiteralMap");
+  ir.MapLiteral visitLiteralMap(LiteralMap node) {
+    // TODO(ahe): Type arguments.
+    List<ir.MapEntry> entries = <ir.MapEntry>[];
+    for (LiteralMapEntry entry in node.entries.nodes) {
+      entries.add(
+          new ir.MapEntry(entry.key.accept(this), entry.value.accept(this)));
+    }
+    return new ir.MapLiteral(entries)
+        // TODO(ahe): Constness should be validated.
+        ..isConst = node.isConst;
   }
 
-  ir.TreeNode visitLiteralMapEntry(LiteralMapEntry node) {
+  ir.Throw visitLiteralMapEntry(LiteralMapEntry node) {
     return handleUnsupported(node, "LiteralMapEntry");
   }
 
-  ir.TreeNode visitLiteralNull(LiteralNull node) {
-    return handleUnsupported(node, "LiteralNull");
+  ir.NullLiteral visitLiteralNull(LiteralNull node) {
+    return new ir.NullLiteral();
   }
 
-  ir.TreeNode visitLiteralString(LiteralString node) {
-    return handleUnsupported(node, "LiteralString");
+  ir.StringLiteral visitLiteralString(LiteralString node) {
+    return new ir.StringLiteral(node.dartString.slowToString());
   }
 
-  ir.TreeNode visitLiteralSymbol(LiteralSymbol node) {
+  ir.Throw visitLiteralSymbol(LiteralSymbol node) {
     return handleUnsupported(node, "LiteralSymbol");
   }
 
-  ir.TreeNode visitMetadata(Metadata node) {
+  ir.Throw visitMetadata(Metadata node) {
     return handleUnsupported(node, "Metadata");
   }
 
-  ir.TreeNode visitNamedArgument(NamedArgument node) {
+  ir.Throw visitNamedArgument(NamedArgument node) {
     return handleUnsupported(node, "NamedArgument");
   }
 
-  ir.TreeNode visitOperator(Operator node) {
+  ir.Throw visitOperator(Operator node) {
     return handleUnsupported(node, "Operator");
   }
 
-  ir.TreeNode visitParenthesizedExpression(ParenthesizedExpression node) {
-    // TODO(ahe): Do we need to emit the parentheses?
-    node.expression.accept(this);
+  ir.Expression visitParenthesizedExpression(ParenthesizedExpression node) {
+    return node.expression.accept(this);
   }
 
-  ir.TreeNode visitRedirectingFactoryBody(RedirectingFactoryBody node) {
+  ir.Throw visitRedirectingFactoryBody(RedirectingFactoryBody node) {
     return handleUnsupported(node, "RedirectingFactoryBody");
   }
 
-  ir.TreeNode visitRethrow(Rethrow node) {
+  ir.Throw visitRethrow(Rethrow node) {
     return handleUnsupported(node, "Rethrow");
   }
 
-  ir.TreeNode visitReturn(Return node) {
-    return handleUnsupported(node, "Return");
+  ir.ReturnStatement visitReturn(Return node) {
+    return new ir.ReturnStatement(node.expression?.accept(this));
   }
 
-  ir.TreeNode visitStringInterpolation(StringInterpolation node) {
-    return handleUnsupported(node, "StringInterpolation");
+  ir.StringConcatenation visitStringInterpolation(StringInterpolation node) {
+    List<ir.Expression> expressions = <ir.Expression>[];
+    expressions.add(node.string.accept(this));
+    for (StringInterpolationPart part in node.parts) {
+      expressions.add(part.expression.accept(this));
+      expressions.add(part.string.accept(this));
+    }
+    return new ir.StringConcatenation(expressions);
   }
 
-  ir.TreeNode visitStringJuxtaposition(StringJuxtaposition node) {
-    return handleUnsupported(node, "StringJuxtaposition");
+  ir.StringConcatenation visitStringJuxtaposition(StringJuxtaposition node) {
+    return new ir.StringConcatenation(
+        <ir.Expression>[node.first.accept(this), node.second.accept(this)]);
   }
 
-  ir.TreeNode visitSwitchCase(SwitchCase node) {
+  ir.Throw visitSwitchCase(SwitchCase node) {
     return handleUnsupported(node, "SwitchCase");
   }
 
-  ir.TreeNode visitSwitchStatement(SwitchStatement node) {
-    return handleUnsupported(node, "SwitchStatement");
+  ir.ExpressionStatement visitSwitchStatement(SwitchStatement node) {
+    return handleUnsupportedStatement(node, "SwitchStatement");
   }
 
-  ir.TreeNode visitSyncForIn(SyncForIn node) {
-    return handleUnsupported(node, "SyncForIn");
+  ir.ExpressionStatement visitSyncForIn(SyncForIn node) {
+    return handleUnsupportedStatement(node, "SyncForIn");
   }
 
-  ir.TreeNode visitThrow(Throw node) {
-    return handleUnsupported(node, "Throw");
+  ir.Throw visitThrow(Throw node) {
+    return new ir.Throw(node?.expression.accept(this));
   }
 
-  ir.TreeNode visitTryStatement(TryStatement node) {
-    return handleUnsupported(node, "TryStatement");
+  ir.ExpressionStatement visitTryStatement(TryStatement node) {
+    return handleUnsupportedStatement(node, "TryStatement");
   }
 
-  ir.TreeNode visitTypeAnnotation(TypeAnnotation node) {
+  ir.Throw visitTypeAnnotation(TypeAnnotation node) {
     return handleUnsupported(node, "TypeAnnotation");
   }
 
-  ir.TreeNode visitTypeVariable(TypeVariable node) {
+  ir.Throw visitTypeVariable(TypeVariable node) {
     return handleUnsupported(node, "TypeVariable");
   }
 
-  ir.TreeNode visitWhile(While node) {
-    return handleUnsupported(node, "While");
+  ir.Statement visitWhile(While node) {
+    ir.Expression condition = node.condition?.accept(this);
+
+    ir.Statement body = generateStatementInBlock(node.body);
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+
+    if (jumpTarget != null && jumpTarget.isContinueTarget) {
+      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
+      continueTarget.body = body;
+      body.parent = continueTarget;
+      body = continueTarget;
+    }
+
+    ir.Statement result = new ir.WhileStatement(condition, body);
+
+    if (jumpTarget != null && jumpTarget.isBreakTarget) {
+      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
+      breakTarget.body = result;
+      result.parent = breakTarget;
+      result = breakTarget;
+    }
+
+    return result;
   }
 
-  ir.TreeNode visitYield(Yield node) {
-    return handleUnsupported(node, "Yield");
+  ir.ExpressionStatement visitYield(Yield node) {
+    return handleUnsupportedStatement(node, "Yield");
   }
 
-  ir.TreeNode visitAbstractClassConstructorInvoke(
+  ir.Throw visitAbstractClassConstructorInvoke(
       NewExpression node,
       ConstructorElement element,
       InterfaceType type,
@@ -382,22 +556,14 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "AbstractClassConstructorInvoke");
   }
 
-  ir.TreeNode visitAbstractGetterDeclaration(
+  ir.Throw visitAbstractGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       _) {
     return handleUnsupported(node, "AbstractGetterDeclaration");
   }
 
-  ir.TreeNode visitAbstractMethodDeclaration(
-      FunctionExpression node,
-      MethodElement method,
-      NodeList parameters,
-      _) {
-    return handleUnsupported(node, "AbstractMethodDeclaration");
-  }
-
-  ir.TreeNode visitAbstractSetterDeclaration(
+  ir.Throw visitAbstractSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
@@ -405,23 +571,23 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "AbstractSetterDeclaration");
   }
 
-  ir.TreeNode visitAs(Send node, Node expression, DartType type, _) {
+  ir.Throw visitAs(Send node, Node expression, DartType type, _) {
     return handleUnsupported(node, "As");
   }
 
-  ir.TreeNode visitBinary(
+  ir.MethodInvocation visitBinary(
       Send node, Node left, BinaryOperator operator, Node right, _) {
-    return handleUnsupported(node, "Binary");
+    return generateBinaryOperator(left, operator.name, right);
   }
 
-  ir.TreeNode visitBoolFromEnvironmentConstructorInvoke(
+  ir.Throw visitBoolFromEnvironmentConstructorInvoke(
       NewExpression node,
       BoolFromEnvironmentConstantExpression constant,
       _) {
     return handleUnsupported(node, "BoolFromEnvironmentConstructorInvoke");
   }
 
-  ir.TreeNode visitClassTypeLiteralCompound(
+  ir.Throw visitClassTypeLiteralCompound(
       Send node,
       ConstantExpression constant,
       AssignmentOperator operator,
@@ -430,12 +596,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralCompound");
   }
 
-  ir.TreeNode visitClassTypeLiteralGet(
+  ir.Throw visitClassTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
     return handleUnsupported(node, "ClassTypeLiteralGet");
   }
 
-  ir.TreeNode visitClassTypeLiteralInvoke(
+  ir.Throw visitClassTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
@@ -444,7 +610,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralInvoke");
   }
 
-  ir.TreeNode visitClassTypeLiteralPostfix(
+  ir.Throw visitClassTypeLiteralPostfix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -452,7 +618,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralPostfix");
   }
 
-  ir.TreeNode visitClassTypeLiteralPrefix(
+  ir.Throw visitClassTypeLiteralPrefix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -460,7 +626,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralPrefix");
   }
 
-  ir.TreeNode visitClassTypeLiteralSet(
+  ir.Throw visitClassTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
@@ -468,7 +634,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralSet");
   }
 
-  ir.TreeNode visitClassTypeLiteralSetIfNull(
+  ir.Throw visitClassTypeLiteralSetIfNull(
       Send node,
       ConstantExpression constant,
       Node rhs,
@@ -476,7 +642,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClassTypeLiteralSetIfNull");
   }
 
-  ir.TreeNode visitClosureDeclaration(
+  ir.Throw visitClosureDeclaration(
       FunctionExpression node,
       LocalFunctionElement closure,
       NodeList parameters,
@@ -485,7 +651,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ClosureDeclaration");
   }
 
-  ir.TreeNode visitCompoundIndexSet(
+  ir.Throw visitCompoundIndexSet(
       SendSet node,
       Node receiver,
       Node index,
@@ -495,18 +661,18 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "CompoundIndexSet");
   }
 
-  ir.TreeNode visitConstConstructorInvoke(
+  ir.Throw visitConstConstructorInvoke(
       NewExpression node,
       ConstructedConstantExpression constant,
       _) {
     return handleUnsupported(node, "ConstConstructorInvoke");
   }
 
-  ir.TreeNode visitConstantGet(Send node, ConstantExpression constant, _) {
+  ir.Throw visitConstantGet(Send node, ConstantExpression constant, _) {
     return handleUnsupported(node, "ConstantGet");
   }
 
-  ir.TreeNode visitConstantInvoke(
+  ir.Throw visitConstantInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
@@ -515,7 +681,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ConstantInvoke");
   }
 
-  ir.TreeNode visitConstructorIncompatibleInvoke(
+  ir.Throw visitConstructorIncompatibleInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -525,7 +691,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ConstructorIncompatibleInvoke");
   }
 
-  ir.TreeNode visitDynamicPropertyCompound(
+  ir.Throw visitDynamicPropertyCompound(
       Send node,
       Node receiver,
       Name name,
@@ -535,20 +701,28 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicPropertyCompound");
   }
 
-  ir.TreeNode visitDynamicPropertyGet(Send node, Node receiver, Name name, _) {
-    return handleUnsupported(node, "DynamicPropertyGet");
+  ir.PropertyGet visitDynamicPropertyGet(
+      Send node,
+      Node receiver,
+      Name name,
+      _) {
+    return new ir.PropertyGet(receiver.accept(this), kernel.nameToIrName(name));
   }
 
-  ir.TreeNode visitDynamicPropertyInvoke(
+  ir.MethodInvocation visitDynamicPropertyInvoke(
       Send node,
       Node receiver,
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnsupported(node, "DynamicPropertyInvoke");
+    // TODO(ahe): Where's the call structure?
+    ir.Arguments argumentsNode = generateArguments(arguments, null);
+    return new ir.MethodInvocation(
+        receiver.accept(this), kernel.nameToIrName(selector.memberName),
+        argumentsNode);
   }
 
-  ir.TreeNode visitDynamicPropertyPostfix(
+  ir.Throw visitDynamicPropertyPostfix(
       Send node,
       Node receiver,
       Name name,
@@ -557,7 +731,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicPropertyPostfix");
   }
 
-  ir.TreeNode visitDynamicPropertyPrefix(
+  ir.Throw visitDynamicPropertyPrefix(
       Send node,
       Node receiver,
       Name name,
@@ -566,16 +740,18 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicPropertyPrefix");
   }
 
-  ir.TreeNode visitDynamicPropertySet(
+  ir.PropertySet visitDynamicPropertySet(
       SendSet node,
       Node receiver,
       Name name,
       Node rhs,
       _) {
-    return handleUnsupported(node, "DynamicPropertySet");
+    ir.Expression value = rhs.accept(this);
+    return new ir.PropertySet(
+        receiver.accept(this), kernel.nameToIrName(name), value);
   }
 
-  ir.TreeNode visitDynamicPropertySetIfNull(
+  ir.Throw visitDynamicPropertySetIfNull(
       Send node,
       Node receiver,
       Name name,
@@ -584,7 +760,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicPropertySetIfNull");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralCompound(
+  ir.Throw visitDynamicTypeLiteralCompound(
       Send node,
       ConstantExpression constant,
       AssignmentOperator operator,
@@ -593,12 +769,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralCompound");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralGet(
+  ir.Throw visitDynamicTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
     return handleUnsupported(node, "DynamicTypeLiteralGet");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralInvoke(
+  ir.Throw visitDynamicTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
@@ -607,7 +783,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralInvoke");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralPostfix(
+  ir.Throw visitDynamicTypeLiteralPostfix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -615,7 +791,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralPostfix");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralPrefix(
+  ir.Throw visitDynamicTypeLiteralPrefix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -623,7 +799,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralPrefix");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralSet(
+  ir.Throw visitDynamicTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
@@ -631,7 +807,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralSet");
   }
 
-  ir.TreeNode visitDynamicTypeLiteralSetIfNull(
+  ir.Throw visitDynamicTypeLiteralSetIfNull(
       Send node,
       ConstantExpression constant,
       Node rhs,
@@ -639,11 +815,21 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "DynamicTypeLiteralSetIfNull");
   }
 
-  ir.TreeNode visitEquals(Send node, Node left, Node right, _) {
-    return handleUnsupported(node, "Equals");
+  ir.MethodInvocation generateBinaryOperator(
+      Node left,
+      String operator,
+      Node right) {
+    ir.Arguments arguments =
+        new ir.Arguments(<ir.Expression>[right.accept(this)]);
+    return new ir.MethodInvocation(
+        left.accept(this), kernel.irName(operator, function), arguments);
   }
 
-  ir.TreeNode visitExpressionInvoke(
+  ir.MethodInvocation visitEquals(Send node, Node left, Node right, _) {
+    return generateBinaryOperator(left, '==', right);
+  }
+
+  ir.Throw visitExpressionInvoke(
       Send node,
       Node expression,
       NodeList arguments,
@@ -652,7 +838,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ExpressionInvoke");
   }
 
-  ir.TreeNode visitFactoryConstructorDeclaration(
+  ir.Throw visitFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
@@ -661,7 +847,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FactoryConstructorDeclaration");
   }
 
-  ir.TreeNode visitFactoryConstructorInvoke(
+  ir.Throw visitFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -671,7 +857,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FactoryConstructorInvoke");
   }
 
-  ir.TreeNode visitFieldInitializer(
+  ir.Throw visitFieldInitializer(
       SendSet node,
       FieldElement field,
       Node initializer,
@@ -679,7 +865,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FieldInitializer");
   }
 
-  ir.TreeNode visitFinalLocalVariableCompound(
+  ir.Throw visitFinalLocalVariableCompound(
       Send node,
       LocalVariableElement variable,
       AssignmentOperator operator,
@@ -688,7 +874,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalLocalVariableCompound");
   }
 
-  ir.TreeNode visitFinalLocalVariablePostfix(
+  ir.Throw visitFinalLocalVariablePostfix(
       Send node,
       LocalVariableElement variable,
       IncDecOperator operator,
@@ -696,7 +882,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalLocalVariablePostfix");
   }
 
-  ir.TreeNode visitFinalLocalVariablePrefix(
+  ir.Throw visitFinalLocalVariablePrefix(
       Send node,
       LocalVariableElement variable,
       IncDecOperator operator,
@@ -704,7 +890,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalLocalVariablePrefix");
   }
 
-  ir.TreeNode visitFinalLocalVariableSet(
+  ir.Throw visitFinalLocalVariableSet(
       SendSet node,
       LocalVariableElement variable,
       Node rhs,
@@ -712,7 +898,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalLocalVariableSet");
   }
 
-  ir.TreeNode visitFinalLocalVariableSetIfNull(
+  ir.Throw visitFinalLocalVariableSetIfNull(
       Send node,
       LocalVariableElement variable,
       Node rhs,
@@ -720,7 +906,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalLocalVariableSetIfNull");
   }
 
-  ir.TreeNode visitFinalParameterCompound(
+  ir.Throw visitFinalParameterCompound(
       Send node,
       ParameterElement parameter,
       AssignmentOperator operator,
@@ -729,7 +915,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalParameterCompound");
   }
 
-  ir.TreeNode visitFinalParameterPostfix(
+  ir.Throw visitFinalParameterPostfix(
       Send node,
       ParameterElement parameter,
       IncDecOperator operator,
@@ -737,7 +923,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalParameterPostfix");
   }
 
-  ir.TreeNode visitFinalParameterPrefix(
+  ir.Throw visitFinalParameterPrefix(
       Send node,
       ParameterElement parameter,
       IncDecOperator operator,
@@ -745,7 +931,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalParameterPrefix");
   }
 
-  ir.TreeNode visitFinalParameterSet(
+  ir.Throw visitFinalParameterSet(
       SendSet node,
       ParameterElement parameter,
       Node rhs,
@@ -753,7 +939,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalParameterSet");
   }
 
-  ir.TreeNode visitFinalParameterSetIfNull(
+  ir.Throw visitFinalParameterSetIfNull(
       Send node,
       ParameterElement parameter,
       Node rhs,
@@ -761,7 +947,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalParameterSetIfNull");
   }
 
-  ir.TreeNode visitFinalStaticFieldCompound(
+  ir.Throw visitFinalStaticFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -770,7 +956,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalStaticFieldCompound");
   }
 
-  ir.TreeNode visitFinalStaticFieldPostfix(
+  ir.Throw visitFinalStaticFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -778,7 +964,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalStaticFieldPostfix");
   }
 
-  ir.TreeNode visitFinalStaticFieldPrefix(
+  ir.Throw visitFinalStaticFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -786,12 +972,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalStaticFieldPrefix");
   }
 
-  ir.TreeNode visitFinalStaticFieldSet(
+  ir.StaticSet visitFinalStaticFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "FinalStaticFieldSet");
+    return visitStaticFieldSet(node, field, rhs, _);
   }
 
-  ir.TreeNode visitFinalStaticFieldSetIfNull(
+  ir.Throw visitFinalStaticFieldSetIfNull(
       Send node,
       FieldElement field,
       Node rhs,
@@ -799,7 +985,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalStaticFieldSetIfNull");
   }
 
-  ir.TreeNode visitFinalSuperFieldCompound(
+  ir.Throw visitFinalSuperFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -808,7 +994,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalSuperFieldCompound");
   }
 
-  ir.TreeNode visitFinalSuperFieldPostfix(
+  ir.Throw visitFinalSuperFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -816,7 +1002,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalSuperFieldPostfix");
   }
 
-  ir.TreeNode visitFinalSuperFieldPrefix(
+  ir.Throw visitFinalSuperFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -824,12 +1010,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalSuperFieldPrefix");
   }
 
-  ir.TreeNode visitFinalSuperFieldSet(
+  ir.Throw visitFinalSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "FinalSuperFieldSet");
   }
 
-  ir.TreeNode visitFinalSuperFieldSetIfNull(
+  ir.Throw visitFinalSuperFieldSetIfNull(
       Send node,
       FieldElement field,
       Node rhs,
@@ -837,7 +1023,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalSuperFieldSetIfNull");
   }
 
-  ir.TreeNode visitFinalTopLevelFieldCompound(
+  ir.Throw visitFinalTopLevelFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -846,7 +1032,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalTopLevelFieldCompound");
   }
 
-  ir.TreeNode visitFinalTopLevelFieldPostfix(
+  ir.Throw visitFinalTopLevelFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -854,7 +1040,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalTopLevelFieldPostfix");
   }
 
-  ir.TreeNode visitFinalTopLevelFieldPrefix(
+  ir.Throw visitFinalTopLevelFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -862,7 +1048,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalTopLevelFieldPrefix");
   }
 
-  ir.TreeNode visitFinalTopLevelFieldSet(
+  ir.Throw visitFinalTopLevelFieldSet(
       SendSet node,
       FieldElement field,
       Node rhs,
@@ -870,7 +1056,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalTopLevelFieldSet");
   }
 
-  ir.TreeNode visitFinalTopLevelFieldSetIfNull(
+  ir.Throw visitFinalTopLevelFieldSetIfNull(
       Send node,
       FieldElement field,
       Node rhs,
@@ -878,7 +1064,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
-  ir.TreeNode visitGenerativeConstructorDeclaration(
+  ir.Throw visitGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
@@ -888,7 +1074,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "GenerativeConstructorDeclaration");
   }
 
-  ir.TreeNode visitGenerativeConstructorInvoke(
+  ir.Throw visitGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -898,7 +1084,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "GenerativeConstructorInvoke");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertyCompound(
+  ir.Throw visitIfNotNullDynamicPropertyCompound(
       Send node,
       Node receiver,
       Name name,
@@ -908,7 +1094,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertyCompound");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertyGet(
+  ir.Throw visitIfNotNullDynamicPropertyGet(
       Send node,
       Node receiver,
       Name name,
@@ -916,7 +1102,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertyGet");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertyInvoke(
+  ir.Throw visitIfNotNullDynamicPropertyInvoke(
       Send node,
       Node receiver,
       NodeList arguments,
@@ -925,7 +1111,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertyInvoke");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertyPostfix(
+  ir.Throw visitIfNotNullDynamicPropertyPostfix(
       Send node,
       Node receiver,
       Name name,
@@ -934,7 +1120,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertyPostfix");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertyPrefix(
+  ir.Throw visitIfNotNullDynamicPropertyPrefix(
       Send node,
       Node receiver,
       Name name,
@@ -943,7 +1129,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertyPrefix");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertySet(
+  ir.Throw visitIfNotNullDynamicPropertySet(
       SendSet node,
       Node receiver,
       Name name,
@@ -952,7 +1138,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertySet");
   }
 
-  ir.TreeNode visitIfNotNullDynamicPropertySetIfNull(
+  ir.Throw visitIfNotNullDynamicPropertySetIfNull(
       Send node,
       Node receiver,
       Name name,
@@ -961,11 +1147,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IfNotNullDynamicPropertySetIfNull");
   }
 
-  ir.TreeNode visitIfNull(Send node, Node left, Node right, _) {
+  ir.Throw visitIfNull(Send node, Node left, Node right, _) {
     return handleUnsupported(node, "IfNull");
   }
 
-  ir.TreeNode visitImplicitSuperConstructorInvoke(
+  ir.Throw visitImplicitSuperConstructorInvoke(
       FunctionExpression node,
       ConstructorElement superConstructor,
       InterfaceType type,
@@ -973,11 +1159,14 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ImplicitSuperConstructorInvoke");
   }
 
-  ir.TreeNode visitIndex(Send node, Node receiver, Node index, _) {
-    return handleUnsupported(node, "Index");
+  ir.MethodInvocation visitIndex(Send node, Node receiver, Node index, _) {
+    ir.Arguments arguments = new ir.Arguments(
+        <ir.Expression>[index.accept(this)]);
+    return new ir.MethodInvocation(
+        receiver.accept(this), kernel.irName("[]", function), arguments);
   }
 
-  ir.TreeNode visitIndexPostfix(
+  ir.Throw visitIndexPostfix(
       Send node,
       Node receiver,
       Node index,
@@ -986,7 +1175,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IndexPostfix");
   }
 
-  ir.TreeNode visitIndexPrefix(
+  ir.Throw visitIndexPrefix(
       Send node,
       Node receiver,
       Node index,
@@ -995,12 +1184,15 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "IndexPrefix");
   }
 
-  ir.TreeNode visitIndexSet(
+  ir.MethodInvocation visitIndexSet(
       SendSet node, Node receiver, Node index, Node rhs, _) {
-    return handleUnsupported(node, "IndexSet");
+    ir.Arguments arguments = new ir.Arguments(
+        <ir.Expression>[index.accept(this), rhs.accept(this)]);
+    return new ir.MethodInvocation(
+        receiver.accept(this), kernel.irName("[]=", function), arguments);
   }
 
-  ir.TreeNode visitInitializingFormalDeclaration(
+  ir.Throw visitInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
@@ -1009,7 +1201,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "InitializingFormalDeclaration");
   }
 
-  ir.TreeNode visitInstanceFieldDeclaration(
+  ir.Throw visitInstanceFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
@@ -1018,7 +1210,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "InstanceFieldDeclaration");
   }
 
-  ir.TreeNode visitInstanceGetterDeclaration(
+  ir.Throw visitInstanceGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
@@ -1026,16 +1218,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "InstanceGetterDeclaration");
   }
 
-  ir.TreeNode visitInstanceMethodDeclaration(
-      FunctionExpression node,
-      MethodElement method,
-      NodeList parameters,
-      Node body,
-      _) {
-    return handleUnsupported(node, "InstanceMethodDeclaration");
-  }
-
-  ir.TreeNode visitInstanceSetterDeclaration(
+  ir.Throw visitInstanceSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
@@ -1044,31 +1227,49 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "InstanceSetterDeclaration");
   }
 
-  ir.TreeNode visitIntFromEnvironmentConstructorInvoke(
+  ir.Throw visitIntFromEnvironmentConstructorInvoke(
       NewExpression node,
       IntFromEnvironmentConstantExpression constant,
       _) {
     return handleUnsupported(node, "IntFromEnvironmentConstructorInvoke");
   }
 
-  ir.TreeNode visitIs(Send node, Node expression, DartType type, _) {
-    return handleUnsupported(node, "Is");
+  ir.IsExpression generateIs(Node expression, DartType type) {
+    return new ir.IsExpression(expression.accept(this), kernel.typeToIr(type));
   }
 
-  ir.TreeNode visitIsNot(Send node, Node expression, DartType type, _) {
-    return handleUnsupported(node, "IsNot");
+  ir.IsExpression visitIs(Send node, Node expression, DartType type, _) {
+    return generateIs(expression, type);
   }
 
-  ir.TreeNode visitLocalConstantDeclaration(
+  ir.Not visitIsNot(Send node, Node expression, DartType type, _) {
+    return new ir.Not(generateIs(expression, type));
+  }
+
+  ir.VariableDeclaration generateLocalVariableDeclaration(
+      LocalVariableElement variable, Node initializer) {
+    ir.Expression initializerNode = initializer?.accept(this);
+    ir.VariableDeclaration local = getLocal(variable);
+    if (initializer != null) {
+      local.initializer = initializerNode;
+      initializerNode.parent = local;
+    }
+    currentStatements.add(local);
+    return local;
+  }
+
+  ir.VariableDeclaration visitLocalConstantDeclaration(
       VariableDefinitions node,
       Node definition,
       LocalVariableElement variable,
       ConstantExpression constant,
       _) {
-    return handleUnsupported(node, "LocalConstantDeclaration");
+    // TODO(ahe): Use [constant]?
+    return generateLocalVariableDeclaration(variable, variable.initializer)
+        ..isConst = true;
   }
 
-  ir.TreeNode visitLocalFunctionCompound(
+  ir.Throw visitLocalFunctionCompound(
       Send node,
       LocalFunctionElement function,
       AssignmentOperator operator,
@@ -1077,21 +1278,21 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionCompound");
   }
 
-  ir.TreeNode visitLocalFunctionDeclaration(
+  ir.FunctionNode visitLocalFunctionDeclaration(
       FunctionExpression node,
       LocalFunctionElement function,
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "LocalFunctionDeclaration");
+    return generateFunctionNode(node, function, parameters, body);
   }
 
-  ir.TreeNode visitLocalFunctionGet(
+  ir.StaticGet visitLocalFunctionGet(
       Send node, LocalFunctionElement function, _) {
-    return handleUnsupported(node, "LocalFunctionGet");
+    return new ir.StaticGet(kernel.functionToIr(function));
   }
 
-  ir.TreeNode visitLocalFunctionIncompatibleInvoke(
+  ir.Throw visitLocalFunctionIncompatibleInvoke(
       Send node,
       LocalFunctionElement function,
       NodeList arguments,
@@ -1100,7 +1301,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionIncompatibleInvoke");
   }
 
-  ir.TreeNode visitLocalFunctionInvoke(
+  ir.Throw visitLocalFunctionInvoke(
       Send node,
       LocalFunctionElement function,
       NodeList arguments,
@@ -1109,7 +1310,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionInvoke");
   }
 
-  ir.TreeNode visitLocalFunctionPostfix(
+  ir.Throw visitLocalFunctionPostfix(
       Send node,
       LocalFunctionElement function,
       IncDecOperator operator,
@@ -1117,7 +1318,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionPostfix");
   }
 
-  ir.TreeNode visitLocalFunctionPrefix(
+  ir.Throw visitLocalFunctionPrefix(
       Send node,
       LocalFunctionElement function,
       IncDecOperator operator,
@@ -1125,7 +1326,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionPrefix");
   }
 
-  ir.TreeNode visitLocalFunctionSet(
+  ir.Throw visitLocalFunctionSet(
       SendSet node,
       LocalFunctionElement function,
       Node rhs,
@@ -1133,7 +1334,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionSet");
   }
 
-  ir.TreeNode visitLocalFunctionSetIfNull(
+  ir.Throw visitLocalFunctionSetIfNull(
       Send node,
       LocalFunctionElement function,
       Node rhs,
@@ -1141,7 +1342,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalFunctionSetIfNull");
   }
 
-  ir.TreeNode visitLocalVariableCompound(
+  ir.Throw visitLocalVariableCompound(
       Send node,
       LocalVariableElement variable,
       AssignmentOperator operator,
@@ -1150,21 +1351,25 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalVariableCompound");
   }
 
-  ir.TreeNode visitLocalVariableDeclaration(
+  ir.VariableDeclaration visitLocalVariableDeclaration(
       VariableDefinitions node,
       Node definition,
       LocalVariableElement variable,
       Node initializer,
       _) {
-    return handleUnsupported(node, "LocalVariableDeclaration");
+    return generateLocalVariableDeclaration(variable, initializer);
   }
 
-  ir.TreeNode visitLocalVariableGet(
+  ir.VariableGet generateLocalGet(LocalVariableElement local) {
+    return new ir.VariableGet(getLocal(local));
+  }
+
+  ir.VariableGet visitLocalVariableGet(
       Send node, LocalVariableElement variable, _) {
-    return handleUnsupported(node, "LocalVariableGet");
+    return generateLocalGet(variable);
   }
 
-  ir.TreeNode visitLocalVariableInvoke(
+  ir.Throw visitLocalVariableInvoke(
       Send node,
       LocalVariableElement variable,
       NodeList arguments,
@@ -1173,31 +1378,59 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalVariableInvoke");
   }
 
-  ir.TreeNode visitLocalVariablePostfix(
+  ir.Let visitLocalVariablePostfix(
       Send node,
       LocalVariableElement variable,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "LocalVariablePostfix");
+    // Build this let expression:
+    //
+    //     let val = variable in let dummy = (variable = val + 1) in val
+    //
+    // The variable `dummy` is needed as we don't have a way to sequence
+    // expressions.
+    ir.Name name = kernel.irName(operator.binaryOperator.name, function);
+    ir.VariableDeclaration local = getLocal(variable);
+    ir.VariableDeclaration val = new ir.VariableDeclaration(
+        "val", initializer: new ir.VariableGet(local));
+    ir.Arguments one = new ir.Arguments(<ir.Expression>[new ir.IntLiteral(1)]);
+    ir.MethodInvocation update =
+        new ir.MethodInvocation(new ir.VariableGet(val), name, one);
+    ir.VariableDeclaration dummy = new ir.VariableDeclaration(
+        "dummy", initializer: new ir.VariableSet(local, update));
+
+    return new ir.Let(val, new ir.Let(dummy, new ir.VariableGet(val)));
   }
 
-  ir.TreeNode visitLocalVariablePrefix(
+  ir.MethodInvocation generateLocalPrefix(
+      LocalVariableElement variable,
+      IncDecOperator operator) {
+    ir.Name name = kernel.irName(operator.binaryOperator.name, function);
+    ir.Arguments one = new ir.Arguments(<ir.Expression>[new ir.IntLiteral(1)]);
+    return new ir.MethodInvocation(generateLocalGet(variable), name, one);
+  }
+
+  ir.MethodInvocation visitLocalVariablePrefix(
       Send node,
       LocalVariableElement variable,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "LocalVariablePrefix");
+    return generateLocalPrefix(variable, operator);
   }
 
-  ir.TreeNode visitLocalVariableSet(
+  ir.VariableSet generateLocalSet(LocalVariableElement variable, Node rhs) {
+    return new ir.VariableSet(getLocal(variable), rhs.accept(this));
+  }
+
+  ir.VariableSet visitLocalVariableSet(
       SendSet node,
       LocalVariableElement variable,
       Node rhs,
       _) {
-    return handleUnsupported(node, "LocalVariableSet");
+    return generateLocalSet(variable, rhs);
   }
 
-  ir.TreeNode visitLocalVariableSetIfNull(
+  ir.Throw visitLocalVariableSetIfNull(
       Send node,
       LocalVariableElement variable,
       Node rhs,
@@ -1205,15 +1438,17 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "LocalVariableSetIfNull");
   }
 
-  ir.TreeNode visitLogicalAnd(Send node, Node left, Node right, _) {
-    return handleUnsupported(node, "LogicalAnd");
+  ir.LogicalExpression visitLogicalAnd(Send node, Node left, Node right, _) {
+    return new ir.LogicalExpression(
+        left.accept(this), '&&', right.accept(this));
   }
 
-  ir.TreeNode visitLogicalOr(Send node, Node left, Node right, _) {
-    return handleUnsupported(node, "LogicalOr");
+  ir.LogicalExpression visitLogicalOr(Send node, Node left, Node right, _) {
+    return new ir.LogicalExpression(
+        left.accept(this), '||', right.accept(this));
   }
 
-  ir.TreeNode visitNamedInitializingFormalDeclaration(
+  ir.Throw visitNamedInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
@@ -1222,7 +1457,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "NamedInitializingFormalDeclaration");
   }
 
-  ir.TreeNode visitNamedParameterDeclaration(
+  ir.Throw visitNamedParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
@@ -1231,15 +1466,15 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "NamedParameterDeclaration");
   }
 
-  ir.TreeNode visitNot(Send node, Node expression, _) {
-    return handleUnsupported(node, "Not");
+  ir.Not visitNot(Send node, Node expression, _) {
+    return new ir.Not(expression.accept(this));
   }
 
-  ir.TreeNode visitNotEquals(Send node, Node left, Node right, _) {
-    return handleUnsupported(node, "NotEquals");
+  ir.Not visitNotEquals(Send node, Node left, Node right, _) {
+    return new ir.Not(generateBinaryOperator(left, '==', right));
   }
 
-  ir.TreeNode visitOptionalInitializingFormalDeclaration(
+  ir.Throw visitOptionalInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
@@ -1249,7 +1484,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "OptionalInitializingFormalDeclaration");
   }
 
-  ir.TreeNode visitOptionalParameterDeclaration(
+  ir.Throw visitOptionalParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
@@ -1259,7 +1494,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "OptionalParameterDeclaration");
   }
 
-  ir.TreeNode visitParameterCompound(
+  ir.Throw visitParameterCompound(
       Send node,
       ParameterElement parameter,
       AssignmentOperator operator,
@@ -1268,7 +1503,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ParameterCompound");
   }
 
-  ir.TreeNode visitParameterDeclaration(
+  ir.Throw visitParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
@@ -1277,20 +1512,24 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ParameterDeclaration");
   }
 
-  ir.TreeNode visitParameterGet(Send node, ParameterElement parameter, _) {
-    return handleUnsupported(node, "ParameterGet");
+  ir.VariableGet visitParameterGet(Send node, ParameterElement parameter, _) {
+    return generateLocalGet(parameter);
   }
 
-  ir.TreeNode visitParameterInvoke(
+  ir.MethodInvocation visitParameterInvoke(
       Send node,
       ParameterElement parameter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ParameterInvoke");
+    ir.Arguments argumentsNode = generateArguments(arguments, callStructure);
+    return new ir.MethodInvocation(
+        generateLocalGet(parameter),
+        kernel.nameToIrName(callStructure.callSelector.memberName),
+        argumentsNode);
   }
 
-  ir.TreeNode visitParameterPostfix(
+  ir.Throw visitParameterPostfix(
       Send node,
       ParameterElement parameter,
       IncDecOperator operator,
@@ -1298,23 +1537,23 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ParameterPostfix");
   }
 
-  ir.TreeNode visitParameterPrefix(
+  ir.MethodInvocation visitParameterPrefix(
       Send node,
       ParameterElement parameter,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "ParameterPrefix");
+    return generateLocalPrefix(parameter, operator);
   }
 
-  ir.TreeNode visitParameterSet(
+  ir.VariableSet visitParameterSet(
       SendSet node,
       ParameterElement parameter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "ParameterSet");
+    return generateLocalSet(parameter, rhs);
   }
 
-  ir.TreeNode visitParameterSetIfNull(
+  ir.Throw visitParameterSetIfNull(
       Send node,
       ParameterElement parameter,
       Node rhs,
@@ -1322,7 +1561,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ParameterSetIfNull");
   }
 
-  ir.TreeNode visitRedirectingFactoryConstructorDeclaration(
+  ir.Throw visitRedirectingFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
@@ -1332,7 +1571,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "RedirectingFactoryConstructorDeclaration");
   }
 
-  ir.TreeNode visitRedirectingFactoryConstructorInvoke(
+  ir.Throw visitRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -1344,7 +1583,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "RedirectingFactoryConstructorInvoke");
   }
 
-  ir.TreeNode visitRedirectingGenerativeConstructorDeclaration(
+  ir.Throw visitRedirectingGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
@@ -1354,7 +1593,7 @@ class KernelVisitor extends Object
         node, "RedirectingGenerativeConstructorDeclaration");
   }
 
-  ir.TreeNode visitRedirectingGenerativeConstructorInvoke(
+  ir.Throw visitRedirectingGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -1364,7 +1603,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "RedirectingGenerativeConstructorInvoke");
   }
 
-  ir.TreeNode visitStaticConstantDeclaration(
+  ir.Throw visitStaticConstantDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
@@ -1373,7 +1612,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticConstantDeclaration");
   }
 
-  ir.TreeNode visitStaticFieldCompound(
+  ir.Throw visitStaticFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -1382,7 +1621,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFieldCompound");
   }
 
-  ir.TreeNode visitStaticFieldDeclaration(
+  ir.Throw visitStaticFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
@@ -1391,11 +1630,15 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFieldDeclaration");
   }
 
-  ir.TreeNode visitStaticFieldGet(Send node, FieldElement field, _) {
-    return handleUnsupported(node, "StaticFieldGet");
+  ir.StaticGet generateStaticGet(FieldElement field) {
+    return new ir.StaticGet(kernel.fieldToIr(field));
   }
 
-  ir.TreeNode visitStaticFieldInvoke(
+  ir.StaticGet visitStaticFieldGet(Send node, FieldElement field, _) {
+    return generateStaticGet(field);
+  }
+
+  ir.Throw visitStaticFieldInvoke(
       Send node,
       FieldElement field,
       NodeList arguments,
@@ -1404,7 +1647,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFieldInvoke");
   }
 
-  ir.TreeNode visitStaticFieldPostfix(
+  ir.Throw visitStaticFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -1412,7 +1655,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFieldPostfix");
   }
 
-  ir.TreeNode visitStaticFieldPrefix(
+  ir.Throw visitStaticFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -1420,30 +1663,97 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFieldPrefix");
   }
 
-  ir.TreeNode visitStaticFieldSet(
+  ir.StaticSet visitStaticFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "StaticFieldSet");
+    return new ir.StaticSet(kernel.fieldToIr(field), rhs.accept(this));
   }
 
-  ir.TreeNode visitStaticFieldSetIfNull(
+  ir.Throw visitStaticFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "StaticFieldSetIfNull");
   }
 
-  ir.TreeNode visitStaticFunctionDeclaration(
+  ir.VariableDeclaration getLocal(LocalVariableElement local) {
+    return kernel.locals.putIfAbsent(
+        local, () => new ir.VariableDeclaration(local.name));
+  }
+
+  ir.FunctionNode generateFunctionNode(
+      FunctionExpression node,
+      FunctionElement function,
+      NodeList parameters,
+      Node bodyNode) {
+    ir.TreeNode body;
+    if (bodyNode != null) {
+      body = bodyNode.accept(this);
+      {
+        // TODO(ahe): What goes on in this block is temporary as we complete
+        // KernelVisitor.
+        if (body is! ir.Statement) {
+          body = new ir.ExpressionStatement(body);
+        }
+      }
+      if (body is! ir.Block) {
+        // TODO(ahe): Always normalize methods to have a block?
+        body = new ir.Block(<ir.Statement>[body]);
+      }
+    }
+    FunctionSignature signature = function.functionSignature;
+    List<ir.VariableDeclaration> positionalParameters =
+        <ir.VariableDeclaration>[];
+    List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
+    int requiredParameterCount = signature.requiredParameterCount;
+    signature.forEachParameter((LocalParameterElement parameter) {
+      ir.VariableDeclaration variable = getLocal(parameter);
+      if (parameter.isNamed) {
+        namedParameters.add(variable);
+      } else {
+        positionalParameters.add(variable);
+      }
+    });
+    signature.forEachParameter((LocalParameterElement parameter) {
+      ir.Expression initializer = parameter.initializer?.accept(this);
+      ir.VariableDeclaration variable = getLocal(parameter);
+      if (initializer != null) {
+        variable.initializer = initializer;
+        initializer.parent = variable;
+      }
+    });
+    return new ir.FunctionNode(body, positionalParameters: positionalParameters,
+        namedParameters: namedParameters);
+  }
+
+  ir.FunctionNode visitStaticFunctionDeclaration(
       FunctionExpression node,
       MethodElement function,
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "StaticFunctionDeclaration");
+    return generateFunctionNode(node, function, parameters, body);
   }
 
-  ir.TreeNode visitStaticFunctionGet(Send node, MethodElement function, _) {
-    return handleUnsupported(node, "StaticFunctionGet");
+  ir.FunctionNode visitInstanceMethodDeclaration(
+      FunctionExpression node,
+      MethodElement method,
+      NodeList parameters,
+      Node body,
+      _) {
+    return generateFunctionNode(node, function, parameters, body);
   }
 
-  ir.TreeNode visitStaticFunctionIncompatibleInvoke(
+  ir.FunctionNode visitAbstractMethodDeclaration(
+      FunctionExpression node,
+      MethodElement method,
+      NodeList parameters,
+      _) {
+    return generateFunctionNode(node, function, parameters, null);
+  }
+
+  ir.StaticGet visitStaticFunctionGet(Send node, MethodElement function, _) {
+    return new ir.StaticGet(kernel.functionToIr(function));
+  }
+
+  ir.Throw visitStaticFunctionIncompatibleInvoke(
       Send node,
       MethodElement function,
       NodeList arguments,
@@ -1452,21 +1762,21 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticFunctionIncompatibleInvoke");
   }
 
-  ir.TreeNode visitStaticFunctionInvoke(
+  ir.StaticInvocation visitStaticFunctionInvoke(
       Send node,
       MethodElement function,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "StaticFunctionInvoke");
+    return generateStaticInvocation(function, arguments, callStructure);
   }
 
-  ir.TreeNode visitStaticFunctionSet(
+  ir.Throw visitStaticFunctionSet(
       Send node, MethodElement function, Node rhs, _) {
     return handleUnsupported(node, "StaticFunctionSet");
   }
 
-  ir.TreeNode visitStaticGetterDeclaration(
+  ir.Throw visitStaticGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
@@ -1474,11 +1784,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterDeclaration");
   }
 
-  ir.TreeNode visitStaticGetterGet(Send node, FunctionElement getter, _) {
+  ir.Throw visitStaticGetterGet(Send node, FunctionElement getter, _) {
     return handleUnsupported(node, "StaticGetterGet");
   }
 
-  ir.TreeNode visitStaticGetterInvoke(
+  ir.Throw visitStaticGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
@@ -1487,12 +1797,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterInvoke");
   }
 
-  ir.TreeNode visitStaticGetterSet(
+  ir.Throw visitStaticGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
     return handleUnsupported(node, "StaticGetterSet");
   }
 
-  ir.TreeNode visitStaticGetterSetterCompound(
+  ir.Throw visitStaticGetterSetterCompound(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1502,7 +1812,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterSetterCompound");
   }
 
-  ir.TreeNode visitStaticGetterSetterPostfix(
+  ir.Throw visitStaticGetterSetterPostfix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1511,7 +1821,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterSetterPostfix");
   }
 
-  ir.TreeNode visitStaticGetterSetterPrefix(
+  ir.Throw visitStaticGetterSetterPrefix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1520,7 +1830,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterSetterPrefix");
   }
 
-  ir.TreeNode visitStaticGetterSetterSetIfNull(
+  ir.Throw visitStaticGetterSetterSetIfNull(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1529,7 +1839,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticGetterSetterSetIfNull");
   }
 
-  ir.TreeNode visitStaticMethodCompound(
+  ir.Throw visitStaticMethodCompound(
       Send node,
       MethodElement method,
       AssignmentOperator operator,
@@ -1538,7 +1848,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodCompound");
   }
 
-  ir.TreeNode visitStaticMethodPostfix(
+  ir.Throw visitStaticMethodPostfix(
       Send node,
       MethodElement method,
       IncDecOperator operator,
@@ -1546,7 +1856,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodPostfix");
   }
 
-  ir.TreeNode visitStaticMethodPrefix(
+  ir.Throw visitStaticMethodPrefix(
       Send node,
       MethodElement method,
       IncDecOperator operator,
@@ -1554,7 +1864,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodPrefix");
   }
 
-  ir.TreeNode visitStaticMethodSetIfNull(
+  ir.Throw visitStaticMethodSetIfNull(
       Send node,
       FunctionElement method,
       Node rhs,
@@ -1562,7 +1872,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodSetIfNull");
   }
 
-  ir.TreeNode visitStaticMethodSetterCompound(
+  ir.Throw visitStaticMethodSetterCompound(
       Send node,
       MethodElement method,
       MethodElement setter,
@@ -1572,7 +1882,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodSetterCompound");
   }
 
-  ir.TreeNode visitStaticMethodSetterPostfix(
+  ir.Throw visitStaticMethodSetterPostfix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1581,7 +1891,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodSetterPostfix");
   }
 
-  ir.TreeNode visitStaticMethodSetterPrefix(
+  ir.Throw visitStaticMethodSetterPrefix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1590,7 +1900,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodSetterPrefix");
   }
 
-  ir.TreeNode visitStaticMethodSetterSetIfNull(
+  ir.Throw visitStaticMethodSetterSetIfNull(
       Send node,
       MethodElement method,
       MethodElement setter,
@@ -1599,7 +1909,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticMethodSetterSetIfNull");
   }
 
-  ir.TreeNode visitStaticSetterDeclaration(
+  ir.Throw visitStaticSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
@@ -1608,11 +1918,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticSetterDeclaration");
   }
 
-  ir.TreeNode visitStaticSetterGet(Send node, FunctionElement setter, _) {
+  ir.Throw visitStaticSetterGet(Send node, FunctionElement setter, _) {
     return handleUnsupported(node, "StaticSetterGet");
   }
 
-  ir.TreeNode visitStaticSetterInvoke(
+  ir.Throw visitStaticSetterInvoke(
       Send node,
       FunctionElement setter,
       NodeList arguments,
@@ -1621,19 +1931,19 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "StaticSetterInvoke");
   }
 
-  ir.TreeNode visitStaticSetterSet(
+  ir.Throw visitStaticSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
     return handleUnsupported(node, "StaticSetterSet");
   }
 
-  ir.TreeNode visitStringFromEnvironmentConstructorInvoke(
+  ir.Throw visitStringFromEnvironmentConstructorInvoke(
       NewExpression node,
       StringFromEnvironmentConstantExpression constant,
       _) {
     return handleUnsupported(node, "StringFromEnvironmentConstructorInvoke");
   }
 
-  ir.TreeNode visitSuperBinary(
+  ir.Throw visitSuperBinary(
       Send node,
       FunctionElement function,
       BinaryOperator operator,
@@ -1642,7 +1952,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperBinary");
   }
 
-  ir.TreeNode visitSuperCompoundIndexSet(
+  ir.Throw visitSuperCompoundIndexSet(
       SendSet node,
       MethodElement getter,
       MethodElement setter,
@@ -1653,7 +1963,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperCompoundIndexSet");
   }
 
-  ir.TreeNode visitSuperConstructorInvoke(
+  ir.Throw visitSuperConstructorInvoke(
       Send node,
       ConstructorElement superConstructor,
       InterfaceType type,
@@ -1663,12 +1973,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperConstructorInvoke");
   }
 
-  ir.TreeNode visitSuperEquals(
+  ir.Throw visitSuperEquals(
       Send node, FunctionElement function, Node argument, _) {
     return handleUnsupported(node, "SuperEquals");
   }
 
-  ir.TreeNode visitSuperFieldCompound(
+  ir.Throw visitSuperFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -1677,7 +1987,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldCompound");
   }
 
-  ir.TreeNode visitSuperFieldFieldCompound(
+  ir.Throw visitSuperFieldFieldCompound(
       Send node,
       FieldElement readField,
       FieldElement writtenField,
@@ -1687,7 +1997,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldFieldCompound");
   }
 
-  ir.TreeNode visitSuperFieldFieldPostfix(
+  ir.Throw visitSuperFieldFieldPostfix(
       Send node,
       FieldElement readField,
       FieldElement writtenField,
@@ -1696,7 +2006,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldFieldPostfix");
   }
 
-  ir.TreeNode visitSuperFieldFieldPrefix(
+  ir.Throw visitSuperFieldFieldPrefix(
       Send node,
       FieldElement readField,
       FieldElement writtenField,
@@ -1705,7 +2015,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldFieldPrefix");
   }
 
-  ir.TreeNode visitSuperFieldFieldSetIfNull(
+  ir.Throw visitSuperFieldFieldSetIfNull(
       Send node,
       FieldElement readField,
       FieldElement writtenField,
@@ -1714,11 +2024,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldFieldSetIfNull");
   }
 
-  ir.TreeNode visitSuperFieldGet(Send node, FieldElement field, _) {
+  ir.Throw visitSuperFieldGet(Send node, FieldElement field, _) {
     return handleUnsupported(node, "SuperFieldGet");
   }
 
-  ir.TreeNode visitSuperFieldInvoke(
+  ir.Throw visitSuperFieldInvoke(
       Send node,
       FieldElement field,
       NodeList arguments,
@@ -1727,7 +2037,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldInvoke");
   }
 
-  ir.TreeNode visitSuperFieldPostfix(
+  ir.Throw visitSuperFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -1735,7 +2045,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldPostfix");
   }
 
-  ir.TreeNode visitSuperFieldPrefix(
+  ir.Throw visitSuperFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -1743,17 +2053,17 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldPrefix");
   }
 
-  ir.TreeNode visitSuperFieldSet(
+  ir.Throw visitSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "SuperFieldSet");
   }
 
-  ir.TreeNode visitSuperFieldSetIfNull(
+  ir.Throw visitSuperFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "SuperFieldSetIfNull");
   }
 
-  ir.TreeNode visitSuperFieldSetterCompound(
+  ir.Throw visitSuperFieldSetterCompound(
       Send node,
       FieldElement field,
       FunctionElement setter,
@@ -1763,7 +2073,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldSetterCompound");
   }
 
-  ir.TreeNode visitSuperFieldSetterPostfix(
+  ir.Throw visitSuperFieldSetterPostfix(
       Send node,
       FieldElement field,
       FunctionElement setter,
@@ -1772,7 +2082,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldSetterPostfix");
   }
 
-  ir.TreeNode visitSuperFieldSetterPrefix(
+  ir.Throw visitSuperFieldSetterPrefix(
       Send node,
       FieldElement field,
       FunctionElement setter,
@@ -1781,7 +2091,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldSetterPrefix");
   }
 
-  ir.TreeNode visitSuperFieldSetterSetIfNull(
+  ir.Throw visitSuperFieldSetterSetIfNull(
       Send node,
       FieldElement field,
       FunctionElement setter,
@@ -1790,7 +2100,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperFieldSetterSetIfNull");
   }
 
-  ir.TreeNode visitSuperGetterFieldCompound(
+  ir.Throw visitSuperGetterFieldCompound(
       Send node,
       FunctionElement getter,
       FieldElement field,
@@ -1800,7 +2110,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterFieldCompound");
   }
 
-  ir.TreeNode visitSuperGetterFieldPostfix(
+  ir.Throw visitSuperGetterFieldPostfix(
       Send node,
       FunctionElement getter,
       FieldElement field,
@@ -1809,7 +2119,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterFieldPostfix");
   }
 
-  ir.TreeNode visitSuperGetterFieldPrefix(
+  ir.Throw visitSuperGetterFieldPrefix(
       Send node,
       FunctionElement getter,
       FieldElement field,
@@ -1818,7 +2128,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterFieldPrefix");
   }
 
-  ir.TreeNode visitSuperGetterFieldSetIfNull(
+  ir.Throw visitSuperGetterFieldSetIfNull(
       Send node,
       FunctionElement getter,
       FieldElement field,
@@ -1827,11 +2137,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterFieldSetIfNull");
   }
 
-  ir.TreeNode visitSuperGetterGet(Send node, FunctionElement getter, _) {
+  ir.Throw visitSuperGetterGet(Send node, FunctionElement getter, _) {
     return handleUnsupported(node, "SuperGetterGet");
   }
 
-  ir.TreeNode visitSuperGetterInvoke(
+  ir.Throw visitSuperGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
@@ -1840,12 +2150,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterInvoke");
   }
 
-  ir.TreeNode visitSuperGetterSet(
+  ir.Throw visitSuperGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
     return handleUnsupported(node, "SuperGetterSet");
   }
 
-  ir.TreeNode visitSuperGetterSetterCompound(
+  ir.Throw visitSuperGetterSetterCompound(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1855,7 +2165,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterSetterCompound");
   }
 
-  ir.TreeNode visitSuperGetterSetterPostfix(
+  ir.Throw visitSuperGetterSetterPostfix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1864,7 +2174,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterSetterPostfix");
   }
 
-  ir.TreeNode visitSuperGetterSetterPrefix(
+  ir.Throw visitSuperGetterSetterPrefix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1873,7 +2183,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterSetterPrefix");
   }
 
-  ir.TreeNode visitSuperGetterSetterSetIfNull(
+  ir.Throw visitSuperGetterSetterSetIfNull(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -1882,12 +2192,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperGetterSetterSetIfNull");
   }
 
-  ir.TreeNode visitSuperIndex(
+  ir.Throw visitSuperIndex(
       Send node, FunctionElement function, Node index, _) {
     return handleUnsupported(node, "SuperIndex");
   }
 
-  ir.TreeNode visitSuperIndexPostfix(
+  ir.Throw visitSuperIndexPostfix(
       Send node,
       MethodElement indexFunction,
       MethodElement indexSetFunction,
@@ -1897,7 +2207,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperIndexPostfix");
   }
 
-  ir.TreeNode visitSuperIndexPrefix(
+  ir.Throw visitSuperIndexPrefix(
       Send node,
       MethodElement indexFunction,
       MethodElement indexSetFunction,
@@ -1907,7 +2217,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperIndexPrefix");
   }
 
-  ir.TreeNode visitSuperIndexSet(
+  ir.Throw visitSuperIndexSet(
       SendSet node,
       FunctionElement function,
       Node index,
@@ -1916,7 +2226,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperIndexSet");
   }
 
-  ir.TreeNode visitSuperMethodCompound(
+  ir.Throw visitSuperMethodCompound(
       Send node,
       FunctionElement method,
       AssignmentOperator operator,
@@ -1925,11 +2235,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodCompound");
   }
 
-  ir.TreeNode visitSuperMethodGet(Send node, MethodElement method, _) {
+  ir.Throw visitSuperMethodGet(Send node, MethodElement method, _) {
     return handleUnsupported(node, "SuperMethodGet");
   }
 
-  ir.TreeNode visitSuperMethodIncompatibleInvoke(
+  ir.Throw visitSuperMethodIncompatibleInvoke(
       Send node,
       MethodElement method,
       NodeList arguments,
@@ -1938,7 +2248,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodIncompatibleInvoke");
   }
 
-  ir.TreeNode visitSuperMethodInvoke(
+  ir.Throw visitSuperMethodInvoke(
       Send node,
       MethodElement method,
       NodeList arguments,
@@ -1947,7 +2257,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodInvoke");
   }
 
-  ir.TreeNode visitSuperMethodPostfix(
+  ir.Throw visitSuperMethodPostfix(
       Send node,
       FunctionElement method,
       IncDecOperator operator,
@@ -1955,7 +2265,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodPostfix");
   }
 
-  ir.TreeNode visitSuperMethodPrefix(
+  ir.Throw visitSuperMethodPrefix(
       Send node,
       FunctionElement method,
       IncDecOperator operator,
@@ -1963,12 +2273,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodPrefix");
   }
 
-  ir.TreeNode visitSuperMethodSet(
+  ir.Throw visitSuperMethodSet(
       Send node, MethodElement method, Node rhs, _) {
     return handleUnsupported(node, "SuperMethodSet");
   }
 
-  ir.TreeNode visitSuperMethodSetIfNull(
+  ir.Throw visitSuperMethodSetIfNull(
       Send node,
       FunctionElement method,
       Node rhs,
@@ -1976,7 +2286,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodSetIfNull");
   }
 
-  ir.TreeNode visitSuperMethodSetterCompound(
+  ir.Throw visitSuperMethodSetterCompound(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -1986,7 +2296,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodSetterCompound");
   }
 
-  ir.TreeNode visitSuperMethodSetterPostfix(
+  ir.Throw visitSuperMethodSetterPostfix(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -1995,7 +2305,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodSetterPostfix");
   }
 
-  ir.TreeNode visitSuperMethodSetterPrefix(
+  ir.Throw visitSuperMethodSetterPrefix(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2004,7 +2314,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodSetterPrefix");
   }
 
-  ir.TreeNode visitSuperMethodSetterSetIfNull(
+  ir.Throw visitSuperMethodSetterSetIfNull(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2013,7 +2323,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperMethodSetterSetIfNull");
   }
 
-  ir.TreeNode visitSuperNotEquals(
+  ir.Throw visitSuperNotEquals(
       Send node,
       FunctionElement function,
       Node argument,
@@ -2021,11 +2331,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperNotEquals");
   }
 
-  ir.TreeNode visitSuperSetterGet(Send node, FunctionElement setter, _) {
+  ir.Throw visitSuperSetterGet(Send node, FunctionElement setter, _) {
     return handleUnsupported(node, "SuperSetterGet");
   }
 
-  ir.TreeNode visitSuperSetterInvoke(
+  ir.Throw visitSuperSetterInvoke(
       Send node,
       FunctionElement setter,
       NodeList arguments,
@@ -2034,12 +2344,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperSetterInvoke");
   }
 
-  ir.TreeNode visitSuperSetterSet(
+  ir.Throw visitSuperSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
     return handleUnsupported(node, "SuperSetterSet");
   }
 
-  ir.TreeNode visitSuperUnary(
+  ir.Throw visitSuperUnary(
       Send node,
       UnaryOperator operator,
       FunctionElement function,
@@ -2047,7 +2357,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "SuperUnary");
   }
 
-  ir.TreeNode visitThisConstructorInvoke(
+  ir.Throw visitThisConstructorInvoke(
       Send node,
       ConstructorElement thisConstructor,
       NodeList arguments,
@@ -2056,11 +2366,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ThisConstructorInvoke");
   }
 
-  ir.TreeNode visitThisGet(Identifier node, _) {
-    return handleUnsupported(node, "ThisGet");
+  ir.ThisExpression visitThisGet(Identifier node, _) {
+    return new ir.ThisExpression();
   }
 
-  ir.TreeNode visitThisInvoke(
+  ir.Throw visitThisInvoke(
       Send node,
       NodeList arguments,
       CallStructure callStructure,
@@ -2068,7 +2378,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ThisInvoke");
   }
 
-  ir.TreeNode visitThisPropertyCompound(
+  ir.Throw visitThisPropertyCompound(
       Send node,
       Name name,
       AssignmentOperator operator,
@@ -2077,19 +2387,24 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ThisPropertyCompound");
   }
 
-  ir.TreeNode visitThisPropertyGet(Send node, Name name, _) {
-    return handleUnsupported(node, "ThisPropertyGet");
+  ir.PropertyGet visitThisPropertyGet(Send node, Name name, _) {
+    return new ir.PropertyGet(
+        new ir.ThisExpression(), kernel.nameToIrName(name));
   }
 
-  ir.TreeNode visitThisPropertyInvoke(
+  ir.MethodInvocation visitThisPropertyInvoke(
       Send node,
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnsupported(node, "ThisPropertyInvoke");
+    // TODO(ahe): Where's the call structure?
+    ir.Arguments argumentsNode = generateArguments(arguments, null);
+    return new ir.MethodInvocation(
+        new ir.ThisExpression(), kernel.nameToIrName(selector.memberName),
+        argumentsNode);
   }
 
-  ir.TreeNode visitThisPropertyPostfix(
+  ir.Throw visitThisPropertyPostfix(
       Send node,
       Name name,
       IncDecOperator operator,
@@ -2097,7 +2412,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ThisPropertyPostfix");
   }
 
-  ir.TreeNode visitThisPropertyPrefix(
+  ir.Throw visitThisPropertyPrefix(
       Send node,
       Name name,
       IncDecOperator operator,
@@ -2105,15 +2420,16 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "ThisPropertyPrefix");
   }
 
-  ir.TreeNode visitThisPropertySet(SendSet node, Name name, Node rhs, _) {
-    return handleUnsupported(node, "ThisPropertySet");
+  ir.PropertySet visitThisPropertySet(SendSet node, Name name, Node rhs, _) {
+    return new ir.PropertySet(
+        new ir.ThisExpression(), kernel.nameToIrName(name), rhs.accept(this));
   }
 
-  ir.TreeNode visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
+  ir.Throw visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
     return handleUnsupported(node, "ThisPropertySetIfNull");
   }
 
-  ir.TreeNode visitTopLevelConstantDeclaration(
+  ir.Throw visitTopLevelConstantDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
@@ -2122,7 +2438,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelConstantDeclaration");
   }
 
-  ir.TreeNode visitTopLevelFieldCompound(
+  ir.Throw visitTopLevelFieldCompound(
       Send node,
       FieldElement field,
       AssignmentOperator operator,
@@ -2131,7 +2447,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFieldCompound");
   }
 
-  ir.TreeNode visitTopLevelFieldDeclaration(
+  ir.Throw visitTopLevelFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
@@ -2140,11 +2456,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFieldDeclaration");
   }
 
-  ir.TreeNode visitTopLevelFieldGet(Send node, FieldElement field, _) {
-    return handleUnsupported(node, "TopLevelFieldGet");
+  ir.StaticGet visitTopLevelFieldGet(Send node, FieldElement field, _) {
+    return generateStaticGet(field);
   }
 
-  ir.TreeNode visitTopLevelFieldInvoke(
+  ir.Throw visitTopLevelFieldInvoke(
       Send node,
       FieldElement field,
       NodeList arguments,
@@ -2153,7 +2469,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFieldInvoke");
   }
 
-  ir.TreeNode visitTopLevelFieldPostfix(
+  ir.Throw visitTopLevelFieldPostfix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -2161,7 +2477,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFieldPostfix");
   }
 
-  ir.TreeNode visitTopLevelFieldPrefix(
+  ir.Throw visitTopLevelFieldPrefix(
       Send node,
       FieldElement field,
       IncDecOperator operator,
@@ -2169,30 +2485,30 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFieldPrefix");
   }
 
-  ir.TreeNode visitTopLevelFieldSet(
+  ir.Throw visitTopLevelFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "TopLevelFieldSet");
   }
 
-  ir.TreeNode visitTopLevelFieldSetIfNull(
+  ir.Throw visitTopLevelFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
     return handleUnsupported(node, "TopLevelFieldSetIfNull");
   }
 
-  ir.TreeNode visitTopLevelFunctionDeclaration(
+  ir.FunctionNode visitTopLevelFunctionDeclaration(
       FunctionExpression node,
       MethodElement function,
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "TopLevelFunctionDeclaration");
+    return generateFunctionNode(node, function, parameters, body);
   }
 
-  ir.TreeNode visitTopLevelFunctionGet(Send node, MethodElement function, _) {
+  ir.Throw visitTopLevelFunctionGet(Send node, MethodElement function, _) {
     return handleUnsupported(node, "TopLevelFunctionGet");
   }
 
-  ir.TreeNode visitTopLevelFunctionIncompatibleInvoke(
+  ir.Throw visitTopLevelFunctionIncompatibleInvoke(
       Send node,
       MethodElement function,
       NodeList arguments,
@@ -2201,13 +2517,29 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFunctionIncompatibleInvoke");
   }
 
-  ir.TreeNode visitTopLevelFunctionInvoke(
-      Send node, MethodElement function, NodeList arguments,
-      CallStructure callStructure, _) {
-    return handleUnsupported(node, "TopLevelFunctionInvoke");
+  ir.Arguments generateArguments(
+      NodeList arguments, CallStructure callStructure) {
+    List<ir.Expression> argumentNodes = <ir.Expression>[];
+    for (Expression expression in arguments.nodes) {
+      argumentNodes.add(expression.accept(this));
+    }
+    return new ir.Arguments(argumentNodes);
   }
 
-  ir.TreeNode visitTopLevelFunctionSet(
+  ir.StaticInvocation generateStaticInvocation(MethodElement function,
+      NodeList arguments, CallStructure callStructure) {
+    ir.Arguments argumentsNode = generateArguments(arguments, callStructure);
+    return new ir.StaticInvocation(
+        kernel.functionToIr(function), argumentsNode);
+  }
+
+  ir.StaticInvocation visitTopLevelFunctionInvoke(
+      Send node, MethodElement function, NodeList arguments,
+      CallStructure callStructure, _) {
+    return generateStaticInvocation(function, arguments, callStructure);
+  }
+
+  ir.Throw visitTopLevelFunctionSet(
       Send node,
       MethodElement function,
       Node rhs,
@@ -2215,7 +2547,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelFunctionSet");
   }
 
-  ir.TreeNode visitTopLevelGetterDeclaration(
+  ir.Throw visitTopLevelGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
@@ -2223,11 +2555,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterDeclaration");
   }
 
-  ir.TreeNode visitTopLevelGetterGet(Send node, FunctionElement getter, _) {
+  ir.Throw visitTopLevelGetterGet(Send node, FunctionElement getter, _) {
     return handleUnsupported(node, "TopLevelGetterGet");
   }
 
-  ir.TreeNode visitTopLevelGetterInvoke(
+  ir.Throw visitTopLevelGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
@@ -2236,7 +2568,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterInvoke");
   }
 
-  ir.TreeNode visitTopLevelGetterSet(
+  ir.Throw visitTopLevelGetterSet(
       SendSet node,
       FunctionElement getter,
       Node rhs,
@@ -2244,7 +2576,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterSet");
   }
 
-  ir.TreeNode visitTopLevelGetterSetterCompound(
+  ir.Throw visitTopLevelGetterSetterCompound(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -2254,7 +2586,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterSetterCompound");
   }
 
-  ir.TreeNode visitTopLevelGetterSetterPostfix(
+  ir.Throw visitTopLevelGetterSetterPostfix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -2263,7 +2595,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterSetterPostfix");
   }
 
-  ir.TreeNode visitTopLevelGetterSetterPrefix(
+  ir.Throw visitTopLevelGetterSetterPrefix(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -2272,7 +2604,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterSetterPrefix");
   }
 
-  ir.TreeNode visitTopLevelGetterSetterSetIfNull(
+  ir.Throw visitTopLevelGetterSetterSetIfNull(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
@@ -2281,7 +2613,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelGetterSetterSetIfNull");
   }
 
-  ir.TreeNode visitTopLevelMethodCompound(
+  ir.Throw visitTopLevelMethodCompound(
       Send node,
       FunctionElement method,
       AssignmentOperator operator,
@@ -2290,7 +2622,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodCompound");
   }
 
-  ir.TreeNode visitTopLevelMethodPostfix(
+  ir.Throw visitTopLevelMethodPostfix(
       Send node,
       MethodElement method,
       IncDecOperator operator,
@@ -2298,7 +2630,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodPostfix");
   }
 
-  ir.TreeNode visitTopLevelMethodPrefix(
+  ir.Throw visitTopLevelMethodPrefix(
       Send node,
       MethodElement method,
       IncDecOperator operator,
@@ -2306,7 +2638,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodPrefix");
   }
 
-  ir.TreeNode visitTopLevelMethodSetIfNull(
+  ir.Throw visitTopLevelMethodSetIfNull(
       Send node,
       FunctionElement method,
       Node rhs,
@@ -2314,7 +2646,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodSetIfNull");
   }
 
-  ir.TreeNode visitTopLevelMethodSetterCompound(
+  ir.Throw visitTopLevelMethodSetterCompound(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2324,7 +2656,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodSetterCompound");
   }
 
-  ir.TreeNode visitTopLevelMethodSetterPostfix(
+  ir.Throw visitTopLevelMethodSetterPostfix(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2333,7 +2665,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodSetterPostfix");
   }
 
-  ir.TreeNode visitTopLevelMethodSetterPrefix(
+  ir.Throw visitTopLevelMethodSetterPrefix(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2342,7 +2674,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodSetterPrefix");
   }
 
-  ir.TreeNode visitTopLevelMethodSetterSetIfNull(
+  ir.Throw visitTopLevelMethodSetterSetIfNull(
       Send node,
       FunctionElement method,
       FunctionElement setter,
@@ -2351,7 +2683,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelMethodSetterSetIfNull");
   }
 
-  ir.TreeNode visitTopLevelSetterDeclaration(
+  ir.Throw visitTopLevelSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
@@ -2360,11 +2692,11 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelSetterDeclaration");
   }
 
-  ir.TreeNode visitTopLevelSetterGet(Send node, FunctionElement setter, _) {
+  ir.Throw visitTopLevelSetterGet(Send node, FunctionElement setter, _) {
     return handleUnsupported(node, "TopLevelSetterGet");
   }
 
-  ir.TreeNode visitTopLevelSetterInvoke(
+  ir.Throw visitTopLevelSetterInvoke(
       Send node,
       FunctionElement setter,
       NodeList arguments,
@@ -2373,7 +2705,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelSetterInvoke");
   }
 
-  ir.TreeNode visitTopLevelSetterSet(
+  ir.Throw visitTopLevelSetterSet(
       SendSet node,
       FunctionElement setter,
       Node rhs,
@@ -2381,7 +2713,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TopLevelSetterSet");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralCompound(
+  ir.Throw visitTypeVariableTypeLiteralCompound(
       Send node,
       TypeVariableElement element,
       AssignmentOperator operator,
@@ -2390,14 +2722,14 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralCompound");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralGet(
+  ir.Throw visitTypeVariableTypeLiteralGet(
       Send node,
       TypeVariableElement element,
       _) {
     return handleUnsupported(node, "TypeVariableTypeLiteralGet");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralInvoke(
+  ir.Throw visitTypeVariableTypeLiteralInvoke(
       Send node,
       TypeVariableElement element,
       NodeList arguments,
@@ -2406,7 +2738,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralInvoke");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralPostfix(
+  ir.Throw visitTypeVariableTypeLiteralPostfix(
       Send node,
       TypeVariableElement element,
       IncDecOperator operator,
@@ -2414,7 +2746,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralPostfix");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralPrefix(
+  ir.Throw visitTypeVariableTypeLiteralPrefix(
       Send node,
       TypeVariableElement element,
       IncDecOperator operator,
@@ -2422,7 +2754,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralPrefix");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralSet(
+  ir.Throw visitTypeVariableTypeLiteralSet(
       SendSet node,
       TypeVariableElement element,
       Node rhs,
@@ -2430,7 +2762,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralSet");
   }
 
-  ir.TreeNode visitTypeVariableTypeLiteralSetIfNull(
+  ir.Throw visitTypeVariableTypeLiteralSetIfNull(
       Send node,
       TypeVariableElement element,
       Node rhs,
@@ -2438,7 +2770,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypeVariableTypeLiteralSetIfNull");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralCompound(
+  ir.Throw visitTypedefTypeLiteralCompound(
       Send node,
       ConstantExpression constant,
       AssignmentOperator operator,
@@ -2447,12 +2779,12 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralCompound");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralGet(
+  ir.Throw visitTypedefTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
     return handleUnsupported(node, "TypedefTypeLiteralGet");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralInvoke(
+  ir.Throw visitTypedefTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
@@ -2461,7 +2793,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralInvoke");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralPostfix(
+  ir.Throw visitTypedefTypeLiteralPostfix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -2469,7 +2801,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralPostfix");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralPrefix(
+  ir.Throw visitTypedefTypeLiteralPrefix(
       Send node,
       ConstantExpression constant,
       IncDecOperator operator,
@@ -2477,7 +2809,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralPrefix");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralSet(
+  ir.Throw visitTypedefTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
@@ -2485,7 +2817,7 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralSet");
   }
 
-  ir.TreeNode visitTypedefTypeLiteralSetIfNull(
+  ir.Throw visitTypedefTypeLiteralSetIfNull(
       Send node,
       ConstantExpression constant,
       Node rhs,
@@ -2493,38 +2825,48 @@ class KernelVisitor extends Object
     return handleUnsupported(node, "TypedefTypeLiteralSetIfNull");
   }
 
-  ir.TreeNode visitUnary(
+  ir.MethodInvocation visitUnary(
       Send node, UnaryOperator operator, Node expression, _) {
-    return handleUnsupported(node, "Unary");
+    return new ir.MethodInvocation(
+        expression.accept(this), kernel.irName(operator.name, function),
+        new ir.Arguments(<ir.Expression>[]));
   }
 
-  ir.TreeNode visitConditionalUri(ConditionalUri node) {
+  ir.Throw visitConditionalUri(ConditionalUri node) {
     return handleUnsupported(node, "ConditionalUri");
   }
 
-  ir.TreeNode visitDottedName(DottedName node) {
+  ir.Throw visitDottedName(DottedName node) {
     return handleUnsupported(node, "DottedName");
   }
 
-  ir.TreeNode visitForIn(ForIn node) {
+  ir.Throw visitForIn(ForIn node) {
     return handleUnsupported(node, "ForIn");
   }
 
-  ir.TreeNode visitIndexSetIfNull(
+  ir.Throw visitIndexSetIfNull(
       SendSet node, Node receiver, Node index, Node rhs, _) {
     return handleUnsupported(node, "IndexSetIfNull");
   }
 
-  ir.TreeNode visitSuperIndexSetIfNull(
+  ir.Throw visitSuperIndexSetIfNull(
       SendSet node, MethodElement getter, MethodElement setter, Node index,
       Node rhs, _) {
     return handleUnsupported(node, "SuperIndexSetIfNull");
   }
 
-  ir.TreeNode handleUnsupported(Node node, String name) {
+  ir.Throw handleUnsupported(Node node, String name) {
     // TODO(ahe): Do this:
     // throw new Unsupported("Kernel IR not yet implemented for '$name'.");
+    if (const bool.fromEnvironment("verbose")) {
+      print("Kernel IR not yet implemented for '$name'.");
+    }
     return new ir.Throw(
         new ir.StringLiteral("Kernel IR not yet implemented for '$name'."));
+  }
+
+  ir.ExpressionStatement handleUnsupportedStatement(
+      Statement node, String name) {
+    return new ir.ExpressionStatement(handleUnsupported(node, name));
   }
 }

@@ -7,15 +7,25 @@ library rasta.kernel;
 import 'dart:async' show
     Future;
 
+import 'dart:collection' show
+    Queue;
+
 import 'package:kernel/ast.dart' as ir;
+
+import 'package:kernel/checks.dart' show
+    CheckParentPointers;
 
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     Element,
+    FieldElement,
     FunctionElement,
-    LibraryElement;
+    LibraryElement,
+    LocalVariableElement,
+    Name;
 
 import 'package:compiler/src/dart_types.dart' show
+    DartType,
     InterfaceType;
 
 import 'custom_compiler.dart' show
@@ -24,56 +34,128 @@ import 'custom_compiler.dart' show
 import 'kernel_visitor.dart' show
     KernelVisitor;
 
+typedef void VoidFunction();
+
 class Kernel {
   final CustomCompiler compiler;
 
-  final Map<ClassElement, ir.Class> loadedClasses = <ClassElement, ir.Class>{};
+  final Map<LibraryElement, ir.Library> libraries =
+      <LibraryElement, ir.Library>{};
 
-  ir.Library currentLibrary;
+  final Map<ClassElement, ir.Class> classes = <ClassElement, ir.Class>{};
+
+  final Map<FunctionElement, ir.Procedure> functions =
+      <FunctionElement, ir.Procedure>{};
+
+  final Map<FieldElement, ir.Field> fields = <FieldElement, ir.Field>{};
+
+  // TODO(ahe): Ideally, we would only remember in [KernelVisitor]. However,
+  // nested functions need to access locals of the enclosing function, and for
+  // now it's simpler to remember all locals here.
+  final Map<LocalVariableElement, ir.VariableDeclaration> locals =
+      <LocalVariableElement, ir.VariableDeclaration>{};
+
+  /// FIFO queue of work that needs to be completed before the returned AST
+  /// nodes are correct.
+  final Queue<VoidFunction> workQueue = new Queue<VoidFunction>();
 
   Kernel(this.compiler);
+
+  void addWork(VoidFunction work) {
+    workQueue.addFirst(work);
+  }
+
+  void checkMember(Element key, ir.TreeNode value) {
+    if (value.parent == null) {
+      throw new StateError(
+          "Missing parent on IR node for $key ${key.enclosingElement}");
+    }
+    try {
+      CheckParentPointers.check(value);
+    } catch (e) {
+      throw "$key has problem: $e";
+    }
+  }
+
+  void processWorkQueue() {
+    while (workQueue.isNotEmpty) {
+      VoidFunction work = workQueue.removeLast();
+      work();
+    }
+    libraries.values.forEach(CheckParentPointers.check);
+    classes.forEach(checkMember);
+    functions.forEach(checkMember);
+    locals.forEach(checkMember);
+  }
+
+  ir.Name irName(String name, Element element) {
+    return new ir.Name(name, libraryToIr(element.library));
+  }
+
+  ir.Name nameToIrName(Name name) {
+    ir.Library library;
+    if (name.isPrivate) {
+      library = libraryToIr(name.library);
+    }
+    return new ir.Name(name.text, library);
+  }
 
   Future<ir.Library> loadLibrary(Uri uri) async {
     return libraryToIr(await compiler.libraryLoader.loadLibrary(uri));
   }
 
   ir.Library libraryToIr(LibraryElement library) {
-    if (currentLibrary != null) {
-      throw new StateError("currentLibrary != null");
-    }
-    String name = library.hasLibraryName ? library.name : null;
-    ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
-    currentLibrary = libraryNode;
-
-    library.forEachLocalMember((Element e) {
-      if (e.isClass) {
-        libraryNode.addClass(classToIr(e));
-      }
+    return libraries.putIfAbsent(library, () {
+      String name = library.hasLibraryName ? library.name : null;
+      ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
+      addWork(() {
+        library.forEachLocalMember((Element e) {
+          if (e.isClass) {
+            libraryNode.addClass(classToIr(e));
+          } else if (e.isFunction) {
+            libraryNode.addMember(functionToIr(e));
+          } else if (e.isField) {
+            libraryNode.addMember(fieldToIr(e));
+          }
+        });
+      });
+      return libraryNode;
     });
-    currentLibrary = null;
-    return libraryNode;
   }
 
-  ir.Class classToIr(ClassElement cls) => loadedClasses.putIfAbsent(cls, () {
-    cls.ensureResolved(compiler.resolution);
-    ir.InterfaceType supertype;
-    if (cls.supertype != null) {
-      supertype = interfaceTypeToIr(cls.supertype);
-    }
-
-    ir.Class classNode = new ir.NormalClass(
-        supertype, name: cls.name, isAbstract: cls.isAbstract);
-
-    cls.forEachLocalMember((Element member) {
-      if (member.isFunction) {
-        classNode.addMember(functionToIr(member));
+  ir.Class classToIr(ClassElement cls) {
+    cls = cls.declaration;
+    return classes.putIfAbsent(cls, () {
+      cls.ensureResolved(compiler.resolution);
+      ir.InterfaceType supertype;
+      if (cls.supertype != null) {
+        supertype = interfaceTypeToIr(cls.supertype);
       }
-    });
 
-    // TODO(ahe): Fill in the following typeParameters, implementedTypes,
-    // fields, constructors, procedures;
-    return classNode;
-  });
+      ir.Class classNode = new ir.NormalClass(
+          supertype, name: cls.name, isAbstract: cls.isAbstract);
+      addWork(() {
+        classNode.parent = libraryToIr(cls.library);
+        cls.forEachMember((ClassElement enclosingClass, Element member) {
+          {
+            // TODO(ahe): This happens for mixin applications. How to handle
+            // this correctly?
+            if (member.enclosingClass.declaration != cls) return;
+          }
+          if (member.isFunction) {
+            classNode.addMember(functionToIr(member));
+          } else if (member.isField) {
+            classNode.addMember(fieldToIr(member));
+          }
+        },
+        includeSuperAndInjectedMembers: true);
+      });
+
+      // TODO(ahe): Fill in the following typeParameters, implementedTypes,
+      // fields, constructors, procedures;
+      return classNode;
+    });
+  }
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
     ir.Class cls = classToIr(type.element);
@@ -81,22 +163,70 @@ class Kernel {
     return new ir.InterfaceType(cls);
   }
 
-  ir.Procedure functionToIr(FunctionElement function) {
-    compiler.analyzeElement(function);
-    KernelVisitor visitor = new KernelVisitor(function, function.treeElements);
-    ir.TreeNode body = function.node.body.accept(visitor);
-    {
-      // TODO(ahe): What goes on in this block is temporary as we complete
-      // KernelVisitor.
-      if (body is! ir.Statement) {
-        body = new ir.ExpressionStatement(body);
-      }
-      if (body is! ir.Block) {
-        body = new ir.Block(<ir.Statement>[body]);
-      }
+  ir.DartType typeToIr(DartType type) {
+    // TODO(ahe): Implement other types.
+    return type is InterfaceType ?
+        interfaceTypeToIr(type) : const ir.DynamicType();
+  }
+
+  void setParent(ir.Member member, Element element) {
+    if (element.isLocal) {
+      member.parent = elementToIr(element.enclosingElement);
+    } else if (element.isTopLevel) {
+      member.parent = elementToIr(element.library);
+    } else if (element.isClassMember) {
+      member.parent = elementToIr(element.enclosingClass);
+    } else {
+      member.parent = elementToIr(element.enclosingElement);
     }
-    return new ir.Procedure(
-        new ir.Name(function.name, currentLibrary), ir.ProcedureKind.Method,
-        new ir.FunctionNode(body));
+  }
+
+  ir.Procedure functionToIr(FunctionElement function) {
+    function = function.declaration;
+    return functions.putIfAbsent(function, () {
+      if (!function.isLocal) {
+        compiler.analyzeElement(function);
+        if (function.isPatched) {
+          function = function.implementation;
+        }
+      }
+      ir.Procedure procedure = new ir.Procedure(
+          irName(function.name, function), ir.ProcedureKind.Method, null);
+      addWork(() {
+        setParent(procedure, function);
+        KernelVisitor visitor =
+            new KernelVisitor(function, function.treeElements, this);
+        ir.FunctionNode functionNode = function.node.accept(visitor);
+        // TODO(ahe): Add addFunction/set function to [ir.Procedure].
+        functionNode.parent = procedure;
+        procedure.function = functionNode;
+      });
+      return procedure;
+    });
+  }
+
+  ir.Field fieldToIr(FieldElement field) {
+    field = field.declaration;
+    return fields.putIfAbsent(field, () {
+      compiler.analyzeElement(field);
+      if (field.isPatched) {
+        field = field.implementation;
+      }
+      ir.Field fieldNode = new ir.Field(nameToIrName(field.memberName));
+      // TODO(ahe): Add type, etc.
+      addWork(() {
+        setParent(fieldNode, field);
+        // TODO(ahe): Visit initializer.
+      });
+      return fieldNode;
+    });
+  }
+
+  ir.TreeNode elementToIr(Element element) {
+    if (element.isLibrary) return libraryToIr(element);
+    if (element.isClass) return classToIr(element);
+    if (element.isFunction) return functionToIr(element);
+    if (element.isField) return fieldToIr(element);
+    throw "unhandled element: $element";
   }
 }

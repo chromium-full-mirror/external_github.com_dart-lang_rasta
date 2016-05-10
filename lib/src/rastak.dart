@@ -35,6 +35,7 @@ main(List<String> arguments, isolateArgument) async {
 
   Kernel kernel = new Kernel(compiler);
   ir.Library library = await kernel.loadLibrary(input);
+  kernel.processWorkQueue();
 
   IOSink sink = new File.fromUri(output).openWrite();
   try {
