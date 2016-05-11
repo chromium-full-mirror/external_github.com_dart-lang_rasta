@@ -1901,13 +1901,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperMethodInvoke(
+  ir.SuperMethodInvocation visitSuperMethodInvoke(
       Send node,
       MethodElement method,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperMethodInvoke");
+    return new ir.SuperMethodInvocation(
+        kernel.functionToIr(method), buildArguments(arguments));
   }
 
   @override
