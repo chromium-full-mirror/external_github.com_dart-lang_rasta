@@ -6,6 +6,11 @@ library rasta.kernel_visitor;
 
 import 'package:kernel/ast.dart' as ir;
 
+import 'package:kernel/accessors.dart' show
+    Accessor,
+    PropertyAccessor,
+    VariableAccessor;
+
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
     BaseImplementationOfCompoundsMixin,
     BaseImplementationOfLocalsMixin,
@@ -745,17 +750,6 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitDynamicPropertyCompound(
-      Send node,
-      Node receiver,
-      Name name,
-      AssignmentOperator operator,
-      Node rhs,
-      _) {
-    return handleUnsupported(node, "DynamicPropertyCompound");
-  }
-
-  @override
   ir.PropertyGet visitDynamicPropertyGet(
       Send node,
       Node receiver,
@@ -787,24 +781,8 @@ class KernelVisitor extends Object
       _) {
     ir.Expression receiverNode = receiver == null
         ? new ir.ThisExpression() : receiver.accept(this);
-
-    switch (rhs.kind) {
-      case CompoundKind.POSTFIX:
-        ir.VariableDeclaration rcv = new ir.VariableDeclaration(
-            "rcv", initializer: receiverNode);
-        var irName = kernel.nameToIrName(name);
-        ir.Let postfix = generatePostfix(
-            new ir.PropertyGet(new ir.VariableGet(rcv), irName), rhs.operator,
-            (ir.Expression update)
-            => new ir.PropertySet(new ir.VariableGet(rcv), irName, update));
-        return new ir.Let(rcv, postfix);
-
-      case CompoundKind.PREFIX:
-        return generateIncDec(receiverNode, rhs.operator);
-
-      case CompoundKind.ASSIGNMENT:
-        return handleUnsupported(node, "DynamicCompounds {$rhs.kind}");
-    }
+    return generateCompound(
+        PropertyAccessor.make(receiverNode, kernel.nameToIrName(name)), rhs);
   }
 
   @override
@@ -995,17 +973,6 @@ class KernelVisitor extends Object
       CallStructure callStructure,
       _) {
     return handleUnsupported(node, "GenerativeConstructorInvoke");
-  }
-
-  @override
-  ir.Throw visitIfNotNullDynamicPropertyCompound(
-      Send node,
-      Node receiver,
-      Name name,
-      AssignmentOperator operator,
-      Node rhs,
-      _) {
-    return handleUnsupported(node, "IfNotNullDynamicPropertyCompound");
   }
 
   @override
@@ -1258,32 +1225,18 @@ class KernelVisitor extends Object
     return generateLocalGet(element);
   }
 
-  ir.MethodInvocation generateIncDec(
-      ir.Expression expression,
-      BinaryOperator operator) {
-    return new ir.MethodInvocation(
-        expression,
-        kernel.irName(operator.name, function),
-        new ir.Arguments(<ir.Expression>[new ir.IntLiteral(1)]));
-  }
+  ir.Expression generateCompound(Accessor accessor, CompoundRhs rhs) {
+    ir.Name name = kernel.irName(rhs.operator.name, function);
+    switch (rhs.kind) {
+      case CompoundKind.POSTFIX:
+        return accessor.buildPostfixIncrement(name);
 
-  /// Build this let expression:
-  ///
-  ///     let val = [load] in let dummy = ([store] = val [operator] 1) in val
-  ///
-  /// The variable `dummy` is needed as we don't have a way to sequence
-  /// expressions.
-  ir.Let generatePostfix(
-      ir.Expression load,
-      BinaryOperator operator,
-      ir.Expression store(ir.Expression update)) {
-    ir.VariableDeclaration val =
-        new ir.VariableDeclaration("val", initializer: load);
-    ir.MethodInvocation update =
-        generateIncDec(new ir.VariableGet(val), operator);
-    ir.VariableDeclaration dummy =
-        new ir.VariableDeclaration("dummy", initializer: store(update));
-    return new ir.Let(val, new ir.Let(dummy, new ir.VariableGet(val)));
+      case CompoundKind.PREFIX:
+        return accessor.buildPrefixIncrement(name);
+
+      case CompoundKind.ASSIGNMENT:
+        return accessor.buildCompoundAssignment(name, rhs.rhs.accept(this));
+    }
   }
 
   @override
@@ -1293,19 +1246,7 @@ class KernelVisitor extends Object
       CompoundRhs rhs,
       _,
       {bool isSetterValid}) {
-    switch (rhs.kind) {
-      case CompoundKind.POSTFIX:
-        ir.VariableDeclaration localNode = getLocal(local);
-        return generatePostfix(
-            new ir.VariableGet(localNode), rhs.operator,
-            (ir.Expression update) => new ir.VariableSet(localNode, update));
-
-      case CompoundKind.PREFIX:
-        return generateIncDec(generateLocalGet(local), rhs.operator);
-
-      case CompoundKind.ASSIGNMENT:
-        return handleUnsupported(node, "LocalCompounds {$rhs.kind}");
-    }
+    return generateCompound(new VariableAccessor(getLocal(local)), rhs);
   }
 
   @override
