@@ -240,7 +240,9 @@ class KernelVisitor extends Object
     return generateStatementInBlock(node);
   }
 
-  ir.Block generateStatementInBlock(Statement node) {
+  ir.Statement generateStatementInBlock(
+      Statement node,
+      {bool forceBlock: false}) {
     if (node == null) return null;
     List<ir.Statement> oldStatements = currentStatements;
     currentStatements = <ir.Statement>[];
@@ -257,6 +259,11 @@ class KernelVisitor extends Object
         if (irNode != null) {
           currentStatements.add(irNode);
         }
+        if (!forceBlock && currentStatements.length == 1) {
+          return currentStatements.single;
+        }
+        // One VariableDefinitions statement node (dart2js AST) may generate
+        // multiple statements in Kernel IR.
       }
       return new ir.Block(currentStatements);
     } finally {
@@ -361,7 +368,7 @@ class KernelVisitor extends Object
     ir.Expression initializer;
     List<ir.VariableDeclaration> variables;
     if (initializers != null) {
-      ir.Block block = generateStatementInBlock(initializers);
+      ir.Block block = generateStatementInBlock(initializers, forceBlock: true);
       variables = new List<ir.VariableDeclaration>.from(block.statements);
     } else {
       if (node.initializer != null) {
@@ -1477,21 +1484,7 @@ class KernelVisitor extends Object
       FunctionElement function,
       NodeList parameters,
       Node bodyNode) {
-    ir.TreeNode body;
-    if (bodyNode != null) {
-      body = bodyNode.accept(this);
-      {
-        // TODO(ahe): What goes on in this block is temporary as we complete
-        // KernelVisitor.
-        if (body is! ir.Statement) {
-          body = new ir.ExpressionStatement(body);
-        }
-      }
-      if (body is! ir.Block) {
-        // TODO(ahe): Always normalize methods to have a block?
-        body = new ir.Block(<ir.Statement>[body]);
-      }
-    }
+    ir.Statement body = generateStatementInBlock(bodyNode);
     FunctionSignature signature = function.functionSignature;
     List<ir.VariableDeclaration> positionalParameters =
         <ir.VariableDeclaration>[];
