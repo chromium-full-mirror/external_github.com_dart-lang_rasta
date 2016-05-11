@@ -136,19 +136,19 @@ class Kernel {
           supertype, name: cls.name, isAbstract: cls.isAbstract);
       addWork(() {
         classNode.parent = libraryToIr(cls.library);
-        cls.forEachMember((ClassElement enclosingClass, Element member) {
-          {
-            // TODO(ahe): This happens for mixin applications. How to handle
-            // this correctly?
-            if (member.enclosingClass.declaration != cls) return;
-          }
-          if (member.isFunction) {
+        cls.implementation.forEachMember(
+            (ClassElement enclosingClass, Element member) {
+          if (member.enclosingClass.declaration != cls) {
+            // Mixin applications include members declared in the applied
+            // mixin.
+            assert(cls.isMixinApplication);
+            return;
+          } else if (member.isFunction) {
             classNode.addMember(functionToIr(member));
           } else if (member.isField) {
             classNode.addMember(fieldToIr(member));
           }
-        },
-        includeSuperAndInjectedMembers: true);
+        });
       });
 
       // TODO(ahe): Fill in the following typeParameters, implementedTypes,
