@@ -4,20 +4,11 @@
 
 library rasta.custom_compiler_options;
 
-import 'dart:async' show
-    Future;
-
 import 'package:compiler/src/options.dart' show
     CompilerOptions;
 
 import 'package:compiler/compiler.dart' show
     PackagesDiscoveryProvider;
-
-import 'package:compiler/compiler_new.dart' show
-    CompilerInput;
-
-import 'package:compiler/src/filenames.dart' show
-    appendSlash;
 
 import 'target_specification.dart' show
     TargetSpecification;
@@ -84,8 +75,6 @@ class CustomCompilerOptions implements CompilerOptions {
   @override bool get dumpInfo => false;
 
   @override bool get enableAssertMessage => false;
-
-  @override bool get enableConditionalDirectives => false;
 
   @override bool get enableExperimentalMirrors => false;
 

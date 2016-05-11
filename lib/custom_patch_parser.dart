@@ -122,7 +122,7 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
     {
       // TODO(ahe): This circumvents an invariant in PatchMixin.applyPatch. How
       // to correctly do this?
-      originLibrary.patch = patchLibrary;
+      (originLibrary as dynamic).patch = patchLibrary;
       patchLibrary.origin = originLibrary;
     }
     loader.registerNewLibrary(patchLibrary);
@@ -145,6 +145,8 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
     patchLibrary.compilationUnit.forEachLocalMember((Element e) {
       // TODO(ahe): Inject or patch [e] into [originLibrary].
     });
+
+    return patchLibrary;
   }
 
   void addSyntheticPatchImport(LibraryElement library) {
