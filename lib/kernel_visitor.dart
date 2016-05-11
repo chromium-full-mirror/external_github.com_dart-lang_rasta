@@ -501,8 +501,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitNamedArgument(NamedArgument node) {
-    return handleUnsupported(node, "NamedArgument");
+  ir.NamedExpression visitNamedArgument(NamedArgument node) {
+    return new ir.NamedExpression(
+        node.name.source, node.expression.accept(this));
   }
 
   @override
@@ -765,8 +766,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    // TODO(ahe): Where's the call structure?
-    ir.Arguments argumentsNode = generateArguments(arguments, null);
+    ir.Arguments argumentsNode = generateArguments(arguments);
     return new ir.MethodInvocation(
         receiver.accept(this), kernel.nameToIrName(selector.memberName),
         argumentsNode);
@@ -1358,7 +1358,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments, callStructure);
+    ir.Arguments argumentsNode = generateArguments(arguments);
     return new ir.MethodInvocation(
         generateLocalGet(element),
         kernel.nameToIrName(callStructure.callSelector.memberName),
@@ -1569,7 +1569,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments, callStructure);
+    ir.Arguments argumentsNode = generateArguments(arguments);
     return new ir.StaticInvocation(
         kernel.functionToIr(function), argumentsNode);
   }
@@ -2012,8 +2012,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    // TODO(ahe): Where's the call structure?
-    ir.Arguments argumentsNode = generateArguments(arguments, null);
+    ir.Arguments argumentsNode = generateArguments(arguments);
     return new ir.MethodInvocation(
         new ir.ThisExpression(), kernel.nameToIrName(selector.memberName),
         argumentsNode);
@@ -2066,13 +2065,18 @@ class KernelVisitor extends Object
     return generateFunctionNode(node, function, parameters, body);
   }
 
-  ir.Arguments generateArguments(
-      NodeList arguments, CallStructure callStructure) {
-    List<ir.Expression> argumentNodes = <ir.Expression>[];
+  ir.Arguments generateArguments(NodeList arguments) {
+    List<ir.Expression> positional = <ir.Expression>[];
+    List<ir.NamedExpression> named = <ir.NamedExpression>[];
     for (Expression expression in arguments.nodes) {
-      argumentNodes.add(expression.accept(this));
+      ir.TreeNode argument = expression.accept(this);
+      if (argument is ir.NamedExpression) {
+        named.add(argument);
+      } else {
+        positional.add(argument);
+      }
     }
-    return new ir.Arguments(argumentNodes);
+    return new ir.Arguments(positional, named: named);
   }
 
   @override
