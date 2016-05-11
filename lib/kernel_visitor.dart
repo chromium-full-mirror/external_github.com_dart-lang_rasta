@@ -25,6 +25,9 @@ import 'package:compiler/src/resolution/semantic_visitor.dart' show
     SemanticSendVisitor,
     SemanticVisitor;
 
+import 'package:compiler/src/resolution/send_structure.dart' show
+    VariableStructure;
+
 import 'package:compiler/src/resolution/send_resolver.dart' show
     DeclarationResolverMixin;
 
@@ -184,7 +187,6 @@ class KernelVisitor extends Object
   TreeElements elements;
   final FunctionElement function;
   final Kernel kernel;
-  List<ir.Statement> currentStatements;
 
   final Map<JumpTarget, ir.LabeledStatement> continueTargets =
       <JumpTarget, ir.LabeledStatement>{};
@@ -259,31 +261,30 @@ class KernelVisitor extends Object
       Statement node,
       {bool forceBlock: false}) {
     if (node == null) return null;
-    List<ir.Statement> oldStatements = currentStatements;
-    currentStatements = <ir.Statement>[];
-    try {
-      if (node is Block) {
-        for (Node statement in node.statements.nodes) {
-          ir.Statement irNode = statement.accept(this);
-          if (irNode != null) {
-            currentStatements.add(irNode);
-          }
+    List<ir.Statement> statements = <ir.Statement>[];
+    if (node is Block) {
+      for (Node statement in node.statements.nodes) {
+        ir.Node irNode = statement.accept(this);
+        if (irNode is VariableDeclarations) {
+          statements.addAll(irNode.variables);
+        } else {
+          statements.add(irNode);
         }
-      } else {
-        ir.Statement irNode = node.accept(this);
-        if (irNode != null) {
-          currentStatements.add(irNode);
-        }
-        if (!forceBlock && currentStatements.length == 1) {
-          return currentStatements.single;
-        }
-        // One VariableDefinitions statement node (dart2js AST) may generate
-        // multiple statements in Kernel IR.
       }
-      return new ir.Block(currentStatements);
-    } finally {
-      currentStatements = oldStatements;
+    } else {
+      ir.Node irNode = node.accept(this);
+      if (irNode is VariableDeclarations) {
+        statements.addAll(irNode.variables);
+      } else {
+        statements.add(irNode);
+      }
+      if (!forceBlock && statements.length == 1) {
+        return statements.single;
+      }
+      // One VariableDefinitions statement node (dart2js AST) may generate
+      // multiple statements in Kernel IR so we sometimes fall through here.
     }
+    return new ir.Block(statements);
   }
 
   @override
@@ -1156,7 +1157,6 @@ class KernelVisitor extends Object
       local.initializer = initializerNode;
       initializerNode.parent = local;
     }
-    currentStatements.add(local);
     return local;
   }
 
@@ -2241,6 +2241,26 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "SuperIndexSetIfNull");
   }
 
+  @override
+  ir.Node visitVariableDefinitions(VariableDefinitions definitions) {
+    // TODO(ahe): This method is copied from [SemanticDeclarationResolvedMixin]
+    // and modified. Perhaps we can find a way to avoid code duplication.
+    List<ir.VariableDeclaration> variables = <ir.VariableDeclaration>[];
+    computeVariableStructures(definitions,
+        (Node node, VariableStructure structure) {
+      if (structure == null) {
+        return internalError(node, 'No structure for $node');
+      } else {
+        ir.VariableDeclaration variable =
+            structure.dispatch(declVisitor, node, null);
+        variables.add(variable);
+        return variable;
+      }
+    });
+    if (variables.length == 1) return variables.single;
+    return new VariableDeclarations(variables);
+  }
+
   ir.Throw buildUnsupported(Node node, String name) {
     // TODO(ahe): Do this:
     // throw new Unsupported("Kernel IR not yet implemented for '$name'.");
@@ -2256,4 +2276,16 @@ class KernelVisitor extends Object
       String name) {
     return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
+}
+
+class VariableDeclarations implements ir.Node {
+  final List<ir.VariableDeclaration> variables;
+
+  VariableDeclarations(this.variables);
+
+  accept(ir.Visitor v) => throw "unsupported";
+
+  visitChildren(ir.Visitor v) => throw "unsupported";
+
+  String toString() => "VariableDeclarations($variables)";
 }
