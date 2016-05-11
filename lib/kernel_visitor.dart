@@ -242,9 +242,17 @@ class KernelVisitor extends Object
         node.message?.accept(this));
   }
 
+  ir.ForInStatement buildForIn(ForIn node, {bool isAsync}) {
+    return new ir.ForInStatement(
+        buildStatementInBlock(node.declaredIdentifier),
+        node.expression.accept(this),
+        buildStatementInBlock(node.body),
+        isAsync: isAsync);
+  }
+
   @override
-  ir.Throw visitAsyncForIn(AsyncForIn node) {
-    return buildUnsupported(node, "AsyncForIn");
+  ir.ForInStatement visitAsyncForIn(AsyncForIn node) {
+    return buildForIn(node, isAsync: true);
   }
 
   @override
@@ -582,8 +590,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ExpressionStatement visitSyncForIn(SyncForIn node) {
-    return buildUnsupportedStatement(node, "SyncForIn");
+  ir.ForInStatement visitSyncForIn(SyncForIn node) {
+    return buildForIn(node, isAsync: false);
   }
 
   @override
@@ -2225,7 +2233,8 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitForIn(ForIn node) {
-    return buildUnsupported(node, "ForIn");
+    return internalError(
+        node, "Should have been caught by visitAsyncForIn or visitSyncForIn");
   }
 
   @override
