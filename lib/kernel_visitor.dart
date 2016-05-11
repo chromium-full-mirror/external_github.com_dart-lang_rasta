@@ -185,7 +185,7 @@ class KernelVisitor extends Object
     implements
         SemanticVisitor, SemanticSendVisitor, SemanticDeclarationVisitor {
   TreeElements elements;
-  final FunctionElement function;
+  FunctionElement function;
   final Kernel kernel;
 
   final Map<JumpTarget, ir.LabeledStatement> continueTargets =
@@ -193,6 +193,9 @@ class KernelVisitor extends Object
 
   final Map<JumpTarget, ir.LabeledStatement> breakTargets =
       <JumpTarget, ir.LabeledStatement>{};
+
+  final Map<LocalElement, ir.VariableDeclaration> locals =
+      <LocalElement, ir.VariableDeclaration>{};
 
   KernelVisitor(this.function, this.elements, this.kernel);
 
@@ -431,8 +434,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ExpressionStatement visitFunctionDeclaration(FunctionDeclaration node) {
-    return buildUnsupportedStatement(node, "FunctionDeclaration");
+  ir.VariableDeclaration visitFunctionDeclaration(FunctionDeclaration node) {
+    return node.function.accept(this);
   }
 
   @override
@@ -726,14 +729,20 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "ClassTypeLiteralSetIfNull");
   }
 
-  @override
-  ir.Throw visitClosureDeclaration(
+  @override ir.FunctionExpression visitClosureDeclaration(
       FunctionExpression node,
       LocalFunctionElement closure,
       NodeList parameters,
       Node body,
       _) {
-    return buildUnsupported(node, "ClosureDeclaration");
+    FunctionElement oldFunction = function;
+    function = closure;
+    try {
+      return new ir.FunctionExpression(
+          buildFunctionNode(node, closure, parameters, body));
+    } finally {
+      function = oldFunction;
+    }
   }
 
   @override
@@ -1181,50 +1190,24 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitLocalFunctionDeclaration(
+  ir.VariableDeclaration visitLocalFunctionDeclaration(
       FunctionExpression node,
-      LocalFunctionElement function,
+      LocalFunctionElement localFunction,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, parameters, body);
-  }
-
-  @override
-  ir.StaticGet visitLocalFunctionGet(
-      Send node,
-      LocalFunctionElement function,
-      _) {
-    return new ir.StaticGet(kernel.functionToIr(function));
-  }
-
-  @override
-  ir.Throw visitLocalFunctionIncompatibleInvoke(
-      Send node,
-      LocalFunctionElement function,
-      NodeList arguments,
-      CallStructure callStructure,
-      _) {
-    return buildUnsupported(node, "LocalFunctionIncompatibleInvoke");
-  }
-
-  @override
-  ir.Throw visitLocalFunctionInvoke(
-      Send node,
-      LocalFunctionElement function,
-      NodeList arguments,
-      CallStructure callStructure,
-      _) {
-    return buildUnsupported(node, "LocalFunctionInvoke");
-  }
-
-  @override
-  ir.Throw visitLocalFunctionSet(
-      SendSet node,
-      LocalFunctionElement function,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "LocalFunctionSet");
+    FunctionElement oldFunction = function;
+    function = localFunction;
+    try {
+      ir.VariableDeclaration local = getLocal(localFunction);
+      ir.FunctionExpression expression = new ir.FunctionExpression(
+          buildFunctionNode(node, localFunction, parameters, body));
+      local.initializer = expression;
+      expression.parent = local;
+      return local;
+    } finally {
+      function = oldFunction;
+    }
   }
 
   @override
@@ -1246,7 +1229,7 @@ class KernelVisitor extends Object
     return buildLocalVariableDeclaration(variable, initializer);
   }
 
-  ir.VariableGet buildLocalGet(LocalVariableElement local) {
+  ir.VariableGet buildLocalGet(LocalElement local) {
     return new ir.VariableGet(getLocal(local));
   }
 
@@ -1497,8 +1480,8 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "StaticFieldSetIfNull");
   }
 
-  ir.VariableDeclaration getLocal(LocalVariableElement local) {
-    return kernel.locals.putIfAbsent(
+  ir.VariableDeclaration getLocal(LocalElement local) {
+    return locals.putIfAbsent(
         local, () => new ir.VariableDeclaration(local.name));
   }
 

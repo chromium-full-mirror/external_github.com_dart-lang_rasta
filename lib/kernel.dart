@@ -21,7 +21,6 @@ import 'package:compiler/src/elements/elements.dart' show
     FieldElement,
     FunctionElement,
     LibraryElement,
-    LocalVariableElement,
     Name;
 
 import 'package:compiler/src/dart_types.dart' show
@@ -49,12 +48,6 @@ class Kernel {
 
   final Map<FieldElement, ir.Field> fields = <FieldElement, ir.Field>{};
 
-  // TODO(ahe): Ideally, we would only remember in [KernelVisitor]. However,
-  // nested functions need to access locals of the enclosing function, and for
-  // now it's simpler to remember all locals here.
-  final Map<LocalVariableElement, ir.VariableDeclaration> locals =
-      <LocalVariableElement, ir.VariableDeclaration>{};
-
   /// FIFO queue of work that needs to be completed before the returned AST
   /// nodes are correct.
   final Queue<VoidFunction> workQueue = new Queue<VoidFunction>();
@@ -67,13 +60,12 @@ class Kernel {
 
   void checkMember(Element key, ir.TreeNode value) {
     if (value.parent == null) {
-      throw new StateError(
-          "Missing parent on IR node for $key ${key.enclosingElement}");
+      compiler.reporter.internalError(key, "Missing parent on IR node.");
     }
     try {
       CheckParentPointers.check(value);
     } catch (e) {
-      throw "$key has problem: $e";
+      compiler.reporter.internalError(key, "$e");
     }
   }
 
@@ -85,7 +77,6 @@ class Kernel {
     libraries.values.forEach(CheckParentPointers.check);
     classes.forEach(checkMember);
     functions.forEach(checkMember);
-    locals.forEach(checkMember);
   }
 
   ir.Name irName(String name, Element element) {
@@ -182,13 +173,14 @@ class Kernel {
   }
 
   ir.Procedure functionToIr(FunctionElement function) {
+    if (function.isLocal) {
+      compiler.reporter.internalError(local, "Local function.");
+    }
     function = function.declaration;
     return functions.putIfAbsent(function, () {
-      if (!function.isLocal) {
-        compiler.analyzeElement(function);
-        if (function.isPatched) {
-          function = function.implementation;
-        }
+      compiler.analyzeElement(function);
+      if (function.isPatched) {
+        function = function.implementation;
       }
       ir.Procedure procedure = new ir.Procedure(
           irName(function.name, function), ir.ProcedureKind.Method, null);
@@ -200,6 +192,7 @@ class Kernel {
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
         functionNode.parent = procedure;
         procedure.function = functionNode;
+        visitor.locals.forEach(checkMember);
       });
       return procedure;
     });

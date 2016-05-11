@@ -31,6 +31,12 @@ import 'custom_backend.dart' show
 import 'custom_patch_parser.dart' show
     CustomPatchParserTask;
 
+import 'package:compiler/src/diagnostics/messages.dart' show
+    MessageKind;
+
+import 'package:compiler/src/diagnostics/spannable.dart' show
+    Spannable;
+
 class CustomCompiler extends CompilerImpl {
   final TargetSpecification target;
 
@@ -56,5 +62,10 @@ class CustomCompiler extends CompilerImpl {
     } else {
       return new CustomPatchParserTask(this);
     }
+  }
+
+  void developerMessage(Spannable spannable, [String text]) {
+    reporter.reportErrorMessage(
+        spannable, MessageKind.GENERIC, {'text': text ?? ""});
   }
 }
