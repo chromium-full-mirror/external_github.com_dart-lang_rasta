@@ -153,6 +153,21 @@ import 'error.dart' show
 import 'kernel.dart' show
     Kernel;
 
+/// Translates dart2js AST nodes [Node] into Kernel IR [ir.TreeNode].
+///
+/// Most methods in this class have a prefix that follows these conventions:
+///
+///   * `visit` for overridden visitor methods.
+///   * `handle` for methods that implement common behavior for several `visit`
+///     methods. These methods are called by `visit` methods implemented by
+///     various mixins below.
+///   * `build` helper method that builds a new Kernel IR tree.
+///   * `get` helper method that use a cache to build exactly one Kernel IR
+///     tree for a given element.
+///
+/// We reserve the prefixes `visit` and `handle` for superclasses of this
+/// class. So those methods should always have an @override annotation. Use
+/// `build` instead of `handle` when adding a new helper method to this class.
 class KernelVisitor extends Object
     with
         SemanticSendResolvedMixin,
@@ -227,20 +242,20 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitAsyncForIn(AsyncForIn node) {
-    return handleUnsupported(node, "AsyncForIn");
+    return buildUnsupported(node, "AsyncForIn");
   }
 
   @override
   ir.Throw visitAwait(Await node) {
-    return handleUnsupported(node, "Await");
+    return buildUnsupported(node, "Await");
   }
 
   @override
   ir.Block visitBlock(Block node) {
-    return generateStatementInBlock(node);
+    return buildStatementInBlock(node);
   }
 
-  ir.Statement generateStatementInBlock(
+  ir.Statement buildStatementInBlock(
       Statement node,
       {bool forceBlock: false}) {
     if (node == null) return null;
@@ -278,22 +293,22 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitCascade(Cascade node) {
-    return handleUnsupported(node, "Cascade");
+    return buildUnsupported(node, "Cascade");
   }
 
   @override
   ir.Throw visitCascadeReceiver(CascadeReceiver node) {
-    return handleUnsupported(node, "CascadeReceiver");
+    return buildUnsupported(node, "CascadeReceiver");
   }
 
   @override
   ir.Throw visitCaseMatch(CaseMatch node) {
-    return handleUnsupported(node, "CaseMatch");
+    return buildUnsupported(node, "CaseMatch");
   }
 
   @override
   ir.Throw visitCatchBlock(CatchBlock node) {
-    return handleUnsupported(node, "CatchBlock");
+    return buildUnsupported(node, "CatchBlock");
   }
 
   @override
@@ -311,7 +326,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitDoWhile(DoWhile node) {
-    ir.Statement body = generateStatementInBlock(node.body);
+    ir.Statement body = buildStatementInBlock(node.body);
     ir.Expression condition = node.condition?.accept(this);
 
     // TODO(ahe): Unify jump target handling between For, While, and Do.
@@ -343,7 +358,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitEnum(Enum node) {
-    return handleUnsupported(node, "Enum");
+    return buildUnsupported(node, "Enum");
   }
 
   @override
@@ -368,7 +383,7 @@ class KernelVisitor extends Object
     ir.Expression initializer;
     List<ir.VariableDeclaration> variables;
     if (initializers != null) {
-      ir.Block block = generateStatementInBlock(initializers, forceBlock: true);
+      ir.Block block = buildStatementInBlock(initializers, forceBlock: true);
       variables = new List<ir.VariableDeclaration>.from(block.statements);
     } else {
       if (node.initializer != null) {
@@ -381,7 +396,7 @@ class KernelVisitor extends Object
     for (Expression update in node.update) {
       updates.add(update.accept(this));
     }
-    ir.Statement body = generateStatementInBlock(node.body);
+    ir.Statement body = buildStatementInBlock(node.body);
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
 
     if (jumpTarget != null && jumpTarget.isContinueTarget) {
@@ -408,20 +423,20 @@ class KernelVisitor extends Object
 
   @override
   ir.ExpressionStatement visitFunctionDeclaration(FunctionDeclaration node) {
-    return handleUnsupportedStatement(node, "FunctionDeclaration");
+    return buildUnsupportedStatement(node, "FunctionDeclaration");
   }
 
   @override
   ir.IfStatement visitIf(If node) {
     return new ir.IfStatement(
         node.condition.accept(this),
-        generateStatementInBlock(node.thenPart),
-        generateStatementInBlock(node.elsePart));
+        buildStatementInBlock(node.thenPart),
+        buildStatementInBlock(node.elsePart));
   }
 
   @override
   ir.Throw visitLabel(Label node) {
-    return handleUnsupported(node, "Label");
+    return buildUnsupported(node, "Label");
   }
 
   @override
@@ -435,7 +450,7 @@ class KernelVisitor extends Object
       continueTargets[jumpTarget] = result;
     }
 
-    ir.Statement body = generateStatementInBlock(node.statement);
+    ir.Statement body = buildStatementInBlock(node.statement);
 
     result.body = body;
     body.parent = result;
@@ -484,7 +499,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitLiteralMapEntry(LiteralMapEntry node) {
-    return handleUnsupported(node, "LiteralMapEntry");
+    return buildUnsupported(node, "LiteralMapEntry");
   }
 
   @override
@@ -499,12 +514,12 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitLiteralSymbol(LiteralSymbol node) {
-    return handleUnsupported(node, "LiteralSymbol");
+    return buildUnsupported(node, "LiteralSymbol");
   }
 
   @override
   ir.Throw visitMetadata(Metadata node) {
-    return handleUnsupported(node, "Metadata");
+    return buildUnsupported(node, "Metadata");
   }
 
   @override
@@ -515,7 +530,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitOperator(Operator node) {
-    return handleUnsupported(node, "Operator");
+    return buildUnsupported(node, "Operator");
   }
 
   @override
@@ -525,12 +540,12 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitRedirectingFactoryBody(RedirectingFactoryBody node) {
-    return handleUnsupported(node, "RedirectingFactoryBody");
+    return buildUnsupported(node, "RedirectingFactoryBody");
   }
 
   @override
   ir.Throw visitRethrow(Rethrow node) {
-    return handleUnsupported(node, "Rethrow");
+    return buildUnsupported(node, "Rethrow");
   }
 
   @override
@@ -557,17 +572,17 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitSwitchCase(SwitchCase node) {
-    return handleUnsupported(node, "SwitchCase");
+    return buildUnsupported(node, "SwitchCase");
   }
 
   @override
   ir.ExpressionStatement visitSwitchStatement(SwitchStatement node) {
-    return handleUnsupportedStatement(node, "SwitchStatement");
+    return buildUnsupportedStatement(node, "SwitchStatement");
   }
 
   @override
   ir.ExpressionStatement visitSyncForIn(SyncForIn node) {
-    return handleUnsupportedStatement(node, "SyncForIn");
+    return buildUnsupportedStatement(node, "SyncForIn");
   }
 
   @override
@@ -577,24 +592,24 @@ class KernelVisitor extends Object
 
   @override
   ir.ExpressionStatement visitTryStatement(TryStatement node) {
-    return handleUnsupportedStatement(node, "TryStatement");
+    return buildUnsupportedStatement(node, "TryStatement");
   }
 
   @override
   ir.Throw visitTypeAnnotation(TypeAnnotation node) {
-    return handleUnsupported(node, "TypeAnnotation");
+    return buildUnsupported(node, "TypeAnnotation");
   }
 
   @override
   ir.Throw visitTypeVariable(TypeVariable node) {
-    return handleUnsupported(node, "TypeVariable");
+    return buildUnsupported(node, "TypeVariable");
   }
 
   @override
   ir.Statement visitWhile(While node) {
     ir.Expression condition = node.condition?.accept(this);
 
-    ir.Statement body = generateStatementInBlock(node.body);
+    ir.Statement body = buildStatementInBlock(node.body);
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
 
     if (jumpTarget != null && jumpTarget.isContinueTarget) {
@@ -618,7 +633,7 @@ class KernelVisitor extends Object
 
   @override
   ir.ExpressionStatement visitYield(Yield node) {
-    return handleUnsupportedStatement(node, "Yield");
+    return buildUnsupportedStatement(node, "Yield");
   }
 
   @override
@@ -629,7 +644,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "AbstractClassConstructorInvoke");
+    return buildUnsupported(node, "AbstractClassConstructorInvoke");
   }
 
   @override
@@ -637,7 +652,7 @@ class KernelVisitor extends Object
       FunctionExpression node,
       MethodElement getter,
       _) {
-    return handleUnsupported(node, "AbstractGetterDeclaration");
+    return buildUnsupported(node, "AbstractGetterDeclaration");
   }
 
   @override
@@ -646,18 +661,18 @@ class KernelVisitor extends Object
       MethodElement setter,
       NodeList parameters,
       _) {
-    return handleUnsupported(node, "AbstractSetterDeclaration");
+    return buildUnsupported(node, "AbstractSetterDeclaration");
   }
 
   @override
   ir.Throw visitAs(Send node, Node expression, DartType type, _) {
-    return handleUnsupported(node, "As");
+    return buildUnsupported(node, "As");
   }
 
   @override
   ir.MethodInvocation visitBinary(
       Send node, Node left, BinaryOperator operator, Node right, _) {
-    return generateBinaryOperator(left, operator.name, right);
+    return buildBinaryOperator(left, operator.name, right);
   }
 
   @override
@@ -665,13 +680,13 @@ class KernelVisitor extends Object
       NewExpression node,
       BoolFromEnvironmentConstantExpression constant,
       _) {
-    return handleUnsupported(node, "BoolFromEnvironmentConstructorInvoke");
+    return buildUnsupported(node, "BoolFromEnvironmentConstructorInvoke");
   }
 
   @override
   ir.Throw visitClassTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
-    return handleUnsupported(node, "ClassTypeLiteralGet");
+    return buildUnsupported(node, "ClassTypeLiteralGet");
   }
 
   @override
@@ -681,7 +696,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ClassTypeLiteralInvoke");
+    return buildUnsupported(node, "ClassTypeLiteralInvoke");
   }
 
   @override
@@ -690,7 +705,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "ClassTypeLiteralSet");
+    return buildUnsupported(node, "ClassTypeLiteralSet");
   }
 
   @override
@@ -699,7 +714,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "ClassTypeLiteralSetIfNull");
+    return buildUnsupported(node, "ClassTypeLiteralSetIfNull");
   }
 
   @override
@@ -709,7 +724,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "ClosureDeclaration");
+    return buildUnsupported(node, "ClosureDeclaration");
   }
 
   @override
@@ -720,7 +735,7 @@ class KernelVisitor extends Object
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnsupported(node, "CompoundIndexSet");
+    return buildUnsupported(node, "CompoundIndexSet");
   }
 
   @override
@@ -728,12 +743,12 @@ class KernelVisitor extends Object
       NewExpression node,
       ConstructedConstantExpression constant,
       _) {
-    return handleUnsupported(node, "ConstConstructorInvoke");
+    return buildUnsupported(node, "ConstConstructorInvoke");
   }
 
   @override
   ir.Throw visitConstantGet(Send node, ConstantExpression constant, _) {
-    return handleUnsupported(node, "ConstantGet");
+    return buildUnsupported(node, "ConstantGet");
   }
 
   @override
@@ -743,7 +758,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ConstantInvoke");
+    return buildUnsupported(node, "ConstantInvoke");
   }
 
   @override
@@ -754,7 +769,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ConstructorIncompatibleInvoke");
+    return buildUnsupported(node, "ConstructorIncompatibleInvoke");
   }
 
   @override
@@ -773,7 +788,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments);
+    ir.Arguments argumentsNode = buildArguments(arguments);
     return new ir.MethodInvocation(
         receiver.accept(this), kernel.nameToIrName(selector.memberName),
         argumentsNode);
@@ -788,7 +803,7 @@ class KernelVisitor extends Object
       _) {
     ir.Expression receiverNode = receiver == null
         ? new ir.ThisExpression() : receiver.accept(this);
-    return generateCompound(
+    return buildCompound(
         PropertyAccessor.make(receiverNode, kernel.nameToIrName(name)), rhs);
   }
 
@@ -811,13 +826,13 @@ class KernelVisitor extends Object
       Name name,
       Node rhs,
       _) {
-    return handleUnsupported(node, "DynamicPropertySetIfNull");
+    return buildUnsupported(node, "DynamicPropertySetIfNull");
   }
 
   @override
   ir.Throw visitDynamicTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
-    return handleUnsupported(node, "DynamicTypeLiteralGet");
+    return buildUnsupported(node, "DynamicTypeLiteralGet");
   }
 
   @override
@@ -827,7 +842,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "DynamicTypeLiteralInvoke");
+    return buildUnsupported(node, "DynamicTypeLiteralInvoke");
   }
 
   @override
@@ -836,7 +851,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "DynamicTypeLiteralSet");
+    return buildUnsupported(node, "DynamicTypeLiteralSet");
   }
 
   @override
@@ -845,10 +860,10 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "DynamicTypeLiteralSetIfNull");
+    return buildUnsupported(node, "DynamicTypeLiteralSetIfNull");
   }
 
-  ir.MethodInvocation generateBinaryOperator(
+  ir.MethodInvocation buildBinaryOperator(
       Node left,
       String operator,
       Node right) {
@@ -860,7 +875,7 @@ class KernelVisitor extends Object
 
   @override
   ir.MethodInvocation visitEquals(Send node, Node left, Node right, _) {
-    return generateBinaryOperator(left, '==', right);
+    return buildBinaryOperator(left, '==', right);
   }
 
   @override
@@ -870,7 +885,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ExpressionInvoke");
+    return buildUnsupported(node, "ExpressionInvoke");
   }
 
   @override
@@ -880,7 +895,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "FactoryConstructorDeclaration");
+    return buildUnsupported(node, "FactoryConstructorDeclaration");
   }
 
   @override
@@ -891,7 +906,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "FactoryConstructorInvoke");
+    return buildUnsupported(node, "FactoryConstructorInvoke");
   }
 
   @override
@@ -900,7 +915,7 @@ class KernelVisitor extends Object
       FieldElement field,
       Node initializer,
       _) {
-    return handleUnsupported(node, "FieldInitializer");
+    return buildUnsupported(node, "FieldInitializer");
   }
 
   @override
@@ -909,7 +924,7 @@ class KernelVisitor extends Object
       LocalVariableElement variable,
       Node rhs,
       _) {
-    return handleUnsupported(node, "FinalLocalVariableSetIfNull");
+    return buildUnsupported(node, "FinalLocalVariableSetIfNull");
   }
 
   @override
@@ -918,7 +933,7 @@ class KernelVisitor extends Object
       ParameterElement parameter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "FinalParameterSetIfNull");
+    return buildUnsupported(node, "FinalParameterSetIfNull");
   }
 
   @override
@@ -933,13 +948,13 @@ class KernelVisitor extends Object
       FieldElement field,
       Node rhs,
       _) {
-    return handleUnsupported(node, "FinalStaticFieldSetIfNull");
+    return buildUnsupported(node, "FinalStaticFieldSetIfNull");
   }
 
   @override
   ir.Throw visitFinalSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "FinalSuperFieldSet");
+    return buildUnsupported(node, "FinalSuperFieldSet");
   }
 
   @override
@@ -948,7 +963,7 @@ class KernelVisitor extends Object
       FieldElement field,
       Node rhs,
       _) {
-    return handleUnsupported(node, "FinalSuperFieldSetIfNull");
+    return buildUnsupported(node, "FinalSuperFieldSetIfNull");
   }
 
   @override
@@ -957,7 +972,7 @@ class KernelVisitor extends Object
       FieldElement field,
       Node rhs,
       _) {
-    return handleUnsupported(node, "FinalTopLevelFieldSetIfNull");
+    return buildUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
   @override
@@ -968,7 +983,7 @@ class KernelVisitor extends Object
       NodeList initializers,
       Node body,
       _) {
-    return handleUnsupported(node, "GenerativeConstructorDeclaration");
+    return buildUnsupported(node, "GenerativeConstructorDeclaration");
   }
 
   @override
@@ -979,7 +994,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "GenerativeConstructorInvoke");
+    return buildUnsupported(node, "GenerativeConstructorInvoke");
   }
 
   @override
@@ -988,7 +1003,7 @@ class KernelVisitor extends Object
       Node receiver,
       Name name,
       _) {
-    return handleUnsupported(node, "IfNotNullDynamicPropertyGet");
+    return buildUnsupported(node, "IfNotNullDynamicPropertyGet");
   }
 
   @override
@@ -998,7 +1013,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnsupported(node, "IfNotNullDynamicPropertyInvoke");
+    return buildUnsupported(node, "IfNotNullDynamicPropertyInvoke");
   }
 
   @override
@@ -1008,7 +1023,7 @@ class KernelVisitor extends Object
       Name name,
       Node rhs,
       _) {
-    return handleUnsupported(node, "IfNotNullDynamicPropertySet");
+    return buildUnsupported(node, "IfNotNullDynamicPropertySet");
   }
 
   @override
@@ -1018,12 +1033,12 @@ class KernelVisitor extends Object
       Name name,
       Node rhs,
       _) {
-    return handleUnsupported(node, "IfNotNullDynamicPropertySetIfNull");
+    return buildUnsupported(node, "IfNotNullDynamicPropertySetIfNull");
   }
 
   @override
   ir.Throw visitIfNull(Send node, Node left, Node right, _) {
-    return handleUnsupported(node, "IfNull");
+    return buildUnsupported(node, "IfNull");
   }
 
   @override
@@ -1032,7 +1047,7 @@ class KernelVisitor extends Object
       ConstructorElement superConstructor,
       InterfaceType type,
       _) {
-    return handleUnsupported(node, "ImplicitSuperConstructorInvoke");
+    return buildUnsupported(node, "ImplicitSuperConstructorInvoke");
   }
 
   @override
@@ -1050,7 +1065,7 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "IndexPostfix");
+    return buildUnsupported(node, "IndexPostfix");
   }
 
   @override
@@ -1060,7 +1075,7 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "IndexPrefix");
+    return buildUnsupported(node, "IndexPrefix");
   }
 
   @override
@@ -1079,7 +1094,7 @@ class KernelVisitor extends Object
       InitializingFormalElement parameter,
       int index,
       _) {
-    return handleUnsupported(node, "InitializingFormalDeclaration");
+    return buildUnsupported(node, "InitializingFormalDeclaration");
   }
 
   @override
@@ -1089,7 +1104,7 @@ class KernelVisitor extends Object
       FieldElement field,
       Node initializer,
       _) {
-    return handleUnsupported(node, "InstanceFieldDeclaration");
+    return buildUnsupported(node, "InstanceFieldDeclaration");
   }
 
   @override
@@ -1098,7 +1113,7 @@ class KernelVisitor extends Object
       MethodElement getter,
       Node body,
       _) {
-    return handleUnsupported(node, "InstanceGetterDeclaration");
+    return buildUnsupported(node, "InstanceGetterDeclaration");
   }
 
   @override
@@ -1108,7 +1123,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "InstanceSetterDeclaration");
+    return buildUnsupported(node, "InstanceSetterDeclaration");
   }
 
   @override
@@ -1116,24 +1131,24 @@ class KernelVisitor extends Object
       NewExpression node,
       IntFromEnvironmentConstantExpression constant,
       _) {
-    return handleUnsupported(node, "IntFromEnvironmentConstructorInvoke");
+    return buildUnsupported(node, "IntFromEnvironmentConstructorInvoke");
   }
 
-  ir.IsExpression generateIs(Node expression, DartType type) {
+  ir.IsExpression buildIs(Node expression, DartType type) {
     return new ir.IsExpression(expression.accept(this), kernel.typeToIr(type));
   }
 
   @override
   ir.IsExpression visitIs(Send node, Node expression, DartType type, _) {
-    return generateIs(expression, type);
+    return buildIs(expression, type);
   }
 
   @override
   ir.Not visitIsNot(Send node, Node expression, DartType type, _) {
-    return new ir.Not(generateIs(expression, type));
+    return new ir.Not(buildIs(expression, type));
   }
 
-  ir.VariableDeclaration generateLocalVariableDeclaration(
+  ir.VariableDeclaration buildLocalVariableDeclaration(
       LocalVariableElement variable, Node initializer) {
     ir.Expression initializerNode = initializer?.accept(this);
     ir.VariableDeclaration local = getLocal(variable);
@@ -1153,7 +1168,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       _) {
     // TODO(ahe): Use [constant]?
-    return generateLocalVariableDeclaration(variable, variable.initializer)
+    return buildLocalVariableDeclaration(variable, variable.initializer)
         ..isConst = true;
   }
 
@@ -1164,7 +1179,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return generateFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, parameters, body);
   }
 
   @override
@@ -1182,7 +1197,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "LocalFunctionIncompatibleInvoke");
+    return buildUnsupported(node, "LocalFunctionIncompatibleInvoke");
   }
 
   @override
@@ -1192,7 +1207,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "LocalFunctionInvoke");
+    return buildUnsupported(node, "LocalFunctionInvoke");
   }
 
   @override
@@ -1201,7 +1216,7 @@ class KernelVisitor extends Object
       LocalFunctionElement function,
       Node rhs,
       _) {
-    return handleUnsupported(node, "LocalFunctionSet");
+    return buildUnsupported(node, "LocalFunctionSet");
   }
 
   @override
@@ -1210,7 +1225,7 @@ class KernelVisitor extends Object
       LocalFunctionElement function,
       Node rhs,
       _) {
-    return handleUnsupported(node, "LocalFunctionSetIfNull");
+    return buildUnsupported(node, "LocalFunctionSetIfNull");
   }
 
   @override
@@ -1220,19 +1235,19 @@ class KernelVisitor extends Object
       LocalVariableElement variable,
       Node initializer,
       _) {
-    return generateLocalVariableDeclaration(variable, initializer);
+    return buildLocalVariableDeclaration(variable, initializer);
   }
 
-  ir.VariableGet generateLocalGet(LocalVariableElement local) {
+  ir.VariableGet buildLocalGet(LocalVariableElement local) {
     return new ir.VariableGet(getLocal(local));
   }
 
   @override
   ir.VariableGet handleLocalGet(Send node, LocalElement element, _) {
-    return generateLocalGet(element);
+    return buildLocalGet(element);
   }
 
-  ir.Expression generateCompound(Accessor accessor, CompoundRhs rhs) {
+  ir.Expression buildCompound(Accessor accessor, CompoundRhs rhs) {
     ir.Name name = kernel.irName(rhs.operator.name, function);
     switch (rhs.kind) {
       case CompoundKind.POSTFIX:
@@ -1253,7 +1268,7 @@ class KernelVisitor extends Object
       CompoundRhs rhs,
       _,
       {bool isSetterValid}) {
-    return generateCompound(new VariableAccessor(getLocal(local)), rhs);
+    return buildCompound(new VariableAccessor(getLocal(local)), rhs);
   }
 
   @override
@@ -1271,7 +1286,7 @@ class KernelVisitor extends Object
       LocalElement element,
       Node rhs,
       _) {
-    // TODO(ahe): Generate invalid?
+    // TODO(ahe): Build invalid?
     return handleLocalSet(node, element, rhs, _);
   }
 
@@ -1281,7 +1296,7 @@ class KernelVisitor extends Object
       LocalVariableElement variable,
       Node rhs,
       _) {
-    return handleUnsupported(node, "LocalVariableSetIfNull");
+    return buildUnsupported(node, "LocalVariableSetIfNull");
   }
 
   @override
@@ -1303,7 +1318,7 @@ class KernelVisitor extends Object
       InitializingFormalElement parameter,
       ConstantExpression defaultValue,
       _) {
-    return handleUnsupported(node, "NamedInitializingFormalDeclaration");
+    return buildUnsupported(node, "NamedInitializingFormalDeclaration");
   }
 
   @override
@@ -1313,7 +1328,7 @@ class KernelVisitor extends Object
       ParameterElement parameter,
       ConstantExpression defaultValue,
       _) {
-    return handleUnsupported(node, "NamedParameterDeclaration");
+    return buildUnsupported(node, "NamedParameterDeclaration");
   }
 
   @override
@@ -1323,7 +1338,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Not visitNotEquals(Send node, Node left, Node right, _) {
-    return new ir.Not(generateBinaryOperator(left, '==', right));
+    return new ir.Not(buildBinaryOperator(left, '==', right));
   }
 
   @override
@@ -1334,7 +1349,7 @@ class KernelVisitor extends Object
       ConstantExpression defaultValue,
       int index,
       _) {
-    return handleUnsupported(node, "OptionalInitializingFormalDeclaration");
+    return buildUnsupported(node, "OptionalInitializingFormalDeclaration");
   }
 
   @override
@@ -1345,7 +1360,7 @@ class KernelVisitor extends Object
       ConstantExpression defaultValue,
       int index,
       _) {
-    return handleUnsupported(node, "OptionalParameterDeclaration");
+    return buildUnsupported(node, "OptionalParameterDeclaration");
   }
 
   @override
@@ -1355,7 +1370,7 @@ class KernelVisitor extends Object
       ParameterElement parameter,
       int index,
       _) {
-    return handleUnsupported(node, "ParameterDeclaration");
+    return buildUnsupported(node, "ParameterDeclaration");
   }
 
   @override
@@ -1365,9 +1380,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments);
+    ir.Arguments argumentsNode = buildArguments(arguments);
     return new ir.MethodInvocation(
-        generateLocalGet(element),
+        buildLocalGet(element),
         kernel.nameToIrName(callStructure.callSelector.memberName),
         argumentsNode);
   }
@@ -1378,7 +1393,7 @@ class KernelVisitor extends Object
       ParameterElement parameter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "ParameterSetIfNull");
+    return buildUnsupported(node, "ParameterSetIfNull");
   }
 
   @override
@@ -1389,7 +1404,7 @@ class KernelVisitor extends Object
       InterfaceType redirectionType,
       ConstructorElement redirectionTarget,
       _) {
-    return handleUnsupported(node, "RedirectingFactoryConstructorDeclaration");
+    return buildUnsupported(node, "RedirectingFactoryConstructorDeclaration");
   }
 
   @override
@@ -1402,7 +1417,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "RedirectingFactoryConstructorInvoke");
+    return buildUnsupported(node, "RedirectingFactoryConstructorInvoke");
   }
 
   @override
@@ -1412,7 +1427,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       NodeList initializers,
       _) {
-    return handleUnsupported(
+    return buildUnsupported(
         node, "RedirectingGenerativeConstructorDeclaration");
   }
 
@@ -1424,7 +1439,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "RedirectingGenerativeConstructorInvoke");
+    return buildUnsupported(node, "RedirectingGenerativeConstructorInvoke");
   }
 
   @override
@@ -1434,7 +1449,7 @@ class KernelVisitor extends Object
       FieldElement field,
       ConstantExpression constant,
       _) {
-    return handleUnsupported(node, "StaticConstantDeclaration");
+    return buildUnsupported(node, "StaticConstantDeclaration");
   }
 
   @override
@@ -1444,7 +1459,7 @@ class KernelVisitor extends Object
       FieldElement field,
       Node initializer,
       _) {
-    return handleUnsupported(node, "StaticFieldDeclaration");
+    return buildUnsupported(node, "StaticFieldDeclaration");
   }
 
   @override
@@ -1459,7 +1474,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "StaticFieldInvoke");
+    return buildUnsupported(node, "StaticFieldInvoke");
   }
 
   @override
@@ -1471,7 +1486,7 @@ class KernelVisitor extends Object
   @override
   ir.Throw visitStaticFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "StaticFieldSetIfNull");
+    return buildUnsupported(node, "StaticFieldSetIfNull");
   }
 
   ir.VariableDeclaration getLocal(LocalVariableElement local) {
@@ -1479,12 +1494,12 @@ class KernelVisitor extends Object
         local, () => new ir.VariableDeclaration(local.name));
   }
 
-  ir.FunctionNode generateFunctionNode(
+  ir.FunctionNode buildFunctionNode(
       FunctionExpression node,
       FunctionElement function,
       NodeList parameters,
       Node bodyNode) {
-    ir.Statement body = generateStatementInBlock(bodyNode);
+    ir.Statement body = buildStatementInBlock(bodyNode);
     FunctionSignature signature = function.functionSignature;
     List<ir.VariableDeclaration> positionalParameters =
         <ir.VariableDeclaration>[];
@@ -1518,7 +1533,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return generateFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, parameters, body);
   }
 
   @override
@@ -1528,7 +1543,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return generateFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, parameters, body);
   }
 
   @override
@@ -1537,7 +1552,7 @@ class KernelVisitor extends Object
       MethodElement method,
       NodeList parameters,
       _) {
-    return generateFunctionNode(node, function, parameters, null);
+    return buildFunctionNode(node, function, parameters, null);
   }
 
   @override
@@ -1552,7 +1567,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "StaticFunctionIncompatibleInvoke");
+    return buildUnsupported(node, "StaticFunctionIncompatibleInvoke");
   }
 
   @override
@@ -1562,7 +1577,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments);
+    ir.Arguments argumentsNode = buildArguments(arguments);
     return new ir.StaticInvocation(
         kernel.functionToIr(function), argumentsNode);
   }
@@ -1570,7 +1585,7 @@ class KernelVisitor extends Object
   @override
   ir.Throw handleStaticFunctionSet(
       Send node, MethodElement function, Node rhs, _) {
-    return handleUnsupported(node, "StaticFunctionSet");
+    return buildUnsupported(node, "StaticFunctionSet");
   }
 
   @override
@@ -1579,12 +1594,12 @@ class KernelVisitor extends Object
       MethodElement getter,
       Node body,
       _) {
-    return handleUnsupported(node, "StaticGetterDeclaration");
+    return buildUnsupported(node, "StaticGetterDeclaration");
   }
 
   @override
   ir.Throw handleStaticGetterGet(Send node, FunctionElement getter, _) {
-    return handleUnsupported(node, "StaticGetterGet");
+    return buildUnsupported(node, "StaticGetterGet");
   }
 
   @override
@@ -1594,13 +1609,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "StaticGetterInvoke");
+    return buildUnsupported(node, "StaticGetterInvoke");
   }
 
   @override
   ir.Throw handleStaticGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
-    return handleUnsupported(node, "StaticGetterSet");
+    return buildUnsupported(node, "StaticGetterSet");
   }
 
   @override
@@ -1610,7 +1625,7 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "StaticGetterSetterSetIfNull");
+    return buildUnsupported(node, "StaticGetterSetterSetIfNull");
   }
 
   @override
@@ -1619,7 +1634,7 @@ class KernelVisitor extends Object
       FunctionElement method,
       Node rhs,
       _) {
-    return handleUnsupported(node, "StaticMethodSetIfNull");
+    return buildUnsupported(node, "StaticMethodSetIfNull");
   }
 
   @override
@@ -1629,7 +1644,7 @@ class KernelVisitor extends Object
       MethodElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "StaticMethodSetterSetIfNull");
+    return buildUnsupported(node, "StaticMethodSetterSetIfNull");
   }
 
   @override
@@ -1639,12 +1654,12 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "StaticSetterDeclaration");
+    return buildUnsupported(node, "StaticSetterDeclaration");
   }
 
   @override
   ir.Throw handleStaticSetterGet(Send node, FunctionElement setter, _) {
-    return handleUnsupported(node, "StaticSetterGet");
+    return buildUnsupported(node, "StaticSetterGet");
   }
 
   @override
@@ -1654,13 +1669,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "StaticSetterInvoke");
+    return buildUnsupported(node, "StaticSetterInvoke");
   }
 
   @override
   ir.Throw handleStaticSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
-    return handleUnsupported(node, "StaticSetterSet");
+    return buildUnsupported(node, "StaticSetterSet");
   }
 
   @override
@@ -1668,7 +1683,7 @@ class KernelVisitor extends Object
       NewExpression node,
       StringFromEnvironmentConstantExpression constant,
       _) {
-    return handleUnsupported(node, "StringFromEnvironmentConstructorInvoke");
+    return buildUnsupported(node, "StringFromEnvironmentConstructorInvoke");
   }
 
   @override
@@ -1678,7 +1693,7 @@ class KernelVisitor extends Object
       BinaryOperator operator,
       Node argument,
       _) {
-    return handleUnsupported(node, "SuperBinary");
+    return buildUnsupported(node, "SuperBinary");
   }
 
   @override
@@ -1690,7 +1705,7 @@ class KernelVisitor extends Object
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperCompoundIndexSet");
+    return buildUnsupported(node, "SuperCompoundIndexSet");
   }
 
   @override
@@ -1701,13 +1716,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperConstructorInvoke");
+    return buildUnsupported(node, "SuperConstructorInvoke");
   }
 
   @override
   ir.Throw visitSuperEquals(
       Send node, FunctionElement function, Node argument, _) {
-    return handleUnsupported(node, "SuperEquals");
+    return buildUnsupported(node, "SuperEquals");
   }
 
   @override
@@ -1719,7 +1734,7 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       CompoundRhs rhs,
       _) {
-    return handleUnsupported(node, "SuperCompounds ${rhs.kind}");
+    return buildUnsupported(node, "SuperCompounds ${rhs.kind}");
   }
 
   @override
@@ -1731,7 +1746,7 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       CompoundRhs rhs,
       _) {
-    return handleUnsupported(node, "StaticCompounds ${rhs.kind}");
+    return buildUnsupported(node, "StaticCompounds ${rhs.kind}");
   }
 
   @override
@@ -1740,7 +1755,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       CompoundRhs rhs,
       _) {
-    return handleUnsupported(node, "TypeLiteralConstantCompounds ${rhs.kind}");
+    return buildUnsupported(node, "TypeLiteralConstantCompounds ${rhs.kind}");
   }
 
   @override
@@ -1749,7 +1764,7 @@ class KernelVisitor extends Object
       TypeVariableElement typeVariable,
       CompoundRhs rhs,
       _) {
-    return handleUnsupported(
+    return buildUnsupported(
         node, "TypeVariableTypeLiteralCompounds ${rhs.kind}");
   }
 
@@ -1760,12 +1775,12 @@ class KernelVisitor extends Object
       FieldElement writtenField,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperFieldFieldSetIfNull");
+    return buildUnsupported(node, "SuperFieldFieldSetIfNull");
   }
 
   @override
   ir.Throw visitSuperFieldGet(Send node, FieldElement field, _) {
-    return handleUnsupported(node, "SuperFieldGet");
+    return buildUnsupported(node, "SuperFieldGet");
   }
 
   @override
@@ -1775,19 +1790,19 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperFieldInvoke");
+    return buildUnsupported(node, "SuperFieldInvoke");
   }
 
   @override
   ir.Throw visitSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "SuperFieldSet");
+    return buildUnsupported(node, "SuperFieldSet");
   }
 
   @override
   ir.Throw visitSuperFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "SuperFieldSetIfNull");
+    return buildUnsupported(node, "SuperFieldSetIfNull");
   }
 
   @override
@@ -1797,7 +1812,7 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperFieldSetterSetIfNull");
+    return buildUnsupported(node, "SuperFieldSetterSetIfNull");
   }
 
   @override
@@ -1807,12 +1822,12 @@ class KernelVisitor extends Object
       FieldElement field,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperGetterFieldSetIfNull");
+    return buildUnsupported(node, "SuperGetterFieldSetIfNull");
   }
 
   @override
   ir.Throw visitSuperGetterGet(Send node, FunctionElement getter, _) {
-    return handleUnsupported(node, "SuperGetterGet");
+    return buildUnsupported(node, "SuperGetterGet");
   }
 
   @override
@@ -1822,13 +1837,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperGetterInvoke");
+    return buildUnsupported(node, "SuperGetterInvoke");
   }
 
   @override
   ir.Throw visitSuperGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
-    return handleUnsupported(node, "SuperGetterSet");
+    return buildUnsupported(node, "SuperGetterSet");
   }
 
   @override
@@ -1838,13 +1853,13 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperGetterSetterSetIfNull");
+    return buildUnsupported(node, "SuperGetterSetterSetIfNull");
   }
 
   @override
   ir.Throw visitSuperIndex(
       Send node, FunctionElement function, Node index, _) {
-    return handleUnsupported(node, "SuperIndex");
+    return buildUnsupported(node, "SuperIndex");
   }
 
   @override
@@ -1855,7 +1870,7 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "SuperIndexPostfix");
+    return buildUnsupported(node, "SuperIndexPostfix");
   }
 
   @override
@@ -1866,7 +1881,7 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnsupported(node, "SuperIndexPrefix");
+    return buildUnsupported(node, "SuperIndexPrefix");
   }
 
   @override
@@ -1876,12 +1891,12 @@ class KernelVisitor extends Object
       Node index,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperIndexSet");
+    return buildUnsupported(node, "SuperIndexSet");
   }
 
   @override
   ir.Throw visitSuperMethodGet(Send node, MethodElement method, _) {
-    return handleUnsupported(node, "SuperMethodGet");
+    return buildUnsupported(node, "SuperMethodGet");
   }
 
   @override
@@ -1891,7 +1906,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperMethodIncompatibleInvoke");
+    return buildUnsupported(node, "SuperMethodIncompatibleInvoke");
   }
 
   @override
@@ -1901,13 +1916,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperMethodInvoke");
+    return buildUnsupported(node, "SuperMethodInvoke");
   }
 
   @override
   ir.Throw visitSuperMethodSet(
       Send node, MethodElement method, Node rhs, _) {
-    return handleUnsupported(node, "SuperMethodSet");
+    return buildUnsupported(node, "SuperMethodSet");
   }
 
   @override
@@ -1916,7 +1931,7 @@ class KernelVisitor extends Object
       FunctionElement method,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperMethodSetIfNull");
+    return buildUnsupported(node, "SuperMethodSetIfNull");
   }
 
 
@@ -1927,7 +1942,7 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "SuperMethodSetterSetIfNull");
+    return buildUnsupported(node, "SuperMethodSetterSetIfNull");
   }
 
   @override
@@ -1936,12 +1951,12 @@ class KernelVisitor extends Object
       FunctionElement function,
       Node argument,
       _) {
-    return handleUnsupported(node, "SuperNotEquals");
+    return buildUnsupported(node, "SuperNotEquals");
   }
 
   @override
   ir.Throw visitSuperSetterGet(Send node, FunctionElement setter, _) {
-    return handleUnsupported(node, "SuperSetterGet");
+    return buildUnsupported(node, "SuperSetterGet");
   }
 
   @override
@@ -1951,13 +1966,13 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "SuperSetterInvoke");
+    return buildUnsupported(node, "SuperSetterInvoke");
   }
 
   @override
   ir.Throw visitSuperSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
-    return handleUnsupported(node, "SuperSetterSet");
+    return buildUnsupported(node, "SuperSetterSet");
   }
 
   @override
@@ -1966,7 +1981,7 @@ class KernelVisitor extends Object
       UnaryOperator operator,
       FunctionElement function,
       _) {
-    return handleUnsupported(node, "SuperUnary");
+    return buildUnsupported(node, "SuperUnary");
   }
 
   @override
@@ -1976,7 +1991,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ThisConstructorInvoke");
+    return buildUnsupported(node, "ThisConstructorInvoke");
   }
 
   @override
@@ -1990,7 +2005,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "ThisInvoke");
+    return buildUnsupported(node, "ThisInvoke");
   }
 
   @override
@@ -2005,7 +2020,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    ir.Arguments argumentsNode = generateArguments(arguments);
+    ir.Arguments argumentsNode = buildArguments(arguments);
     return new ir.MethodInvocation(
         new ir.ThisExpression(), kernel.nameToIrName(selector.memberName),
         argumentsNode);
@@ -2019,7 +2034,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
-    return handleUnsupported(node, "ThisPropertySetIfNull");
+    return buildUnsupported(node, "ThisPropertySetIfNull");
   }
 
   @override
@@ -2029,7 +2044,7 @@ class KernelVisitor extends Object
       FieldElement field,
       ConstantExpression constant,
       _) {
-    return handleUnsupported(node, "TopLevelConstantDeclaration");
+    return buildUnsupported(node, "TopLevelConstantDeclaration");
   }
 
   @override
@@ -2039,13 +2054,13 @@ class KernelVisitor extends Object
       FieldElement field,
       Node initializer,
       _) {
-    return handleUnsupported(node, "TopLevelFieldDeclaration");
+    return buildUnsupported(node, "TopLevelFieldDeclaration");
   }
 
   @override
   ir.Throw visitTopLevelFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
-    return handleUnsupported(node, "TopLevelFieldSetIfNull");
+    return buildUnsupported(node, "TopLevelFieldSetIfNull");
   }
 
   @override
@@ -2055,10 +2070,10 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return generateFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, parameters, body);
   }
 
-  ir.Arguments generateArguments(NodeList arguments) {
+  ir.Arguments buildArguments(NodeList arguments) {
     List<ir.Expression> positional = <ir.Expression>[];
     List<ir.NamedExpression> named = <ir.NamedExpression>[];
     for (Expression expression in arguments.nodes) {
@@ -2078,7 +2093,7 @@ class KernelVisitor extends Object
       MethodElement getter,
       Node body,
       _) {
-    return handleUnsupported(node, "TopLevelGetterDeclaration");
+    return buildUnsupported(node, "TopLevelGetterDeclaration");
   }
 
   @override
@@ -2088,7 +2103,7 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TopLevelGetterSetterSetIfNull");
+    return buildUnsupported(node, "TopLevelGetterSetterSetIfNull");
   }
 
   @override
@@ -2097,7 +2112,7 @@ class KernelVisitor extends Object
       FunctionElement method,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TopLevelMethodSetIfNull");
+    return buildUnsupported(node, "TopLevelMethodSetIfNull");
   }
 
   @override
@@ -2107,7 +2122,7 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TopLevelMethodSetterSetIfNull");
+    return buildUnsupported(node, "TopLevelMethodSetterSetIfNull");
   }
 
   @override
@@ -2117,7 +2132,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return handleUnsupported(node, "TopLevelSetterDeclaration");
+    return buildUnsupported(node, "TopLevelSetterDeclaration");
   }
 
   @override
@@ -2125,7 +2140,7 @@ class KernelVisitor extends Object
       Send node,
       TypeVariableElement element,
       _) {
-    return handleUnsupported(node, "TypeVariableTypeLiteralGet");
+    return buildUnsupported(node, "TypeVariableTypeLiteralGet");
   }
 
   @override
@@ -2135,7 +2150,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "TypeVariableTypeLiteralInvoke");
+    return buildUnsupported(node, "TypeVariableTypeLiteralInvoke");
   }
 
   @override
@@ -2144,7 +2159,7 @@ class KernelVisitor extends Object
       TypeVariableElement element,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TypeVariableTypeLiteralSet");
+    return buildUnsupported(node, "TypeVariableTypeLiteralSet");
   }
 
   @override
@@ -2153,13 +2168,13 @@ class KernelVisitor extends Object
       TypeVariableElement element,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TypeVariableTypeLiteralSetIfNull");
+    return buildUnsupported(node, "TypeVariableTypeLiteralSetIfNull");
   }
 
   @override
   ir.Throw visitTypedefTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
-    return handleUnsupported(node, "TypedefTypeLiteralGet");
+    return buildUnsupported(node, "TypedefTypeLiteralGet");
   }
 
   @override
@@ -2169,7 +2184,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnsupported(node, "TypedefTypeLiteralInvoke");
+    return buildUnsupported(node, "TypedefTypeLiteralInvoke");
   }
 
   @override
@@ -2178,7 +2193,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TypedefTypeLiteralSet");
+    return buildUnsupported(node, "TypedefTypeLiteralSet");
   }
 
   @override
@@ -2187,7 +2202,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return handleUnsupported(node, "TypedefTypeLiteralSetIfNull");
+    return buildUnsupported(node, "TypedefTypeLiteralSetIfNull");
   }
 
   @override
@@ -2200,33 +2215,33 @@ class KernelVisitor extends Object
 
   @override
   ir.Throw visitConditionalUri(ConditionalUri node) {
-    return handleUnsupported(node, "ConditionalUri");
+    return buildUnsupported(node, "ConditionalUri");
   }
 
   @override
   ir.Throw visitDottedName(DottedName node) {
-    return handleUnsupported(node, "DottedName");
+    return buildUnsupported(node, "DottedName");
   }
 
   @override
   ir.Throw visitForIn(ForIn node) {
-    return handleUnsupported(node, "ForIn");
+    return buildUnsupported(node, "ForIn");
   }
 
   @override
   ir.Throw visitIndexSetIfNull(
       SendSet node, Node receiver, Node index, Node rhs, _) {
-    return handleUnsupported(node, "IndexSetIfNull");
+    return buildUnsupported(node, "IndexSetIfNull");
   }
 
   @override
   ir.Throw visitSuperIndexSetIfNull(
       SendSet node, MethodElement getter, MethodElement setter, Node index,
       Node rhs, _) {
-    return handleUnsupported(node, "SuperIndexSetIfNull");
+    return buildUnsupported(node, "SuperIndexSetIfNull");
   }
 
-  ir.Throw handleUnsupported(Node node, String name) {
+  ir.Throw buildUnsupported(Node node, String name) {
     // TODO(ahe): Do this:
     // throw new Unsupported("Kernel IR not yet implemented for '$name'.");
     if (const bool.fromEnvironment("verbose")) {
@@ -2236,8 +2251,9 @@ class KernelVisitor extends Object
         new ir.StringLiteral("Kernel IR not yet implemented for '$name'."));
   }
 
-  ir.ExpressionStatement handleUnsupportedStatement(
-      Statement node, String name) {
-    return new ir.ExpressionStatement(handleUnsupported(node, name));
+  ir.ExpressionStatement buildUnsupportedStatement(
+      Statement node,
+      String name) {
+    return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
 }
