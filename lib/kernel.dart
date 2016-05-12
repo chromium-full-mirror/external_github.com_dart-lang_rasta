@@ -188,7 +188,8 @@ class Kernel {
         setParent(procedure, function);
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
-        ir.FunctionNode functionNode = function.node.accept(visitor);
+        ir.FunctionNode functionNode = compiler.reporter.withCurrentElement(
+            function, () => function.node.accept(visitor));
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
         functionNode.parent = procedure;
         procedure.function = functionNode;

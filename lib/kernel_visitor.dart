@@ -197,6 +197,9 @@ class KernelVisitor extends Object
   final Map<LocalElement, ir.VariableDeclaration> locals =
       <LocalElement, ir.VariableDeclaration>{};
 
+  final Map<CascadeReceiver, ir.VariableGet> cascadeReceivers =
+      <CascadeReceiver, ir.VariableGet>{};
+
   KernelVisitor(this.function, this.elements, this.kernel);
 
   KernelVisitor get sendVisitor => this;
@@ -304,13 +307,71 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitCascade(Cascade node) {
-    return buildUnsupported(node, "Cascade");
+  ir.Let visitCascade(Cascade node) {
+    // Given this cascade expression `receiver..cascade1()..cascade2()`, the
+    // parser has produced a tree like this:
+    //     Cascade(Send(
+    //         CascadeReceiver(Cascade(Send(
+    //             CascadeRecevier(receiver), 'cascade1', []))),
+    //         'cascade2', []))
+    // If viewed as a tree, `CascadeReceiver(receiver)` is the left-most leaf
+    // node.  Below, we create this:
+    //     cascades = [
+    //         Cascade(Send(CascadeReceiver(...), 'cascade2', [])),
+    //         Cascade(Send(CascadeReceiver(...), 'cascade1', []))]
+    // Notice that the cascades are in reverse order, which we use to build a
+    // `let` expression bottom up.
+    // First iteration of the loop produces:
+    //     let dummy = rcv.cascade2() in
+    //         rcv
+    // Second iteration:
+    //     let dummy = rcv.cascade1() in
+    //         let dummy = rcv.cascade2() in
+    //             rcv
+    // Finally we return:
+    //     let rcv = receiver in
+    //         let dummy = rcv.cascade1() in
+    //             let dummy = rcv.cascade2() in
+    //                 rcv
+    int startLength;
+    assert((startLength = cascadeReceivers.length) >= 0);
+
+    Cascade cascade = node;
+    List<Cascade> cascades = <Cascade>[];
+    CascadeReceiver receiver;
+    ir.VariableDeclaration receiverVariable =
+        new ir.VariableDeclaration.forValue(null);
+
+    do {
+      cascades.add(cascade);
+      receiver = cascade.expression.asSend().receiver;
+      cascadeReceivers[receiver] = new ir.VariableGet(receiverVariable);
+      cascade = receiver.expression.asCascade();
+    } while (cascade != null);
+    // At this point, all nested [Cascades] targeting the same receiver have
+    // been collected in [cascades] in reverse order. [receiver] is the
+    // left-most receiver. [receiverVariable] will hold the value of evaluating
+    // [receiver]. Each [CascadeReceiver] has a getter for [receiverVariable]
+    // in [cascadeReceivers].
+
+    receiverVariable.initializer = receiver.expression.accept(this);
+    receiverVariable.initializer.parent = receiverVariable;
+
+    ir.Expression result = new ir.VariableGet(receiverVariable); // rcv.
+    for (Cascade cascade in cascades) {
+      // When evaluating `cascade.expression`, we stop the recursion at
+      // [visitCascadeReceiver] and instead returns an [ir.VariableGet].
+      ir.Expression value = cascade.expression.accept(this);
+      result = new ir.Let(new ir.VariableDeclaration.forValue(value), result);
+    }
+
+    assert(startLength == cascadeReceivers.length);
+    return new ir.Let(receiverVariable, result);
   }
 
   @override
-  ir.Throw visitCascadeReceiver(CascadeReceiver node) {
-    return buildUnsupported(node, "CascadeReceiver");
+  ir.VariableGet visitCascadeReceiver(CascadeReceiver node) {
+    return cascadeReceivers.remove(node);
   }
 
   @override
