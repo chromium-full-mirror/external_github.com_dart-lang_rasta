@@ -724,8 +724,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ExpressionStatement visitYield(Yield node) {
-    return buildUnsupportedStatement(node, "Yield");
+  ir.YieldStatement visitYield(Yield node) {
+    return new ir.YieldStatement(
+        node.expression.accept(this), isYieldStar: node.hasStar);
   }
 
   @override
