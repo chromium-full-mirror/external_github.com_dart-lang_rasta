@@ -53,7 +53,7 @@
     "dart:convert": [
       "third_party/dart-sdk/runtime/lib/convert_patch.dart"
     ],
-    "dart:internal": [
+    "dart:_internal": [
       "third_party/dart-sdk/runtime/lib/internal_patch.dart",
       "third_party/dart-sdk/runtime/lib/print_patch.dart",
       "third_party/dart-sdk/runtime/lib/symbol_patch.dart"
