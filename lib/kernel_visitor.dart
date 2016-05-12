@@ -380,8 +380,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitCatchBlock(CatchBlock node) {
-    return buildUnsupported(node, "CatchBlock");
+  ir.Catch visitCatchBlock(CatchBlock node) {
+    ir.VariableDeclaration exception =
+        (node.exception == null) ? null : getLocal(elements[node.exception]);
+    ir.VariableDeclaration trace =
+        (node.trace == null) ? null : getLocal(elements[node.trace]);
+
+    return new ir.Catch(
+        // TODO(ahe): Include the type.
+        exception, buildStatementInBlock(node.block), stackTrace: trace);
   }
 
   @override
@@ -664,8 +671,20 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ExpressionStatement visitTryStatement(TryStatement node) {
-    return buildUnsupportedStatement(node, "TryStatement");
+  ir.Statement visitTryStatement(TryStatement node) {
+    ir.Statement result = buildStatementInBlock(node.tryBlock);
+    if (node.catchBlocks != null) {
+      List<ir.Catch> catchBlocks = <ir.Catch>[];
+      for (CatchBlock block in node.catchBlocks.nodes) {
+        catchBlocks.add(block.accept(this));
+      }
+      result = new ir.TryCatch(result, catchBlocks);
+    }
+    if (node.finallyBlock != null) {
+      result =
+          new ir.TryFinally(result, buildStatementInBlock(node.finallyBlock));
+    }
+    return result;
   }
 
   @override
