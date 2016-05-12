@@ -758,8 +758,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitAs(Send node, Node expression, DartType type, _) {
-    return buildUnsupported(node, "As");
+  ir.AsExpression visitAs(Send node, Node expression, DartType type, _) {
+    return new ir.AsExpression(expression.accept(this), kernel.typeToIr(type));
   }
 
   @override
