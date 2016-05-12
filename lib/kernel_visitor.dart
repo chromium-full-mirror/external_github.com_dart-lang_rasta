@@ -741,20 +741,20 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitAbstractGetterDeclaration(
+  ir.FunctionNode visitAbstractGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       _) {
-    return buildUnsupported(node, "AbstractGetterDeclaration");
+    return buildFunctionNode(node, getter, null);
   }
 
   @override
-  ir.Throw visitAbstractSetterDeclaration(
+  ir.FunctionNode visitAbstractSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       _) {
-    return buildUnsupported(node, "AbstractSetterDeclaration");
+    return buildFunctionNode(node, setter, null);
   }
 
   @override
@@ -819,8 +819,7 @@ class KernelVisitor extends Object
     FunctionElement oldFunction = function;
     function = closure;
     try {
-      return new ir.FunctionExpression(
-          buildFunctionNode(node, closure, parameters, body));
+      return new ir.FunctionExpression(buildFunctionNode(node, closure, body));
     } finally {
       function = oldFunction;
     }
@@ -1207,22 +1206,22 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitInstanceGetterDeclaration(
+  ir.FunctionNode visitInstanceGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildUnsupported(node, "InstanceGetterDeclaration");
+    return buildFunctionNode(node, getter, body);
   }
 
   @override
-  ir.Throw visitInstanceSetterDeclaration(
+  ir.FunctionNode visitInstanceSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildUnsupported(node, "InstanceSetterDeclaration");
+    return buildFunctionNode(node, setter, body);
   }
 
   @override
@@ -1282,7 +1281,7 @@ class KernelVisitor extends Object
     try {
       ir.VariableDeclaration local = getLocal(localFunction);
       ir.FunctionExpression expression = new ir.FunctionExpression(
-          buildFunctionNode(node, localFunction, parameters, body));
+          buildFunctionNode(node, localFunction, body));
       local.initializer = expression;
       expression.parent = local;
       return local;
@@ -1569,7 +1568,6 @@ class KernelVisitor extends Object
   ir.FunctionNode buildFunctionNode(
       FunctionExpression node,
       FunctionElement function,
-      NodeList parameters,
       Node bodyNode) {
     ir.Statement body = buildStatementInBlock(bodyNode);
     FunctionSignature signature = function.functionSignature;
@@ -1605,7 +1603,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, body);
   }
 
   @override
@@ -1615,7 +1613,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, body);
   }
 
   @override
@@ -1624,7 +1622,7 @@ class KernelVisitor extends Object
       MethodElement method,
       NodeList parameters,
       _) {
-    return buildFunctionNode(node, function, parameters, null);
+    return buildFunctionNode(node, function, null);
   }
 
   @override
@@ -1661,17 +1659,21 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStaticGetterDeclaration(
+  ir.FunctionNode visitStaticGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildUnsupported(node, "StaticGetterDeclaration");
+    return buildFunctionNode(node, getter, body);
   }
 
   @override
-  ir.Throw handleStaticGetterGet(Send node, FunctionElement getter, _) {
-    return buildUnsupported(node, "StaticGetterGet");
+  ir.StaticInvocation handleStaticGetterGet(
+      Send node,
+      FunctionElement getter,
+      _) {
+    return new ir.StaticInvocation(
+        kernel.functionToIr(getter), new ir.Arguments.empty());
   }
 
   @override
@@ -1720,13 +1722,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStaticSetterDeclaration(
+  ir.FunctionNode visitStaticSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildUnsupported(node, "StaticSetterDeclaration");
+    return buildFunctionNode(node, setter, body);
   }
 
   @override
@@ -2143,7 +2145,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, parameters, body);
+    return buildFunctionNode(node, function, body);
   }
 
   ir.Arguments buildArguments(NodeList arguments) {

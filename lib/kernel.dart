@@ -103,7 +103,7 @@ class Kernel {
         library.forEachLocalMember((Element e) {
           if (e.isClass) {
             libraryNode.addClass(classToIr(e));
-          } else if (e.isFunction) {
+          } else if (e.isFunction || e.isAccessor) {
             libraryNode.addMember(functionToIr(e));
           } else if (e.isField) {
             libraryNode.addMember(fieldToIr(e));
@@ -134,7 +134,7 @@ class Kernel {
             // mixin.
             assert(cls.isMixinApplication);
             return;
-          } else if (member.isFunction) {
+          } else if (member.isFunction || member.isAccessor) {
             classNode.addMember(functionToIr(member));
           } else if (member.isField) {
             classNode.addMember(fieldToIr(member));
@@ -174,7 +174,7 @@ class Kernel {
 
   ir.Procedure functionToIr(FunctionElement function) {
     if (function.isLocal) {
-      compiler.reporter.internalError(local, "Local function.");
+      compiler.reporter.internalError(function, "Local function.");
     }
     function = function.declaration;
     return functions.putIfAbsent(function, () {
