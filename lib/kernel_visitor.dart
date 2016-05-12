@@ -1533,19 +1533,27 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "StaticFieldDeclaration");
   }
 
-  @override
-  ir.StaticGet handleStaticFieldGet(Send node, FieldElement field, _) {
-    return new ir.StaticGet(kernel.fieldToIr(field));
+  ir.StaticGet buildStaticGet(Element element) {
+    return new ir.StaticGet(kernel.elementToIr(element));
   }
 
   @override
-  ir.Throw handleStaticFieldInvoke(
+  ir.StaticGet handleStaticFieldGet(Send node, FieldElement field, _) {
+    return buildStaticGet(field);
+  }
+
+  @override
+  ir.MethodInvocation handleStaticFieldInvoke(
       Send node,
       FieldElement field,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "StaticFieldInvoke");
+    ir.Arguments argumentsNode = buildArguments(arguments);
+    return new ir.MethodInvocation(
+        buildStaticGet(field),
+        kernel.nameToIrName(callStructure.callSelector.memberName),
+        argumentsNode);
   }
 
   @override
@@ -1627,7 +1635,7 @@ class KernelVisitor extends Object
 
   @override
   ir.StaticGet handleStaticFunctionGet(Send node, MethodElement function, _) {
-    return new ir.StaticGet(kernel.functionToIr(function));
+    return buildStaticGet(function);
   }
 
   @override

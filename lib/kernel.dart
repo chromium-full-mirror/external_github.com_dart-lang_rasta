@@ -77,6 +77,7 @@ class Kernel {
     libraries.values.forEach(CheckParentPointers.check);
     classes.forEach(checkMember);
     functions.forEach(checkMember);
+    fields.forEach(checkMember);
   }
 
   ir.Name irName(String name, Element element) {
@@ -96,11 +97,12 @@ class Kernel {
   }
 
   ir.Library libraryToIr(LibraryElement library) {
+    library = library.declaration;
     return libraries.putIfAbsent(library, () {
       String name = library.hasLibraryName ? library.name : null;
       ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
       addWork(() {
-        library.forEachLocalMember((Element e) {
+        library.implementation.forEachLocalMember((Element e) {
           if (e.isClass) {
             libraryNode.addClass(classToIr(e));
           } else if (e.isFunction || e.isAccessor) {
