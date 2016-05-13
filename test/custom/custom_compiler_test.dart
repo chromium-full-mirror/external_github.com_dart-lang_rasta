@@ -24,12 +24,16 @@ import 'package:rasta/custom_compiler.dart' show
 import 'target_specification_test.dart' show
     targetSpecificationUri;
 
+const bool isVerbose =
+    const bool.fromEnvironment("verbose", defaultValue: false);
+
 Future<Null> main() async {
   Stopwatch sw = new Stopwatch()..start();
+  List<String> options = isVerbose ? <String>[] : <String>['--verbose'];
   CompilerFactory factory = new IoCompilerFactory(
-      targetSpecificationUri, <String>[], <String, dynamic>{});
+      targetSpecificationUri, options, <String, dynamic>{});
   (await factory.diagnostics)
-      ..showWarnings = false
+      ..showWarnings = isVerbose
       ..throwOnError = true;
   CustomCompiler compiler = await factory.compiler;
 
