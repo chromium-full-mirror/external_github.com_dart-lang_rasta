@@ -37,7 +37,6 @@ import 'package:compiler/src/scanner/scanner.dart' show
     Scanner;
 
 import 'package:compiler/src/parser/listener.dart' show
-    Listener,
     ParserError;
 
 import 'package:compiler/src/patch_parser.dart' show
@@ -49,20 +48,16 @@ import 'package:compiler/src/patch_parser.dart' show
 import 'package:compiler/src/io/source_file.dart' show
     StringSourceFile;
 
+import 'package:compiler/src/tree/nodes.dart' show
+    LibraryTag;
+
 import 'custom_compiler.dart' show
     CustomCompiler;
 
 import 'package:compiler/src/options.dart' show
     ParserOptions;
 
-const String implicitPatchImportSource = """
-import 'dart:_patch' show
-    patch;
-""";
-
 class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
-  Token implicitPatchImport;
-
   CustomPatchParserTask(CustomCompiler compiler)
       : super(compiler);
 
@@ -104,19 +99,16 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
       LibraryLoader loader) async {
     Uri uri = library.canonicalUri;
     CustomCompiler compiler = this.compiler;
-    List<Uri> patches = compiler.target.patches[uri];
-    return patches == null ? null : patchLibraryMulti(loader, patches, library);
-  }
-
-  Future<Null> patchLibraryMulti(LibraryLoader loader, List<Uri> patches,
-      LibraryElement originLibrary) async {
-    for (Uri patchUri in patches) {
-      await loadPatchLibrary(patchUri, originLibrary, loader);
+    Uri patch = compiler.target.patches[uri];
+    if (patch != null) {
+      await loadPatchLibrary(patch, library, loader);
     }
   }
 
   Future<LibraryElementX> loadPatchLibrary(
-      Uri patchUri, LibraryElement originLibrary, LibraryLoader loader) async {
+      Uri patchUri,
+      LibraryElement originLibrary,
+      LibraryLoader loader) async {
     Script script = await compiler.readScript(patchUri, originLibrary);
     LibraryElementX patchLibrary = new LibraryElementX(script, null);
     {
@@ -126,46 +118,34 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
       patchLibrary.origin = originLibrary;
     }
     loader.registerNewLibrary(patchLibrary);
-    Token tokens = compiler.scanner.measureElement(patchLibrary.compilationUnit,
-        () => new Scanner(script.file).tokenize());
-    Listener patchListener = new PatchElementListener(
-        compiler, patchLibrary.compilationUnit, compiler);
-    try {
-      new PartialPatchParser(patchListener, compiler.options).parseUnit(tokens);
-    } on ParserError catch (e) {
-      // No need to recover from a parser error in platform libraries, user
-      // will never see this if the libraries are tested correctly.
-      compiler.reporter.internalError(
-          originLibrary.compilationUnit, "Parser error in patch file: $e");
-    }
-    addSyntheticPatchImport(patchLibrary);
-
-    await loader.processLibraryTags(patchLibrary);
-
-    patchLibrary.compilationUnit.forEachLocalMember((Element e) {
-      // TODO(ahe): Inject or patch [e] into [originLibrary].
-    });
-
+    scanUnit(patchLibrary.compilationUnit, isPart: false);
+    await loader.processLibraryTags(patchLibrary, isPatchLibrary: true);
     return patchLibrary;
   }
 
-  void addSyntheticPatchImport(LibraryElement library) {
-    if (implicitPatchImport == null) {
-      StringSourceFile source = new StringSourceFile.fromName(
-          "implicit_patch_import", implicitPatchImportSource);
-      implicitPatchImport =
-          compiler.scanner.measure(() => new Scanner(source).tokenize());
-    }
-    Listener importListener =
-        new ImportListener(compiler, library.compilationUnit);
-    new PartialPatchParser(importListener, compiler.options).parseImport(
-        implicitPatchImport);
+  void scanUnit(CompilationUnitElement unit, {bool isPart: true}) {
+    Token tokens = compiler.scanner.tokenizeUnit(unit);
+    return measureElement(unit, () {
+      PatchElementListener patchListener = isPart
+          ? new PatchPartListener(compiler, unit)
+          : new PatchElementListener(compiler, unit, compiler);
+      try {
+        new PartialPatchParser(patchListener, compiler.options)
+            .parseUnit(tokens);
+      } on ParserError catch (e) {
+        // No need to recover from a parser error in platform libraries, user
+        // will never see this if the libraries are tested correctly.
+        compiler.reporter.internalError(unit, "Parser error in patch file: $e");
+      }
+    });
   }
 }
 
-class ImportListener extends PatchElementListener {
-  ImportListener(CustomCompiler compiler, CompilationUnitElement unit)
+class PatchPartListener extends PatchElementListener {
+  PatchPartListener(CustomCompiler compiler, CompilationUnitElement unit)
       : super(compiler, unit, compiler);
 
-  bool allowLibraryTags() => true;
+  void addLibraryTag(LibraryTag tag) {
+    // TODO(ahe): Check that a similar tag is already included in unit.library.
+  }
 }

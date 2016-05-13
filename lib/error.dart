@@ -31,10 +31,12 @@ import "package:compiler/src/tree/tree.dart" show
 import "package:compiler/src/universe/selector.dart" show
     Selector;
 
-abstract class RastaError {
-  void handleError(Node node);
+import 'package:kernel/ast.dart' as ir;
 
-  void errorInvalidBinary(
+abstract class RastaError {
+  ir.Throw handleError(Node node);
+
+  ir.Throw errorInvalidBinary(
       Send node,
       ErroneousElement error,
       BinaryOperator operator,
@@ -43,7 +45,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidCompound(
+  ir.Throw errorInvalidCompound(
       Send node,
       ErroneousElement error,
       AssignmentOperator operator,
@@ -52,7 +54,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidCompoundIndexSet(
+  ir.Throw errorInvalidCompoundIndexSet(
       Send node,
       ErroneousElement error,
       Node index,
@@ -62,7 +64,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidEquals(
+  ir.Throw errorInvalidEquals(
       Send node,
       ErroneousElement error,
       Node right,
@@ -70,31 +72,22 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidGet(
+  ir.Throw errorInvalidGet(
       Send node,
       ErroneousElement error,
       _) {
     return handleError(node);
   }
 
-  void errorInvalidIndex(
-      Send node,
-      ErroneousElement error,
-      Node index,
-      _) {
-    return handleError(node);
-  }
-
-  void errorInvalidIndexPostfix(
+  ir.Throw errorInvalidIndex(
       Send node,
       ErroneousElement error,
       Node index,
-      IncDecOperator operator,
       _) {
     return handleError(node);
   }
 
-  void errorInvalidIndexPrefix(
+  ir.Throw errorInvalidIndexPostfix(
       Send node,
       ErroneousElement error,
       Node index,
@@ -103,7 +96,16 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidIndexSet(
+  ir.Throw errorInvalidIndexPrefix(
+      Send node,
+      ErroneousElement error,
+      Node index,
+      IncDecOperator operator,
+      _) {
+    return handleError(node);
+  }
+
+  ir.Throw errorInvalidIndexSet(
       Send node,
       ErroneousElement error,
       Node index,
@@ -112,7 +114,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidInvoke(
+  ir.Throw errorInvalidInvoke(
       Send node,
       ErroneousElement error,
       NodeList arguments,
@@ -121,7 +123,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidNotEquals(
+  ir.Throw errorInvalidNotEquals(
       Send node,
       ErroneousElement error,
       Node right,
@@ -129,7 +131,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidPostfix(
+  ir.Throw errorInvalidPostfix(
       Send node,
       ErroneousElement error,
       IncDecOperator operator,
@@ -137,7 +139,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidPrefix(
+  ir.Throw errorInvalidPrefix(
       Send node,
       ErroneousElement error,
       IncDecOperator operator,
@@ -145,7 +147,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidSet(
+  ir.Throw errorInvalidSet(
       Send node,
       ErroneousElement error,
       Node rhs,
@@ -153,7 +155,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidSetIfNull(
+  ir.Throw errorInvalidSetIfNull(
       Send node,
       ErroneousElement error,
       Node rhs,
@@ -161,7 +163,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidUnary(
+  ir.Throw errorInvalidUnary(
       Send node,
       UnaryOperator operator,
       ErroneousElement error,
@@ -169,7 +171,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorNonConstantConstructorInvoke(
+  ir.Throw errorNonConstantConstructorInvoke(
       NewExpression node,
       Element element,
       DartType type,
@@ -179,7 +181,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorUndefinedBinaryExpression(
+  ir.Throw errorUndefinedBinaryExpression(
       Send node,
       Node left,
       Operator operator,
@@ -188,7 +190,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorUndefinedUnaryExpression(
+  ir.Throw errorUndefinedUnaryExpression(
       Send node,
       Operator operator,
       Node expression,
@@ -196,7 +198,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorUnresolvedFieldInitializer(
+  ir.Throw errorUnresolvedFieldInitializer(
       SendSet node,
       Element element,
       Node initializer,
@@ -204,7 +206,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorUnresolvedSuperConstructorInvoke(
+  ir.Throw errorUnresolvedSuperConstructorInvoke(
       Send node,
       Element element,
       NodeList arguments,
@@ -213,7 +215,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorUnresolvedThisConstructorInvoke(
+  ir.Throw errorUnresolvedThisConstructorInvoke(
       Send node,
       Element element,
       NodeList arguments,
@@ -222,7 +224,7 @@ abstract class RastaError {
     return handleError(node);
   }
 
-  void errorInvalidIndexSetIfNull(
+  ir.Throw errorInvalidIndexSetIfNull(
       SendSet node, ErroneousElement error, Node index, Node rhs, _) {
     return handleError(node);
   }

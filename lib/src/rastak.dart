@@ -28,6 +28,12 @@ main(List<String> arguments, isolateArgument) async {
   IoCompilerFactory factory = new IoCompilerFactory(
       Uri.base.resolve("dart_vm_standalone.json"), <String>['--verbose'],
       <String, dynamic>{});
+
+  (await factory.diagnostics)
+      ..showWarnings = true
+      ..throwOnError = true
+      ..throwOnErrorCount = 1;
+
   CustomCompiler compiler = await factory.compiler;
   await compiler.setupSdk();
 

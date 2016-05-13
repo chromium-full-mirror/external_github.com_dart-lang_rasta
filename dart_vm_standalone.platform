@@ -52,4 +52,4 @@ _js_primitives: unsupported:
 _js_embedded_names: unsupported:
 _async_await_error_codes: unsupported:
 _metadata: unsupported:
-_patch: _patch.dart
+_patch: dart_vm_standalone/_patch.dart

@@ -27,8 +27,8 @@ class TargetSpecification {
   /// The location of the platform configuration.
   final Uri platformConfig;
 
-  /// Maps each library to a list of patches.
-  final Map<Uri, List<Uri>> patches;
+  /// Maps each library to a patch file.
+  final Map<Uri, Uri> patches;
 
   TargetSpecification({Uri source, Uri libraryRoot, Uri packageConfig,
       Uri platformConfig, this.patches})
@@ -55,29 +55,27 @@ class TargetSpecification {
     Uri libraryRoot = decodeUri("library-root", json, source);
     Uri packageConfig = decodeUri("packages", json, source);
     Uri platformConfig = decodeUri("platform", json, source);
-    Map<Uri, List<Uri>> patches = decodePatches("patches", json, source);
+    Map<Uri, Uri> patches = decodePatches("patches", json, source);
     return new TargetSpecification(
         source: source, libraryRoot: libraryRoot, packageConfig: packageConfig,
         platformConfig: platformConfig, patches: patches);
   }
 }
 
-Map<Uri, List<Uri>> decodePatches(
+Map<Uri, Uri> decodePatches(
     String name, Map<String, dynamic> json, Uri base) {
-  Map<String, dynamic> patches = json[name];
+  Map<String, String> patches = json[name];
   if (patches == null) {
     throw new StateError("'$name' not defined in $base");
   }
-  Map<Uri, List<Uri>> result = <Uri, List<Uri>>{};
-  patches.forEach((String libraryName, List patchNames) {
+  Map<Uri, Uri> result = <Uri, Uri>{};
+  patches.forEach((String libraryName, String patchName) {
     Uri uri = base.resolve(libraryName);
-    List<Uri> uris = result[uri];
-    if (uris != null) {
+    if (result[uri] != null) {
       throw new StateError(
           "$base: '$name' has multitple entries for '$libraryName'");
     }
-    uris = new List<Uri>.from(patchNames.map(base.resolve));
-    result[uri] = uris;
+    result[uri] = base.resolve(patchName);
   });
   return result;
 }

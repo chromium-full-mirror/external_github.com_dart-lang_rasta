@@ -212,8 +212,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  void handleError(Node node) {
-    throw new Unsupported("Error node: $node");
+  ir.Throw handleError(Node node) {
+    return buildUnsupported(node, "handleError");
   }
 
   @override
