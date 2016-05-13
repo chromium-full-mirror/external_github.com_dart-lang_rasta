@@ -3,15 +3,17 @@
   "packages": ".packages",
   "platform": "dart_vm_standalone.platform",
   "patches": {
-    "dart:core": "dart_vm_standalone/core_patch.dart",
-    "dart:io": "dart_vm_standalone/io_patch.dart",
+    "dart:_internal": "dart_vm_standalone/_internal_patch.dart",
     "dart:async": "dart_vm_standalone/async_patch.dart",
     "dart:collection": "dart_vm_standalone/collection_patch.dart",
     "dart:convert": "dart_vm_standalone/convert_patch.dart",
-    "dart:_internal": "dart_vm_standalone/_internal_patch.dart",
+    "dart:core": "dart_vm_standalone/core_patch.dart",
+    "dart:developer": "dart_vm_standalone/developer_patch.dart",
+    "dart:io": "dart_vm_standalone/io_patch.dart",
     "dart:isolate": "dart_vm_standalone/isolate_patch.dart",
     "dart:math": "dart_vm_standalone/math_patch.dart",
     "dart:mirrors": "dart_vm_standalone/mirrors_patch.dart",
+    "dart:typed_data": "dart_vm_standalone/typed_data_patch.dart",
     "dart:vmservice": "dart_vm_standalone/vmservice_patch.dart"
   }
 }

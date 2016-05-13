@@ -27,7 +27,10 @@ import 'target_specification_test.dart' show
 Future<Null> main() async {
   Stopwatch sw = new Stopwatch()..start();
   CompilerFactory factory = new IoCompilerFactory(
-      targetSpecificationUri, <String>['--verbose'], <String, dynamic>{});
+      targetSpecificationUri, <String>[], <String, dynamic>{});
+  (await factory.diagnostics)
+      ..showWarnings = false
+      ..throwOnError = true;
   CustomCompiler compiler = await factory.compiler;
 
   Uri entryPoint = Uri.base.resolve(

@@ -77,8 +77,7 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
     // Parse [PartialClassElement] using a "patch"-aware parser instead
     // of calling its [parseNode] method.
     if (cls.cachedNode != null) return;
-
-    measure(() => reporter.withCurrentElement(cls, () {
+    measureElement(cls, () {
       PatchMemberListener listener = new PatchMemberListener(compiler, cls);
       PatchClassElementParser parser =
       new PatchClassElementParser(listener, parserOptions);
@@ -92,7 +91,7 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
       }
       cls.cachedNode = listener.popNode();
       assert(listener.nodes.isEmpty);
-    }));
+    });
   }
 
   Future<Null> onLibraryScanned(LibraryElement library,

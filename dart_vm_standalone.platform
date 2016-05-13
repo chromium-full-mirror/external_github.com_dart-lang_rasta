@@ -24,10 +24,7 @@ isolate: third_party/dart-sdk/sdk/lib/isolate/isolate.dart
 math: third_party/dart-sdk/sdk/lib/math/math.dart
 mirrors: third_party/dart-sdk/sdk/lib/mirrors/mirrors.dart
 
-# Imported by third_party/dart-sdk/runtime/bin/eventhandler_patch.dart,
-# investigate if this file should be moved to a location that doesn't have
-# "html" in it's name.
-nativewrappers: third_party/dart-sdk/sdk/lib/html/dartium/nativewrappers.dart
+nativewrappers: dart_vm_standalone/nativewrappers.dart
 
 typed_data: third_party/dart-sdk/sdk/lib/typed_data/typed_data.dart
 _native_typed_data: unsupported:

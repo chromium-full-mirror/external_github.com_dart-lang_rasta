@@ -7,6 +7,9 @@ library dart.io_patch;
 import 'dart:_patch' show
     patch;
 
+import 'dart:nativewrappers' show
+    NativeFieldWrapperClass1;
+
 part '../third_party/dart-sdk/runtime/bin/common_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/directory_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/eventhandler_patch.dart';
