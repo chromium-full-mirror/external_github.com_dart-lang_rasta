@@ -1055,13 +1055,16 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitExpressionInvoke(
+  ir.MethodInvocation visitExpressionInvoke(
       Send node,
       Node expression,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ExpressionInvoke");
+    return new ir.MethodInvocation(
+        expression.accept(this),
+        kernel.nameToIrName(callStructure.callSelector.memberName),
+        buildArguments(arguments));
   }
 
   @override
