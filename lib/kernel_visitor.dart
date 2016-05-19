@@ -1946,9 +1946,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperEquals(
+  ir.StaticInvocation visitSuperEquals(
       Send node, FunctionElement function, Node argument, _) {
-    return buildUnsupported(node, "SuperEquals");
+    return new ir.StaticInvocation(
+        kernel.functionToIr(function),
+        new ir.Arguments(<ir.Expression>[argument.accept(this)]));
   }
 
   @override
