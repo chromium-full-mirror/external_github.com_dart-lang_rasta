@@ -1187,9 +1187,17 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "IfNotNullDynamicPropertySetIfNull");
   }
 
+  ir.LogicalExpression buildLogicalExpression(
+      Node left,
+      Operator operator,
+      Node right) {
+    return new ir.LogicalExpression(
+        left.accept(this), operator.source, right.accept(this));
+  }
+
   @override
-  ir.Throw visitIfNull(Send node, Node left, Node right, _) {
-    return buildUnsupported(node, "IfNull");
+  ir.LogicalExpression visitIfNull(Send node, Node left, Node right, _) {
+    return buildLogicalExpression(left, node.selector, right);
   }
 
   @override
@@ -1427,14 +1435,12 @@ class KernelVisitor extends Object
 
   @override
   ir.LogicalExpression visitLogicalAnd(Send node, Node left, Node right, _) {
-    return new ir.LogicalExpression(
-        left.accept(this), '&&', right.accept(this));
+    return buildLogicalExpression(left, node.selector, right);
   }
 
   @override
   ir.LogicalExpression visitLogicalOr(Send node, Node left, Node right, _) {
-    return new ir.LogicalExpression(
-        left.accept(this), '||', right.accept(this));
+    return buildLogicalExpression(left, node.selector, right);
   }
 
   @override
