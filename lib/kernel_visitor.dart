@@ -10,6 +10,7 @@ import 'package:kernel/accessors.dart' show
     Accessor,
     IndexAccessor,
     PropertyAccessor,
+    StaticAccessor,
     SuperIndexAccessor,
     SuperPropertyAccessor,
     VariableAccessor,
@@ -1994,7 +1995,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleStaticCompounds(
+  ir.Expression handleStaticCompounds(
       SendSet node,
       Element getter,
       CompoundGetter getterKind,
@@ -2002,7 +2003,10 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       CompoundRhs rhs,
       _) {
-    return buildUnsupported(node, "StaticCompounds ${rhs.kind}");
+    return buildCompound(
+        new StaticAccessor(
+            kernel.elementToIr(getter), kernel.elementToIr(setter)),
+        rhs);
   }
 
   @override
