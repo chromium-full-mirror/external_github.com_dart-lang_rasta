@@ -19,6 +19,15 @@ import 'package:compiler/src/compiler.dart' show
 import 'package:compiler/src/patch_parser.dart' show
     PatchParserTask;
 
+import 'package:compiler/src/diagnostics/messages.dart' show
+    MessageKind;
+
+import 'package:compiler/src/diagnostics/spannable.dart' show
+    Spannable;
+
+import 'package:compiler/src/mirrors_used.dart' show
+    MirrorUsageAnalyzerTask;
+
 import 'custom_compiler_options.dart' show
     CustomCompilerOptions;
 
@@ -31,11 +40,8 @@ import 'custom_backend.dart' show
 import 'custom_patch_parser.dart' show
     CustomPatchParserTask;
 
-import 'package:compiler/src/diagnostics/messages.dart' show
-    MessageKind;
-
-import 'package:compiler/src/diagnostics/spannable.dart' show
-    Spannable;
+import 'custom_mirror_usage_analyzer_task.dart' show
+    CustomMirrorUsageAnalyzerTask;
 
 class CustomCompiler extends CompilerImpl {
   final TargetSpecification target;
@@ -62,6 +68,10 @@ class CustomCompiler extends CompilerImpl {
     } else {
       return new CustomPatchParserTask(this);
     }
+  }
+
+  @override MirrorUsageAnalyzerTask createMirrorUsageAnalyzerTask() {
+    return new CustomMirrorUsageAnalyzerTask(this);
   }
 
   void developerMessage(Spannable spannable, [String text]) {

@@ -18,7 +18,6 @@ import 'package:compiler/src/library_loader.dart' show
 
 import 'package:compiler/src/elements/elements.dart' show
     CompilationUnitElement,
-    Element,
     LibraryElement;
 
 import 'package:compiler/src/parser/partial_elements.dart' show
@@ -33,9 +32,6 @@ import 'package:compiler/src/script.dart' show
 import 'package:compiler/src/tokens/token.dart' show
     Token;
 
-import 'package:compiler/src/scanner/scanner.dart' show
-    Scanner;
-
 import 'package:compiler/src/parser/listener.dart' show
     ParserError;
 
@@ -44,9 +40,6 @@ import 'package:compiler/src/patch_parser.dart' show
     PatchClassElementParser,
     PatchElementListener,
     PatchMemberListener;
-
-import 'package:compiler/src/io/source_file.dart' show
-    StringSourceFile;
 
 import 'package:compiler/src/tree/nodes.dart' show
     LibraryTag;
