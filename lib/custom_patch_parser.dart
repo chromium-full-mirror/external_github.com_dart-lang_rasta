@@ -95,6 +95,9 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
     if (patch != null) {
       await loadPatchLibrary(patch, library, loader);
     }
+    if (library.isPlatformLibrary && uri.path == "_patch") {
+      compiler.patchAnnotationClass = library.localLookup("Patch");
+    }
   }
 
   Future<LibraryElementX> loadPatchLibrary(

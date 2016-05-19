@@ -745,7 +745,7 @@ class KernelVisitor extends Object
       FunctionExpression node,
       MethodElement getter,
       _) {
-    return buildFunctionNode(node, getter, null);
+    return buildFunctionNode(getter, null);
   }
 
   @override
@@ -754,7 +754,7 @@ class KernelVisitor extends Object
       MethodElement setter,
       NodeList parameters,
       _) {
-    return buildFunctionNode(node, setter, null);
+    return buildFunctionNode(setter, null);
   }
 
   @override
@@ -819,7 +819,7 @@ class KernelVisitor extends Object
     FunctionElement oldFunction = function;
     function = closure;
     try {
-      return new ir.FunctionExpression(buildFunctionNode(node, closure, body));
+      return new ir.FunctionExpression(buildFunctionNode(closure, body));
     } finally {
       function = oldFunction;
     }
@@ -837,11 +837,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitConstConstructorInvoke(
+  ir.ConstructorInvocation visitConstConstructorInvoke(
       NewExpression node,
       ConstructedConstantExpression constant,
       _) {
-    return buildUnsupported(node, "ConstConstructorInvoke");
+    return buildGenerativeConstructorInvoke(
+        // TODO(ahe): Why do I have to get the effective target???
+        constant.target.effectiveTarget, node.send.argumentsNode)
+        ..isConst = true;
   }
 
   @override
@@ -860,14 +863,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitConstructorIncompatibleInvoke(
+  ir.InvalidExpression visitConstructorIncompatibleInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ConstructorIncompatibleInvoke");
+    return new ir.InvalidExpression();
   }
 
   @override
@@ -987,24 +990,24 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitFactoryConstructorDeclaration(
+  ir.FunctionNode visitFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       Node body,
       _) {
-    return buildUnsupported(node, "FactoryConstructorDeclaration");
+    return buildFunctionNode(constructor, body);
   }
 
   @override
-  ir.Throw visitFactoryConstructorInvoke(
+  ir.StaticInvocation visitFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "FactoryConstructorInvoke");
+    return buildStaticInvoke(constructor, arguments);
   }
 
   @override
@@ -1074,25 +1077,33 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitGenerativeConstructorDeclaration(
+  ir.FunctionNode visitGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       NodeList initializers,
       Node body,
       _) {
-    return buildUnsupported(node, "GenerativeConstructorDeclaration");
+    return buildFunctionNode(constructor, body);
+  }
+
+  ir.ConstructorInvocation buildGenerativeConstructorInvoke(
+      ConstructorElement constructor,
+      NodeList arguments) {
+    ir.Arguments argumentsNode = buildArguments(arguments);
+    ir.Constructor target = kernel.functionToIr(constructor);
+    return new ir.ConstructorInvocation(target, argumentsNode);
   }
 
   @override
-  ir.Throw visitGenerativeConstructorInvoke(
+  ir.ConstructorInvocation visitGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "GenerativeConstructorInvoke");
+    return buildGenerativeConstructorInvoke(constructor, arguments);
   }
 
   @override
@@ -1211,7 +1222,7 @@ class KernelVisitor extends Object
       MethodElement getter,
       Node body,
       _) {
-    return buildFunctionNode(node, getter, body);
+    return buildFunctionNode(getter, body);
   }
 
   @override
@@ -1221,7 +1232,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, setter, body);
+    return buildFunctionNode(setter, body);
   }
 
   @override
@@ -1280,8 +1291,8 @@ class KernelVisitor extends Object
     function = localFunction;
     try {
       ir.VariableDeclaration local = getLocal(localFunction);
-      ir.FunctionExpression expression = new ir.FunctionExpression(
-          buildFunctionNode(node, localFunction, body));
+      ir.FunctionExpression expression =
+          new ir.FunctionExpression(buildFunctionNode(localFunction, body));
       local.initializer = expression;
       expression.parent = local;
       return local;
@@ -1468,18 +1479,18 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitRedirectingFactoryConstructorDeclaration(
+  ir.FunctionNode visitRedirectingFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       InterfaceType redirectionType,
       ConstructorElement redirectionTarget,
       _) {
-    return buildUnsupported(node, "RedirectingFactoryConstructorDeclaration");
+    return buildFunctionNode(constructor, null);
   }
 
   @override
-  ir.Throw visitRedirectingFactoryConstructorInvoke(
+  ir.Expression visitRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -1488,29 +1499,32 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "RedirectingFactoryConstructorInvoke");
+    if (effectiveTarget.isGenerativeConstructor) {
+      return buildGenerativeConstructorInvoke(effectiveTarget, arguments);
+    } else {
+      return buildStaticInvoke(effectiveTarget, arguments);
+    }
   }
 
   @override
-  ir.Throw visitRedirectingGenerativeConstructorDeclaration(
+  ir.FunctionNode visitRedirectingGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       NodeList initializers,
       _) {
-    return buildUnsupported(
-        node, "RedirectingGenerativeConstructorDeclaration");
+    return buildFunctionNode(constructor, null);
   }
 
   @override
-  ir.Throw visitRedirectingGenerativeConstructorInvoke(
+  ir.ConstructorInvocation visitRedirectingGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "RedirectingGenerativeConstructorInvoke");
+    return buildGenerativeConstructorInvoke(constructor, arguments);
   }
 
   @override
@@ -1573,17 +1587,15 @@ class KernelVisitor extends Object
         local, () => new ir.VariableDeclaration(local.name));
   }
 
-  ir.FunctionNode buildFunctionNode(
-      FunctionExpression node,
-      FunctionElement function,
-      Node bodyNode) {
-    ir.Statement body = buildStatementInBlock(bodyNode);
+  ir.FunctionNode buildFunctionNode(FunctionElement function, Node bodyNode) {
+    ir.Statement body = (bodyNode == null)
+        ? null : buildStatementInBlock(bodyNode);
     FunctionSignature signature = function.functionSignature;
     List<ir.VariableDeclaration> positionalParameters =
         <ir.VariableDeclaration>[];
     List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
     int requiredParameterCount = signature.requiredParameterCount;
-    signature.forEachParameter((LocalParameterElement parameter) {
+    signature.forEachParameter((LocalElement parameter) {
       ir.VariableDeclaration variable = getLocal(parameter);
       if (parameter.isNamed) {
         namedParameters.add(variable);
@@ -1591,7 +1603,7 @@ class KernelVisitor extends Object
         positionalParameters.add(variable);
       }
     });
-    signature.forEachParameter((LocalParameterElement parameter) {
+    signature.forEachParameter((LocalElement parameter) {
       ir.Expression initializer = parameter.initializer?.accept(this);
       ir.VariableDeclaration variable = getLocal(parameter);
       if (initializer != null) {
@@ -1611,7 +1623,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, body);
+    return buildFunctionNode(function, body);
   }
 
   @override
@@ -1621,7 +1633,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, body);
+    return buildFunctionNode(function, body);
   }
 
   @override
@@ -1630,7 +1642,7 @@ class KernelVisitor extends Object
       MethodElement method,
       NodeList parameters,
       _) {
-    return buildFunctionNode(node, function, null);
+    return buildFunctionNode(function, null);
   }
 
   @override
@@ -1648,6 +1660,14 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "StaticFunctionIncompatibleInvoke");
   }
 
+  ir.StaticInvocation buildStaticInvoke(
+      FunctionElement function,
+      NodeList arguments) {
+    ir.Arguments argumentsNode = buildArguments(arguments);
+    return new ir.StaticInvocation(
+        kernel.functionToIr(function), argumentsNode);
+  }
+
   @override
   ir.StaticInvocation handleStaticFunctionInvoke(
       Send node,
@@ -1655,9 +1675,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = buildArguments(arguments);
-    return new ir.StaticInvocation(
-        kernel.functionToIr(function), argumentsNode);
+    return buildStaticInvoke(function, arguments);
   }
 
   @override
@@ -1672,7 +1690,7 @@ class KernelVisitor extends Object
       MethodElement getter,
       Node body,
       _) {
-    return buildFunctionNode(node, getter, body);
+    return buildFunctionNode(getter, body);
   }
 
   @override
@@ -1736,7 +1754,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, setter, body);
+    return buildFunctionNode(setter, body);
   }
 
   @override
@@ -2153,7 +2171,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(node, function, body);
+    return buildFunctionNode(function, body);
   }
 
   ir.Arguments buildArguments(NodeList arguments) {

@@ -43,8 +43,8 @@ class Kernel {
 
   final Map<ClassElement, ir.Class> classes = <ClassElement, ir.Class>{};
 
-  final Map<FunctionElement, ir.Procedure> functions =
-      <FunctionElement, ir.Procedure>{};
+  final Map<FunctionElement, ir.Member> functions =
+      <FunctionElement, ir.Member>{};
 
   final Map<FieldElement, ir.Field> fields = <FieldElement, ir.Field>{};
 
@@ -136,7 +136,8 @@ class Kernel {
             // mixin.
             assert(cls.isMixinApplication);
             return;
-          } else if (member.isFunction || member.isAccessor) {
+          } else if (member.isFunction || member.isAccessor ||
+                     member.isConstructor) {
             classNode.addMember(functionToIr(member));
           } else if (member.isField) {
             classNode.addMember(fieldToIr(member));
@@ -174,30 +175,75 @@ class Kernel {
     }
   }
 
-  ir.Procedure functionToIr(FunctionElement function) {
+  ir.Member functionToIr(FunctionElement function) {
     if (function.isLocal) {
       compiler.reporter.internalError(function, "Local function.");
     }
     function = function.declaration;
     return functions.putIfAbsent(function, () {
       compiler.analyzeElement(function);
+      compiler.enqueuer.resolution.emptyDeferredTaskQueue();
       if (function.isPatched) {
         function = function.implementation;
       }
-      ir.Procedure procedure = new ir.Procedure(
-          irName(function.name, function), ir.ProcedureKind.Method, null);
+      ir.ProcedureKind kind = null;
+      bool isConstructor = false;
+      if (function.isOperator) {
+        if (function.name == '[]') {
+          kind = ir.ProcedureKind.IndexGetter;
+        } else if (function.name == '[]=') {
+          kind = ir.ProcedureKind.IndexSetter;
+        } else {
+          kind = ir.ProcedureKind.Operator;
+        }
+      } else if (function.isFunction) {
+        kind = ir.ProcedureKind.Method;
+      } else if (function.isFactoryConstructor) {
+        kind = ir.ProcedureKind.Factory;
+      } else if (function.isGetter) {
+        kind = ir.ProcedureKind.Getter;
+      } else if (function.isSetter) {
+        kind = ir.ProcedureKind.Setter;
+      } else if (function.isGenerativeConstructor) {
+        isConstructor = true;
+      } else {
+        compiler.reporter.internalError(
+            function, "Unhandled kind of function.");
+      }
+      ir.Member member;
+      ir.Constructor constructor;
+      ir.Procedure procedure;
+      ir.Name name = irName(function.name, function);
+      if (isConstructor) {
+        member = constructor = new ir.Constructor(
+            null, name: name, isConst: function.isConst,
+            isExternal: function.isExternal);
+      } else {
+        member = procedure = new ir.Procedure(name, kind, null);
+      }
       addWork(() {
-        setParent(procedure, function);
+        setParent(member, function);
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
-        ir.FunctionNode functionNode = compiler.reporter.withCurrentElement(
-            function, () => function.node.accept(visitor));
+        ir.FunctionNode functionNode;
+        if (function.isSynthesized) {
+          functionNode = compiler.reporter.withCurrentElement(
+              function, () => visitor.buildFunctionNode(function, null));
+        } else {
+          functionNode = compiler.reporter.withCurrentElement(
+              function, () => function.node.accept(visitor));
+        }
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
-        functionNode.parent = procedure;
-        procedure.function = functionNode;
+        functionNode.parent = member;
+        if (isConstructor) {
+          constructor.function = functionNode;
+          // TODO(ahe): Set initializers.
+        } else {
+          procedure.function = functionNode;
+        }
         visitor.locals.forEach(checkMember);
       });
-      return procedure;
+      return member;
     });
   }
 
