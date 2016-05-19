@@ -12,7 +12,8 @@ import 'package:kernel/accessors.dart' show
     PropertyAccessor,
     SuperIndexAccessor,
     SuperPropertyAccessor,
-    VariableAccessor;
+    VariableAccessor,
+    buildIsNull;
 
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
     BaseImplementationOfCompoundsMixin,
@@ -1233,13 +1234,23 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitIfNotNullDynamicPropertyInvoke(
+  ir.Let visitIfNotNullDynamicPropertyInvoke(
       Send node,
       Node receiver,
       NodeList arguments,
       Selector selector,
       _) {
-    return buildUnsupported(node, "IfNotNullDynamicPropertyInvoke");
+    VariableAccessor receiverAccessor = new VariableAccessor(
+        new ir.VariableDeclaration.forValue(receiver.accept(this)));
+    return new ir.Let(
+        receiverAccessor.variable,
+        new ir.ConditionalExpression(
+            buildIsNull(receiverAccessor.buildSimpleRead()),
+            new ir.NullLiteral(),
+            new ir.MethodInvocation(
+                receiverAccessor.buildSimpleRead(),
+                kernel.nameToIrName(selector.memberName),
+                buildArguments(arguments))));
   }
 
   @override
