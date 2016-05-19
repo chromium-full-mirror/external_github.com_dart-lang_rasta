@@ -10,6 +10,8 @@ import 'package:kernel/accessors.dart' show
     Accessor,
     IndexAccessor,
     PropertyAccessor,
+    SuperIndexAccessor,
+    SuperPropertyAccessor,
     VariableAccessor;
 
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
@@ -2007,8 +2009,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperFieldGet(Send node, FieldElement field, _) {
-    return buildUnsupported(node, "SuperFieldGet");
+  ir.SuperPropertyGet visitSuperFieldGet(Send node, FieldElement field, _) {
+    return buildSuperPropertyAccessor(field).buildSimpleRead();
   }
 
   @override
@@ -2053,9 +2055,28 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "SuperGetterFieldSetIfNull");
   }
 
+  Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
+    return new SuperPropertyAccessor(
+        (getter == null) ? null : kernel.elementToIr(getter),
+        (setter == null) ? null : kernel.elementToIr(setter));
+  }
+
+  Accessor buildSuperIndexAccessor(
+      Expression index,
+      Element read,
+      [Element write]) {
+    return new SuperIndexAccessor(
+        index.accept(this),
+        kernel.elementToIr(read),
+        (write == null) ? null : kernel.elementToIr(write));
+  }
+
   @override
-  ir.Throw visitSuperGetterGet(Send node, FunctionElement getter, _) {
-    return buildUnsupported(node, "SuperGetterGet");
+  ir.SuperPropertyGet visitSuperGetterGet(
+      Send node,
+      FunctionElement getter,
+      _) {
+    return buildSuperPropertyAccessor(getter).buildSimpleRead();
   }
 
   @override
@@ -2085,9 +2106,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperIndex(
+  ir.SuperMethodInvocation visitSuperIndex(
       Send node, FunctionElement function, Node index, _) {
-    return buildUnsupported(node, "SuperIndex");
+    return buildSuperIndexAccessor(index, function).buildSimpleRead();
   }
 
   @override

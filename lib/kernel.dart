@@ -295,7 +295,7 @@ class Kernel {
   ir.TreeNode elementToIr(Element element) {
     if (element.isLibrary) return libraryToIr(element);
     if (element.isClass) return classToIr(element);
-    if (element.isFunction) return functionToIr(element);
+    if (element.isFunction || element.isAccessor) return functionToIr(element);
     if (element.isField) return fieldToIr(element);
     throw "unhandled element: $element";
   }
