@@ -1595,12 +1595,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitParameterSetIfNull(
+  ir.ConditionalExpression visitParameterSetIfNull(
       Send node,
       ParameterElement parameter,
       Node rhs,
       _) {
-    return buildUnsupported(node, "ParameterSetIfNull");
+    return new VariableAccessor(getLocal(parameter))
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
