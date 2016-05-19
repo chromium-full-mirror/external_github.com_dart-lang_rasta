@@ -237,7 +237,7 @@ class KernelVisitor extends Object
 
   @override
   internalError(Spannable spannable, String message) {
-    compiler.reporter.internalError(spannable, message);
+    kernel.compiler.reporter.internalError(spannable, message);
     throw new Unsupported(message);
   }
 
@@ -276,9 +276,25 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "Await");
   }
 
+  ir.Statement buildBreakTarget(
+      ir.Statement statement,
+      Node node,
+      JumpTarget jumpTarget) {
+    assert(jumpTarget == elements.getTargetDefinition(node));
+    if (jumpTarget != null && jumpTarget.isBreakTarget) {
+      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
+      breakTarget.body = statement;
+      statement.parent = breakTarget;
+      return breakTarget;
+    } else {
+      return statement;
+    }
+  }
+
   @override
-  ir.Block visitBlock(Block node) {
-    return buildStatementInBlock(node);
+  ir.Statement visitBlock(Block node) {
+    return buildBreakTarget(
+        buildStatementInBlock(node), node, elements.getTargetDefinition(node));
   }
 
   void buildStatement(Statement statement, List<ir.Statement> statements) {
@@ -434,16 +450,8 @@ class KernelVisitor extends Object
       body = continueTarget;
     }
 
-    ir.Statement result = new ir.DoStatement(body, condition);
-
-    if (jumpTarget != null && jumpTarget.isBreakTarget) {
-      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
-      breakTarget.body = result;
-      result.parent = breakTarget;
-      result = breakTarget;
-    }
-
-    return result;
+    return buildBreakTarget(
+        new ir.DoStatement(body, condition), node, jumpTarget);
   }
 
   @override
@@ -506,13 +514,7 @@ class KernelVisitor extends Object
     }
     ir.ForStatement forStatement = new ir.ForStatement(
         variables, condition, updates, body);
-    ir.Statement result = forStatement;
-    if (jumpTarget != null && jumpTarget.isBreakTarget) {
-      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
-      breakTarget.body = result;
-      result.parent = breakTarget;
-      result = breakTarget;
-    }
+    ir.Statement result = buildBreakTarget(forStatement, node, jumpTarget);
     if (initializer != null) {
       result = new ir.Block(<ir.Statement>[
           new ir.ExpressionStatement(initializer), result]);
@@ -526,11 +528,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.IfStatement visitIf(If node) {
-    return new ir.IfStatement(
-        node.condition.accept(this),
-        buildStatementInBlock(node.thenPart),
-        buildStatementInBlock(node.elsePart));
+  ir.Statement visitIf(If node) {
+    return buildBreakTarget(
+        new ir.IfStatement(
+            node.condition.accept(this),
+            buildStatementInBlock(node.thenPart),
+            buildStatementInBlock(node.elsePart)),
+        node, elements.getTargetDefinition(node));
   }
 
   @override
@@ -539,20 +543,34 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.LabeledStatement visitLabeledStatement(LabeledStatement node) {
-    ir.LabeledStatement result = new ir.LabeledStatement(null);
-    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+  ir.Statement visitLabeledStatement(LabeledStatement node) {
+    Statement statement = node.statement;
+    ir.Statement result = (statement is Block)
+        // If [statement] is a Block, we need to ensure that we don't bypass
+        // its visit method (so it can build break targets correctly).
+        ? statement.accept(this)
+        : buildStatementInBlock(statement);
+
+    // A [LabeledStatement] isn't the actual jump target, instead, [statement]
+    // is the target. This allows uniform handling of break and continue in
+    // loops. The following code simply assert that [result] has been generated
+    // correctly with respect to jump targets.
+    JumpTarget jumpTarget = elements.getTargetDefinition(node.statement);
     if (jumpTarget != null) {
-      assert(breakTargets[jumpTarget] == null);
-      breakTargets[jumpTarget] = result;
-      assert(continueTargets[jumpTarget] == null);
-      continueTargets[jumpTarget] = result;
+      if (jumpTarget.isBreakTarget) {
+        ir.LabeledStatement target = getBreakTarget(jumpTarget);
+        if (target != result && target.parent == null) {
+          internalError(node, "no parent");
+        }
+      }
+      if (jumpTarget.isContinueTarget) {
+        ir.LabeledStatement target = getContinueTarget(jumpTarget);
+        if (target != result && target.parent == null) {
+          internalError(node, "no parent");
+        }
+      }
     }
 
-    ir.Statement body = buildStatementInBlock(node.statement);
-
-    result.body = body;
-    body.parent = result;
     return result;
   }
 
@@ -723,17 +741,9 @@ class KernelVisitor extends Object
     }
     assert(!casesIterator.moveNext());
 
-    ir.Statement result = new ir.SwitchStatement(expression, cases);
-
-    JumpTarget jumpTarget = elements.getTargetDefinition(node);
-    if (jumpTarget != null && jumpTarget.isBreakTarget) {
-      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
-      breakTarget.body = result;
-      result.parent = breakTarget;
-      result = breakTarget;
-    }
-
-    return result;
+    return  buildBreakTarget(
+        new ir.SwitchStatement(expression, cases),
+        node, elements.getTargetDefinition(node));
   }
 
   @override
@@ -787,16 +797,8 @@ class KernelVisitor extends Object
       body = continueTarget;
     }
 
-    ir.Statement result = new ir.WhileStatement(condition, body);
-
-    if (jumpTarget != null && jumpTarget.isBreakTarget) {
-      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
-      breakTarget.body = result;
-      result.parent = breakTarget;
-      result = breakTarget;
-    }
-
-    return result;
+    return buildBreakTarget(
+        new ir.WhileStatement(condition, body), node, jumpTarget);
   }
 
   @override

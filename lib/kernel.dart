@@ -68,8 +68,8 @@ class Kernel {
     }
     try {
       CheckParentPointers.check(value);
-    } catch (e) {
-      compiler.reporter.internalError(key, "$e");
+    } catch (e, s) {
+      compiler.reporter.internalError(key, "$e\n$s");
     }
   }
 
@@ -133,6 +133,9 @@ class Kernel {
           supertype, name: cls.name, isAbstract: cls.isAbstract);
       addWork(() {
         classNode.parent = libraryToIr(cls.library);
+        if (cls.isUnnamedMixinApplication) {
+          classNode.parent.addClass(classNode);
+        }
         cls.implementation.forEachMember(
             (ClassElement enclosingClass, Element member) {
           if (member.enclosingClass.declaration != cls) {

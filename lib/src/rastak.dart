@@ -47,9 +47,22 @@ main(List<String> arguments, isolateArgument) async {
   ir.Library library = await kernel.loadLibrary(input);
   kernel.processWorkQueue();
 
+  Iterable<ir.Procedure> mainMethods = library.procedures.where(
+      (ir.Procedure function) => function.name.name == "main");
+  ir.Program program;
+  if (mainMethods.isNotEmpty) {
+    program =
+        new ir.Program(new List<ir.Library>.from(kernel.libraries.values))
+        ..mainMethod = mainMethods.single;
+  }
   IOSink sink = new File.fromUri(output).openWrite();
   try {
-    new BinaryPrinter(sink).writeLibraryFile(library);
+    BinaryPrinter printer = new BinaryPrinter(sink);
+    if (mainMethods.isNotEmpty) {
+      printer.writeProgramFile(program);
+    } else {
+      printer.writeLibraryFile(library);
+    }
   } finally {
     await sink.close();
   }
