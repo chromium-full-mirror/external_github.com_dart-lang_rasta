@@ -8,6 +8,7 @@ import 'package:kernel/ast.dart' as ir;
 
 import 'package:kernel/accessors.dart' show
     Accessor,
+    IndexAccessor,
     PropertyAccessor,
     VariableAccessor;
 
@@ -1211,41 +1212,44 @@ class KernelVisitor extends Object
         new ir.Arguments(const <ir.Expression>[]));
   }
 
-  @override
-  ir.MethodInvocation visitIndex(Send node, Node receiver, Node index, _) {
-    ir.Arguments arguments = new ir.Arguments(
-        <ir.Expression>[index.accept(this)]);
-    return new ir.MethodInvocation(
-        receiver.accept(this), kernel.irName("[]", function), arguments);
+  Accessor buildIndexAccessor(Node receiver, Node index) {
+    return IndexAccessor.make(receiver.accept(this), index.accept(this));
   }
 
   @override
-  ir.Throw visitIndexPostfix(
+  ir.Expression visitIndex(Send node, Node receiver, Node index, _) {
+    return buildIndexAccessor(receiver, index).buildSimpleRead();
+  }
+
+  @override
+  ir.Expression visitIndexPostfix(
       Send node,
       Node receiver,
       Node index,
       IncDecOperator operator,
       _) {
-    return buildUnsupported(node, "IndexPostfix");
+    Accessor accessor = buildIndexAccessor(receiver, index);
+    ir.Name name = kernel.irName(operator.name, function);
+    return accessor.buildPostfixIncrement(name);
   }
 
   @override
-  ir.Throw visitIndexPrefix(
+  ir.Expression visitIndexPrefix(
       Send node,
       Node receiver,
       Node index,
       IncDecOperator operator,
       _) {
-    return buildUnsupported(node, "IndexPrefix");
+    Accessor accessor = buildIndexAccessor(receiver, index);
+    ir.Name name = kernel.irName(operator.name, function);
+    return accessor.buildPrefixIncrement(name);
   }
 
   @override
-  ir.MethodInvocation visitIndexSet(
+  ir.Expression visitIndexSet(
       SendSet node, Node receiver, Node index, Node rhs, _) {
-    ir.Arguments arguments = new ir.Arguments(
-        <ir.Expression>[index.accept(this), rhs.accept(this)]);
-    return new ir.MethodInvocation(
-        receiver.accept(this), kernel.irName("[]=", function), arguments);
+    return buildIndexAccessor(receiver, index)
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
@@ -2385,9 +2389,10 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitIndexSetIfNull(
+  ir.Expression visitIndexSetIfNull(
       SendSet node, Node receiver, Node index, Node rhs, _) {
-    return buildUnsupported(node, "IndexSetIfNull");
+    return buildIndexAccessor(receiver, index)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
