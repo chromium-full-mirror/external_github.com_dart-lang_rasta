@@ -321,8 +321,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitAwait(Await node) {
-    return buildUnsupported(node, "Await");
+  ir.AwaitExpression visitAwait(Await node) {
+    return new ir.AwaitExpression(node.expression.accept(this));
   }
 
   @override
