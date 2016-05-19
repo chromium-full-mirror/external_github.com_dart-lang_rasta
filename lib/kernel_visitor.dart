@@ -331,6 +331,18 @@ class KernelVisitor extends Object
     return new ir.BreakStatement(getBreakTarget(elements.getTargetOf(node)));
   }
 
+  CascadeReceiver computeCascadeReceiver(Cascade cascade) {
+    CascadeReceiver receiver;
+    Expression send = cascade.expression.asSend();
+    while (send != null && (receiver = send.asCascadeReceiver()) == null) {
+      send = send.asSend()?.receiver;
+    }
+    if (receiver == null) {
+      internalError(cascade, "Can't find cascade receiver");
+    }
+    return receiver;
+  }
+
   @override
   ir.Let visitCascade(Cascade node) {
     // Given this cascade expression `receiver..cascade1()..cascade2()`, the
@@ -369,7 +381,7 @@ class KernelVisitor extends Object
 
     do {
       cascades.add(cascade);
-      receiver = cascade.expression.asSend().receiver;
+      receiver = computeCascadeReceiver(cascade);
       cascadeReceivers[receiver] = new ir.VariableGet(receiverVariable);
       cascade = receiver.expression.asCascade();
     } while (cascade != null);
