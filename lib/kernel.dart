@@ -34,6 +34,9 @@ import 'kernel_visitor.dart' show
     GenerativeConstructorFunction,
     KernelVisitor;
 
+import 'package:compiler/src/constants/expressions.dart' show
+    TypeConstantExpression;
+
 typedef void VoidFunction();
 
 class Kernel {
@@ -162,6 +165,10 @@ class Kernel {
     // TODO(ahe): Implement other types.
     return type is InterfaceType ?
         interfaceTypeToIr(type) : const ir.DynamicType();
+  }
+
+  ir.DartType typeLiteralToIr(TypeConstantExpression constant) {
+    return typeToIr(constant.type);
   }
 
   void setParent(ir.Member member, Element element) {

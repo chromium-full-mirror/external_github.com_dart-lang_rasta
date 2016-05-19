@@ -850,9 +850,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitClassTypeLiteralGet(
+  ir.TypeLiteral visitClassTypeLiteralGet(
       Send node, ConstantExpression constant, _) {
-    return buildUnsupported(node, "ClassTypeLiteralGet");
+    return new ir.TypeLiteral(kernel.typeLiteralToIr(constant));
   }
 
   @override
