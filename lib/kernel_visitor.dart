@@ -2392,12 +2392,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitTopLevelGetterDeclaration(
+  IrFunction visitTopLevelGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildFunctionNode(getter, body);
+    return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
   }
 
   @override
@@ -2430,13 +2430,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitTopLevelSetterDeclaration(
+  IrFunction visitTopLevelSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(setter, body);
+    return buildIrFunction(ir.ProcedureKind.Setter, setter, body);
   }
 
   @override
