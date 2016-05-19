@@ -7,4 +7,7 @@ library dart.math_patch;
 import 'dart:_patch' show
     patch;
 
+import 'dart:typed_data' show
+    Uint32List;
+
 part '../third_party/dart-sdk/runtime/lib/math_patch.dart';

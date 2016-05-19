@@ -7,4 +7,7 @@ library dart.isolate_patch;
 import 'dart:_patch' show
     patch;
 
+import 'dart:_internal' show
+    VMLibraryHooks;
+
 part '../third_party/dart-sdk/runtime/lib/isolate_patch.dart';

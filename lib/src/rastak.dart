@@ -22,11 +22,15 @@ import 'package:rasta/custom_compiler.dart' show
 import 'package:rasta/kernel.dart' show
     Kernel;
 
+const bool isVerbose =
+    const bool.fromEnvironment("verbose", defaultValue: false);
+
 main(List<String> arguments, isolateArgument) async {
   Uri input = Uri.base.resolve(arguments[0]);
   Uri output = Uri.base.resolve(arguments[1]);
+  List<String> options = isVerbose ? <String>['--verbose'] : <String>[];
   IoCompilerFactory factory = new IoCompilerFactory(
-      Uri.base.resolve("dart_vm_standalone.json"), <String>['--verbose'],
+      Uri.base.resolve("dart_vm_standalone.json"), options,
       <String, dynamic>{});
 
   (await factory.diagnostics)

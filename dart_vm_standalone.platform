@@ -26,7 +26,7 @@ mirrors: third_party/dart-sdk/sdk/lib/mirrors/mirrors.dart
 
 nativewrappers: dart_vm_standalone/nativewrappers.dart
 
-typed_data: third_party/dart-sdk/sdk/lib/typed_data/typed_data.dart
+typed_data: third_party/dart-sdk/runtime/lib/typed_data.dart
 _native_typed_data: unsupported:
 html: unsupported:
 html_common: unsupported:

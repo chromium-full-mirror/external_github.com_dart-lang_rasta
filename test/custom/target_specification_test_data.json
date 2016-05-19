@@ -13,7 +13,6 @@
     "dart:isolate": "../../dart_vm_standalone/isolate_patch.dart",
     "dart:math": "../../dart_vm_standalone/math_patch.dart",
     "dart:mirrors": "../../dart_vm_standalone/mirrors_patch.dart",
-    "dart:typed_data": "../../dart_vm_standalone/typed_data_patch.dart",
     "dart:vmservice": "../../dart_vm_standalone/vmservice_patch.dart"
   }
 }

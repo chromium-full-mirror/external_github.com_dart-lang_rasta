@@ -7,4 +7,10 @@ library dart.collection_patch;
 import 'dart:_patch' show
     patch;
 
+import 'dart:typed_data' show
+    Uint32List;
+
+import 'dart:_internal' as internal;
+
 part '../third_party/dart-sdk/runtime/lib/collection_patch.dart';
+part '../third_party/dart-sdk/runtime/lib/compact_hash.dart';

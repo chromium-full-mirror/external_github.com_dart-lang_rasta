@@ -29,7 +29,7 @@ const bool isVerbose =
 
 Future<Null> main() async {
   Stopwatch sw = new Stopwatch()..start();
-  List<String> options = isVerbose ? <String>[] : <String>['--verbose'];
+  List<String> options = isVerbose ? <String>['--verbose'] : <String>[];
   CompilerFactory factory = new IoCompilerFactory(
       targetSpecificationUri, options, <String, dynamic>{});
   (await factory.diagnostics)
