@@ -914,14 +914,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitCompoundIndexSet(
+  ir.Expression visitCompoundIndexSet(
       SendSet node,
       Node receiver,
       Node index,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return buildUnsupported(node, "CompoundIndexSet");
+    return buildIndexAccessor(receiver, index).buildCompoundAssignment(
+        kernel.irName(operator.name, function), rhs.accept(this));
   }
 
   @override
