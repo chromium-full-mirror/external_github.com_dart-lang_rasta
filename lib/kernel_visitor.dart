@@ -258,22 +258,18 @@ class KernelVisitor extends Object
         node.message?.accept(this));
   }
 
-  ir.ForInStatement buildForIn(ForIn node, {bool isAsync}) {
-    return new ir.ForInStatement(
-        buildStatementInBlock(node.declaredIdentifier),
-        node.expression.accept(this),
-        buildStatementInBlock(node.body),
-        isAsync: isAsync);
+  ir.LabeledStatement getBreakTarget(JumpTarget target) {
+    return breakTargets.putIfAbsent(
+        target, () => new ir.LabeledStatement(null));
   }
 
-  @override
-  ir.ForInStatement visitAsyncForIn(AsyncForIn node) {
-    return buildForIn(node, isAsync: true);
+  ir.LabeledStatement getContinueTarget(JumpTarget target) {
+    return continueTargets.putIfAbsent(
+        target, () => new ir.LabeledStatement(null));
   }
 
-  @override
-  ir.Throw visitAwait(Await node) {
-    return buildUnsupported(node, "Await");
+  ir.SwitchCase getContinueSwitchTarget(JumpTarget target) {
+    return continueSwitchTargets[target];
   }
 
   ir.Statement buildBreakTarget(
@@ -289,6 +285,43 @@ class KernelVisitor extends Object
     } else {
       return statement;
     }
+  }
+
+  ir.Statement buildContinueTarget(
+      ir.Statement statement,
+      Node node,
+      JumpTarget jumpTarget) {
+    assert(jumpTarget == elements.getTargetDefinition(node));
+    if (jumpTarget != null && jumpTarget.isContinueTarget) {
+      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
+      continueTarget.body = statement;
+      statement.parent = continueTarget;
+      return continueTarget;
+    } else {
+      return statement;
+    }
+  }
+
+ ir.Statement buildForIn(ForIn node, {bool isAsync}) {
+    ir.VariableDeclaration variable =
+        buildStatementInBlock(node.declaredIdentifier);
+    ir.Expression iterable = node.expression.accept(this);
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+    ir.Statement body = buildContinueTarget(
+        buildStatementInBlock(node.body), node, jumpTarget);
+    return buildBreakTarget(
+        new ir.ForInStatement(variable, iterable, body, isAsync: isAsync),
+        node, jumpTarget);
+  }
+
+  @override
+  ir.Statement visitAsyncForIn(AsyncForIn node) {
+    return buildForIn(node, isAsync: true);
+  }
+
+  @override
+  ir.Throw visitAwait(Await node) {
+    return buildUnsupported(node, "Await");
   }
 
   @override
@@ -449,19 +482,10 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitDoWhile(DoWhile node) {
-    ir.Statement body = buildStatementInBlock(node.body);
-    ir.Expression condition = node.condition?.accept(this);
-
-    // TODO(ahe): Unify jump target handling between For, While, and Do.
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
-
-    if (jumpTarget != null && jumpTarget.isContinueTarget) {
-      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
-      continueTarget.body = body;
-      body.parent = continueTarget;
-      body = continueTarget;
-    }
-
+    ir.Statement body = buildContinueTarget(
+        buildStatementInBlock(node.body), node, jumpTarget);
+    ir.Expression condition = node.condition?.accept(this);
     return buildBreakTarget(
         new ir.DoStatement(body, condition), node, jumpTarget);
   }
@@ -479,20 +503,6 @@ class KernelVisitor extends Object
   @override
   ir.ExpressionStatement visitExpressionStatement(ExpressionStatement node) {
     return new ir.ExpressionStatement(node.expression.accept(this));
-  }
-
-  ir.LabeledStatement getBreakTarget(JumpTarget target) {
-    return breakTargets.putIfAbsent(
-        target, () => new ir.LabeledStatement(null));
-  }
-
-  ir.LabeledStatement getContinueTarget(JumpTarget target) {
-    return continueTargets.putIfAbsent(
-        target, () => new ir.LabeledStatement(null));
-  }
-
-  ir.SwitchCase getContinueSwitchTarget(JumpTarget target) {
-    return continueSwitchTargets[target];
   }
 
   @override
@@ -515,15 +525,10 @@ class KernelVisitor extends Object
     for (Expression update in node.update) {
       updates.add(update.accept(this));
     }
-    ir.Statement body = buildStatementInBlock(node.body);
-    JumpTarget jumpTarget = elements.getTargetDefinition(node);
 
-    if (jumpTarget != null && jumpTarget.isContinueTarget) {
-      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
-      continueTarget.body = body;
-      body.parent = continueTarget;
-      body = continueTarget;
-    }
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+    ir.Statement body = buildContinueTarget(
+        buildStatementInBlock(node.body), node, jumpTarget);
     ir.ForStatement forStatement = new ir.ForStatement(
         variables, condition, updates, body);
     ir.Statement result = buildBreakTarget(forStatement, node, jumpTarget);
@@ -759,7 +764,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ForInStatement visitSyncForIn(SyncForIn node) {
+  ir.Statement visitSyncForIn(SyncForIn node) {
     return buildForIn(node, isAsync: false);
   }
 
@@ -798,17 +803,9 @@ class KernelVisitor extends Object
   @override
   ir.Statement visitWhile(While node) {
     ir.Expression condition = node.condition?.accept(this);
-
-    ir.Statement body = buildStatementInBlock(node.body);
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
-
-    if (jumpTarget != null && jumpTarget.isContinueTarget) {
-      ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
-      continueTarget.body = body;
-      body.parent = continueTarget;
-      body = continueTarget;
-    }
-
+    ir.Statement body = buildContinueTarget(
+        buildStatementInBlock(node.body), node, jumpTarget);
     return buildBreakTarget(
         new ir.WhileStatement(condition, body), node, jumpTarget);
   }
