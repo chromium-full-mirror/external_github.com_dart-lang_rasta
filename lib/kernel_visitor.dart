@@ -828,21 +828,28 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "AbstractClassConstructorInvoke");
   }
 
-  @override
-  ir.FunctionNode visitAbstractGetterDeclaration(
-      FunctionExpression node,
-      MethodElement getter,
-      _) {
-    return buildFunctionNode(getter, null);
+  IrFunction buildIrFunction(
+      ir.ProcedureKind kind,
+      FunctionElement function,
+      Node body) {
+    return new IrFunction.procedure(kind, buildFunctionNode(function, body));
   }
 
   @override
-  ir.FunctionNode visitAbstractSetterDeclaration(
+  IrFunction visitAbstractGetterDeclaration(
+      FunctionExpression node,
+      MethodElement getter,
+      _) {
+    return buildIrFunction(ir.ProcedureKind.Getter, getter, null);
+  }
+
+  @override
+  IrFunction visitAbstractSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       _) {
-    return buildFunctionNode(setter, null);
+    return buildIrFunction(ir.ProcedureKind.Setter, setter, null);
   }
 
   @override
@@ -1082,13 +1089,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitFactoryConstructorDeclaration(
+  IrFunction visitFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(constructor, body);
+    return buildIrFunction(ir.ProcedureKind.Factory, constructor, body);
   }
 
   @override
@@ -1169,7 +1176,7 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
-  GenerativeConstructorFunction buildGenerativeConstructor(
+  IrFunction buildGenerativeConstructor(
       ConstructorElement constructor,
       Node body) {
     List<ir.Initializer> constructorInitializers = <ir.Initializer>[];
@@ -1203,12 +1210,12 @@ class KernelVisitor extends Object
         constructorInitializers.add(structure.dispatch(declVisitor, null));
       }
     }
-    return new GenerativeConstructorFunction(
+    return new IrFunction.constructor(
         buildFunctionNode(constructor, body), constructorInitializers);
   }
 
   @override
-  GenerativeConstructorFunction visitGenerativeConstructorDeclaration(
+  IrFunction visitGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
@@ -1371,22 +1378,22 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitInstanceGetterDeclaration(
+  IrFunction visitInstanceGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildFunctionNode(getter, body);
+    return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
   }
 
   @override
-  ir.FunctionNode visitInstanceSetterDeclaration(
+  IrFunction visitInstanceSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(setter, body);
+    return buildIrFunction(ir.ProcedureKind.Setter, setter, body);
   }
 
   @override
@@ -1632,14 +1639,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitRedirectingFactoryConstructorDeclaration(
+  IrFunction visitRedirectingFactoryConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       InterfaceType redirectionType,
       ConstructorElement redirectionTarget,
       _) {
-    return buildFunctionNode(constructor, null);
+    return buildIrFunction(ir.ProcedureKind.Factory, constructor, null);
   }
 
   @override
@@ -1660,7 +1667,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  GenerativeConstructorFunction
+  IrFunction
   visitRedirectingGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
@@ -1771,32 +1778,47 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitStaticFunctionDeclaration(
+  IrFunction visitStaticFunctionDeclaration(
       FunctionExpression node,
       MethodElement function,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(function, body);
+    return buildIrFunction(ir.ProcedureKind.Method, function, body);
+  }
+
+  ir.ProcedureKind computeInstanceMethodKind(MethodElement method) {
+    assert(method.isFunction);
+    if (method.isOperator) {
+      if (method.name == '[]') {
+        return ir.ProcedureKind.IndexGetter;
+      } else if (method.name == '[]=') {
+        return ir.ProcedureKind.IndexSetter;
+      } else {
+        return ir.ProcedureKind.Operator;
+      }
+    } else {
+      return ir.ProcedureKind.Method;
+    }
   }
 
   @override
-  ir.FunctionNode visitInstanceMethodDeclaration(
+  IrFunction visitInstanceMethodDeclaration(
       FunctionExpression node,
       MethodElement method,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(function, body);
+    return buildIrFunction(computeInstanceMethodKind(function), function, body);
   }
 
   @override
-  ir.FunctionNode visitAbstractMethodDeclaration(
+  IrFunction visitAbstractMethodDeclaration(
       FunctionExpression node,
       MethodElement method,
       NodeList parameters,
       _) {
-    return buildFunctionNode(function, null);
+    return buildIrFunction(computeInstanceMethodKind(function), function, null);
   }
 
   @override
@@ -1839,12 +1861,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitStaticGetterDeclaration(
+  IrFunction visitStaticGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildFunctionNode(getter, body);
+    return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
   }
 
   @override
@@ -1902,13 +1924,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitStaticSetterDeclaration(
+  IrFunction visitStaticSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(setter, body);
+    return buildIrFunction(ir.ProcedureKind.Setter, setter, body);
   }
 
   @override
@@ -2346,13 +2368,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitTopLevelFunctionDeclaration(
+  IrFunction visitTopLevelFunctionDeclaration(
       FunctionExpression node,
       MethodElement function,
       NodeList parameters,
       Node body,
       _) {
-    return buildFunctionNode(function, body);
+    return buildIrFunction(ir.ProcedureKind.Method, function, body);
   }
 
   ir.Arguments buildArguments(NodeList arguments) {
@@ -2560,6 +2582,20 @@ class KernelVisitor extends Object
       String name) {
     return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
+
+  IrFunction build() {
+    return kernel.compiler.reporter.withCurrentElement(function, () {
+      if (function.isSynthesized) {
+        if (function.isGenerativeConstructor) {
+          return buildGenerativeConstructor(function, null);
+        } else {
+          return internalError(function, "Unhandled synthetic function.");
+        }
+      } else {
+        return function.node.accept(this);
+      }
+    });
+  }
 }
 
 class VariableDeclarations implements ir.Node {
@@ -2574,17 +2610,27 @@ class VariableDeclarations implements ir.Node {
   String toString() => "VariableDeclarations($variables)";
 }
 
-class GenerativeConstructorFunction implements ir.Node {
-  final ir.FunctionNode function;
+class IrFunction implements ir.Node {
+  final ir.ProcedureKind kind;
+  final bool isConstructor;
+  final ir.FunctionNode node;
   final List<ir.Initializer> initializers;
 
-  GenerativeConstructorFunction(this.function, this.initializers);
+  IrFunction(this.kind, this.isConstructor, this.node, this.initializers);
+
+  IrFunction.procedure(ir.ProcedureKind kind, ir.FunctionNode node)
+      : this(kind, false, node, null);
+
+  IrFunction.constructor(
+            ir.FunctionNode node,
+      List<ir.Initializer> initializers)
+      : this(null, true, node, initializers);
 
   accept(ir.Visitor v) => throw "unsupported";
 
   visitChildren(ir.Visitor v) => throw "unsupported";
 
   String toString() {
-    return "GenerativeConstructorFunction($function, $initializers)";
+    return "IrFunction($kind, $isConstructor, $node, $initializers)";
   }
 }

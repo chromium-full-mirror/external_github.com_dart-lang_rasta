@@ -31,7 +31,7 @@ import 'custom_compiler.dart' show
     CustomCompiler;
 
 import 'kernel_visitor.dart' show
-    GenerativeConstructorFunction,
+    IrFunction,
     KernelVisitor;
 
 import 'package:compiler/src/constants/expressions.dart' show
@@ -197,80 +197,36 @@ class Kernel {
       if (function.isPatched) {
         function = function.implementation;
       }
-      ir.ProcedureKind kind = null;
-      bool isConstructor = false;
-      if (function.isOperator) {
-        if (function.name == '[]') {
-          kind = ir.ProcedureKind.IndexGetter;
-        } else if (function.name == '[]=') {
-          kind = ir.ProcedureKind.IndexSetter;
-        } else {
-          kind = ir.ProcedureKind.Operator;
-        }
-      } else if (function.isFunction) {
-        kind = ir.ProcedureKind.Method;
-      } else if (function.isFactoryConstructor) {
-        kind = ir.ProcedureKind.Factory;
-      } else if (function.isGetter) {
-        kind = ir.ProcedureKind.Getter;
-      } else if (function.isSetter) {
-        kind = ir.ProcedureKind.Setter;
-      } else if (function.isGenerativeConstructor) {
-        isConstructor = true;
-      } else {
-        compiler.reporter.internalError(
-            function, "Unhandled kind of function.");
-      }
       ir.Member member;
       ir.Constructor constructor;
       ir.Procedure procedure;
       ir.Name name = irName(function.name, function);
-      if (isConstructor) {
+      if (function.isGenerativeConstructor) {
         member = constructor = new ir.Constructor(
             null, name: name, isConst: function.isConst,
             isExternal: function.isExternal);
       } else {
-        member = procedure = new ir.Procedure(name, kind, null);
+        member = procedure = new ir.Procedure(name, null, null);
       }
       addWork(() {
         setParent(member, function);
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
-        ir.FunctionNode functionNode;
-        List<ir.Initializer> initializers;
-        Function computeNode;
-        if (isConstructor) {
-          if (function.isSynthesized) {
-            computeNode = () {
-              GenerativeConstructorFunction constructorNode =
-                  visitor.buildGenerativeConstructor(function, null);
-              initializers = constructorNode.initializers;
-              return constructorNode.function;
-            };
-          } else {
-            computeNode = () {
-              GenerativeConstructorFunction constructorNode =
-                  function.node.accept(visitor);
-              initializers = constructorNode.initializers;
-              return constructorNode.function;
-            };
-          }
-        } else {
-          computeNode = () => function.node.accept(visitor);
-        }
-        functionNode =
-            compiler.reporter.withCurrentElement(function, computeNode);
+        IrFunction irFunction = visitor.build();
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
-        functionNode.parent = member;
-        if (isConstructor) {
-          constructor.function = functionNode;
-          constructor.initializers = initializers;
+        irFunction.node.parent = member;
+        if (irFunction.isConstructor) {
+          assert(irFunction.kind == null);
+          constructor.function = irFunction.node;
+          constructor.initializers = irFunction.initializers;
           // TODO(ahe): Add setInitializers to [ir.Constructor].
-          for (ir.Initializer initializer in initializers) {
+          for (ir.Initializer initializer in irFunction.initializers) {
             initializer.parent = constructor;
           }
         } else {
-          procedure.function = functionNode;
+          assert(irFunction.kind != null);
+          procedure.function = irFunction.node;
+          procedure.kind = irFunction.kind;
         }
         visitor.locals.forEach(checkMember);
       });
