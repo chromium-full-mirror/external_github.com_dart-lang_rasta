@@ -19,7 +19,8 @@ part '../third_party/dart-sdk/runtime/bin/filter_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/io_service_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/platform_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/process_patch.dart';
-part '../third_party/dart-sdk/runtime/bin/service_object_patch.dart';
+// TODO(ahe): I suspect this is broken:
+// part '../third_party/dart-sdk/runtime/bin/service_object_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/socket_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/stdio_patch.dart';
 part '../third_party/dart-sdk/runtime/bin/secure_socket_patch.dart';

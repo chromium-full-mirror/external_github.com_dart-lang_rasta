@@ -10,4 +10,7 @@ import 'dart:_patch' show
 import 'dart:_internal' show
     VMLibraryHooks;
 
+import 'dart:collection' show
+    HashMap;
+
 part '../third_party/dart-sdk/runtime/lib/isolate_patch.dart';
