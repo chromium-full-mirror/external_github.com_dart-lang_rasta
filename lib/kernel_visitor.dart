@@ -673,8 +673,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitRethrow(Rethrow node) {
-    return buildUnsupported(node, "Rethrow");
+  ir.ExpressionStatement visitRethrow(Rethrow node) {
+    return new ir.ExpressionStatement(new ir.Rethrow());
   }
 
   @override
