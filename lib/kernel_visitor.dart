@@ -194,6 +194,9 @@ class KernelVisitor extends Object
   final Map<JumpTarget, ir.LabeledStatement> continueTargets =
       <JumpTarget, ir.LabeledStatement>{};
 
+  final Map<JumpTarget, ir.SwitchCase> continueSwitchTargets =
+      <JumpTarget, ir.SwitchCase>{};
+
   final Map<JumpTarget, ir.LabeledStatement> breakTargets =
       <JumpTarget, ir.LabeledStatement>{};
 
@@ -275,6 +278,15 @@ class KernelVisitor extends Object
     return buildStatementInBlock(node);
   }
 
+  void buildStatement(Statement statement, List<ir.Statement> statements) {
+    ir.Node irNode = statement.accept(this);
+    if (irNode is VariableDeclarations) {
+      statements.addAll(irNode.variables);
+    } else {
+      statements.add(irNode);
+    }
+  }
+
   ir.Statement buildStatementInBlock(
       Statement node,
       {bool forceBlock: false}) {
@@ -282,20 +294,10 @@ class KernelVisitor extends Object
     List<ir.Statement> statements = <ir.Statement>[];
     if (node is Block) {
       for (Node statement in node.statements.nodes) {
-        ir.Node irNode = statement.accept(this);
-        if (irNode is VariableDeclarations) {
-          statements.addAll(irNode.variables);
-        } else {
-          statements.add(irNode);
-        }
+        buildStatement(statement, statements);
       }
     } else {
-      ir.Node irNode = node.accept(this);
-      if (irNode is VariableDeclarations) {
-        statements.addAll(irNode.variables);
-      } else {
-        statements.add(irNode);
-      }
+      buildStatement(node, statements);
       if (!forceBlock && statements.length == 1) {
         return statements.single;
       }
@@ -404,8 +406,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.BreakStatement visitContinueStatement(ContinueStatement node) {
-    return new ir.BreakStatement(getContinueTarget(elements.getTargetOf(node)));
+  ir.Statement visitContinueStatement(ContinueStatement node) {
+    JumpTarget target = elements.getTargetOf(node);
+    ir.SwitchCase switchCase = getContinueSwitchTarget(target);
+    if (switchCase == null) {
+      return new ir.BreakStatement(getContinueTarget(target));
+    } else {
+      return new ir.ContinueSwitchStatement(switchCase);
+    }
   }
 
   @override
@@ -458,6 +466,10 @@ class KernelVisitor extends Object
   ir.LabeledStatement getContinueTarget(JumpTarget target) {
     return continueTargets.putIfAbsent(
         target, () => new ir.LabeledStatement(null));
+  }
+
+  ir.SwitchCase getContinueSwitchTarget(JumpTarget target) {
+    return continueSwitchTargets[target];
   }
 
   @override
@@ -655,13 +667,70 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSwitchCase(SwitchCase node) {
-    return buildUnsupported(node, "SwitchCase");
+  ir.SwitchCase visitSwitchCase(SwitchCase node) {
+    List<ir.Expression> expressions = <ir.Expression>[];
+    for (var labelOrCase in node.labelsAndCases.nodes) {
+      CaseMatch match = labelOrCase.asCaseMatch();
+      if (match != null) {
+        expressions.add(match.expression.accept(this));
+      } else {
+        // Assert that labelOrCase is one of two known types: [CaseMatch] or
+        // [Label]. We ignore cases, as any users have been resolved to use the
+        // case directly.
+        assert(labelOrCase.asLabel() != null);
+      }
+    }
+    // We ignore the node's statements here, they're generated below in
+    // [visitSwitchStatement] once we've set up all the jump targets.
+    return new ir.SwitchCase(expressions, null, isDefault: node.isDefaultCase);
   }
 
   @override
-  ir.ExpressionStatement visitSwitchStatement(SwitchStatement node) {
-    return buildUnsupportedStatement(node, "SwitchStatement");
+  ir.Statement visitSwitchStatement(SwitchStatement node) {
+    ir.Expression expression = node.expression.accept(this);
+    List<ir.SwitchCase> cases = <ir.SwitchCase>[];
+    for (SwitchCase caseNode in node.cases.nodes) {
+      cases.add(caseNode.accept(this));
+      JumpTarget jumpTarget = elements.getTargetDefinition(caseNode);
+      if (jumpTarget != null) {
+        assert(jumpTarget.isContinueTarget);
+        assert(!continueSwitchTargets.containsKey(jumpTarget));
+        continueSwitchTargets[jumpTarget] = cases.last;
+      }
+    }
+
+    Iterator<ir.SwitchCase> casesIterator = cases.iterator;
+    for (SwitchCase caseNode in node.cases.nodes) {
+      if (!casesIterator.moveNext()) {
+        internalError(caseNode, "case node mismatch");
+      }
+      ir.SwitchCase irCase = casesIterator.current;
+      List<ir.Statement> statements = <ir.Statement>[];
+      for (Statement statement in caseNode.statements.nodes) {
+        buildStatement(statement, statements);
+      }
+      ir.Statement body;
+      if (statements.length == 1) {
+        body = statements.single;
+      } else {
+        body = new ir.Block(statements);
+      }
+      irCase.body = body;
+      body.parent = irCase;
+    }
+    assert(!casesIterator.moveNext());
+
+    ir.Statement result = new ir.SwitchStatement(expression, cases);
+
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+    if (jumpTarget != null && jumpTarget.isBreakTarget) {
+      ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
+      breakTarget.body = result;
+      result.parent = breakTarget;
+      result = breakTarget;
+    }
+
+    return result;
   }
 
   @override
