@@ -26,6 +26,8 @@ import 'package:compiler/src/resolution/semantic_visitor.dart' show
     SemanticVisitor;
 
 import 'package:compiler/src/resolution/send_structure.dart' show
+    InitializerStructure,
+    InitializersStructure,
     VariableStructure;
 
 import 'package:compiler/src/resolution/send_resolver.dart' show
@@ -228,6 +230,7 @@ class KernelVisitor extends Object
 
   @override
   internalError(Spannable spannable, String message) {
+    compiler.reporter.internalError(spannable, message);
     throw new Unsupported(message);
   }
 
@@ -1011,12 +1014,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitFieldInitializer(
+  ir.FieldInitializer visitFieldInitializer(
       SendSet node,
       FieldElement field,
-      Node initializer,
+      Node expression,
       _) {
-    return buildUnsupported(node, "FieldInitializer");
+    return new ir.FieldInitializer(
+        kernel.fieldToIr(field), expression.accept(this));
   }
 
   @override
@@ -1076,15 +1080,53 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
+  GenerativeConstructorFunction buildGenerativeConstructor(
+      ConstructorElement constructor,
+      Node body) {
+    List<ir.Initializer> constructorInitializers = <ir.Initializer>[];
+    if (constructor.isSynthesized) {
+      List<ir.Expression> arguments = const <ir.Expression>[];
+      List<ir.NamedExpression> named = const <ir.NamedExpression>[];
+      FunctionSignature signature = constructor.functionSignature;
+      if (signature.parameterCount != 0) {
+        // Mixin application implicit super call.
+        arguments = <ir.Expression>[];
+        named = <ir.NamedExpression>[];
+        signature.orderedForEachParameter((ParameterElement parameter) {
+          ir.VariableGet argument = buildLocalGet(parameter);
+          if (parameter.isNamed) {
+            named.add(new ir.NamedExpression(parameter.name, argument));
+          } else {
+            arguments.add(argument);
+          }
+        });
+      }
+      constructorInitializers.add(
+          new ir.SuperInitializer(
+              kernel.functionToIr(constructor.definingConstructor),
+              new ir.Arguments(arguments, named: named)));
+    } else {
+      // TODO(ahe): the following is a (modified) copy of
+      // [SemanticDeclarationVisitor.visitInitializers].
+      InitializersStructure initializers =
+          computeInitializersStructure(constructor.node);
+      for (InitializerStructure structure in initializers.initializers) {
+        constructorInitializers.add(structure.dispatch(declVisitor, null));
+      }
+    }
+    return new GenerativeConstructorFunction(
+        buildFunctionNode(constructor, body), constructorInitializers);
+  }
+
   @override
-  ir.FunctionNode visitGenerativeConstructorDeclaration(
+  GenerativeConstructorFunction visitGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       NodeList initializers,
       Node body,
       _) {
-    return buildFunctionNode(constructor, body);
+    return buildGenerativeConstructor(constructor, body);
   }
 
   ir.ConstructorInvocation buildGenerativeConstructorInvoke(
@@ -1151,12 +1193,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitImplicitSuperConstructorInvoke(
+  ir.SuperInitializer visitImplicitSuperConstructorInvoke(
       FunctionExpression node,
       ConstructorElement superConstructor,
       InterfaceType type,
       _) {
-    return buildUnsupported(node, "ImplicitSuperConstructorInvoke");
+    return new ir.SuperInitializer(
+        kernel.functionToIr(superConstructor),
+        new ir.Arguments(const <ir.Expression>[]));
   }
 
   @override
@@ -1507,13 +1551,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FunctionNode visitRedirectingGenerativeConstructorDeclaration(
+  GenerativeConstructorFunction
+  visitRedirectingGenerativeConstructorDeclaration(
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
       NodeList initializers,
       _) {
-    return buildFunctionNode(constructor, null);
+    return buildGenerativeConstructor(constructor, null);
   }
 
   @override
@@ -1809,14 +1854,16 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperConstructorInvoke(
+  ir.SuperInitializer visitSuperConstructorInvoke(
       Send node,
       ConstructorElement superConstructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperConstructorInvoke");
+    return new ir.SuperInitializer(
+        kernel.functionToIr(superConstructor),
+        buildArguments(arguments));
   }
 
   @override
@@ -2086,13 +2133,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitThisConstructorInvoke(
+  ir.RedirectingInitializer visitThisConstructorInvoke(
       Send node,
       ConstructorElement thisConstructor,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ThisConstructorInvoke");
+    return new ir.RedirectingInitializer(
+        kernel.functionToIr(thisConstructor), buildArguments(arguments));
   }
 
   @override
@@ -2390,4 +2438,19 @@ class VariableDeclarations implements ir.Node {
   visitChildren(ir.Visitor v) => throw "unsupported";
 
   String toString() => "VariableDeclarations($variables)";
+}
+
+class GenerativeConstructorFunction implements ir.Node {
+  final ir.FunctionNode function;
+  final List<ir.Initializer> initializers;
+
+  GenerativeConstructorFunction(this.function, this.initializers);
+
+  accept(ir.Visitor v) => throw "unsupported";
+
+  visitChildren(ir.Visitor v) => throw "unsupported";
+
+  String toString() {
+    return "GenerativeConstructorFunction($function, $initializers)";
+  }
 }

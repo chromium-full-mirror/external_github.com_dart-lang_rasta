@@ -31,6 +31,7 @@ import 'custom_compiler.dart' show
     CustomCompiler;
 
 import 'kernel_visitor.dart' show
+    GenerativeConstructorFunction,
     KernelVisitor;
 
 typedef void VoidFunction();
@@ -226,18 +227,38 @@ class Kernel {
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
         ir.FunctionNode functionNode;
-        if (function.isSynthesized) {
-          functionNode = compiler.reporter.withCurrentElement(
-              function, () => visitor.buildFunctionNode(function, null));
+        List<ir.Initializer> initializers;
+        Function computeNode;
+        if (isConstructor) {
+          if (function.isSynthesized) {
+            computeNode = () {
+              GenerativeConstructorFunction constructorNode =
+                  visitor.buildGenerativeConstructor(function, null);
+              initializers = constructorNode.initializers;
+              return constructorNode.function;
+            };
+          } else {
+            computeNode = () {
+              GenerativeConstructorFunction constructorNode =
+                  function.node.accept(visitor);
+              initializers = constructorNode.initializers;
+              return constructorNode.function;
+            };
+          }
         } else {
-          functionNode = compiler.reporter.withCurrentElement(
-              function, () => function.node.accept(visitor));
+          computeNode = () => function.node.accept(visitor);
         }
+        functionNode =
+            compiler.reporter.withCurrentElement(function, computeNode);
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
         functionNode.parent = member;
         if (isConstructor) {
           constructor.function = functionNode;
-          // TODO(ahe): Set initializers.
+          constructor.initializers = initializers;
+          // TODO(ahe): Add setInitializers to [ir.Constructor].
+          for (ir.Initializer initializer in initializers) {
+            initializer.parent = constructor;
+          }
         } else {
           procedure.function = functionNode;
         }
