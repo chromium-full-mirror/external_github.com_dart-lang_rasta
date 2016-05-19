@@ -2368,12 +2368,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitTopLevelGetterDeclaration(
+  ir.FunctionNode visitTopLevelGetterDeclaration(
       FunctionExpression node,
       MethodElement getter,
       Node body,
       _) {
-    return buildUnsupported(node, "TopLevelGetterDeclaration");
+    return buildFunctionNode(getter, body);
   }
 
   @override
@@ -2406,13 +2406,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitTopLevelSetterDeclaration(
+  ir.FunctionNode visitTopLevelSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
       NodeList parameters,
       Node body,
       _) {
-    return buildUnsupported(node, "TopLevelSetterDeclaration");
+    return buildFunctionNode(setter, body);
   }
 
   @override
