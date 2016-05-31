@@ -729,8 +729,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitLiteralSymbol(LiteralSymbol node) {
-    return buildUnsupported(node, "LiteralSymbol");
+  ir.SymbolLiteral visitLiteralSymbol(LiteralSymbol node) {
+    return new ir.SymbolLiteral(node.slowNameString);
   }
 
   @override
