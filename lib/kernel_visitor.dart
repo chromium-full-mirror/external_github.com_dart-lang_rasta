@@ -44,6 +44,8 @@ import 'package:compiler/src/resolution/send_resolver.dart' show
     DeclarationResolverMixin;
 
 import 'package:compiler/src/elements/elements.dart' show
+    AsyncMarker,
+    ClassElement,
     ConstructorElement,
     Element,
     FieldElement,
@@ -220,6 +222,71 @@ class KernelVisitor extends Object
 
   KernelVisitor get declVisitor => this;
 
+  ir.DartType computeType(TypeAnnotation node) {
+    if (node == null) return const ir.DynamicType();
+    return kernel.typeToIr(elements.getType(node));
+  }
+
+  // This works around a bug in dart2js.
+  // TODO(ahe): Fix the bug in dart2js and remove this function.
+  ir.DartType typeToIrHack(DartType type) {
+    if (function.isSynthesized && function.enclosingClass.isMixinApplication) {
+      // Dart2js doesn't compute the correct functionSignature for synthetic
+      // constructors in mixin applications. So we compute the correct type:
+      // First, find the first superclass that isn't a mixin.
+      ClassElement superclass = function.enclosingClass.superclass;
+      while (superclass.isMixinApplication) {
+        superclass = superclass.superclass;
+      }
+      // Then translate the "this type" of the mixin application to its
+      // supertype with the correct type arguments.
+      //
+      // Consider this example:
+      //
+      //     class Super<S> {}
+      //     class Sub<T> extends Object with Super<T> {}
+      //
+      // Here the problem is that dart2js has created a constructor that refers
+      // to S (not T) in Sub (for example, the return type of the constructor
+      // is Super<S> and it should be Sub<T>, but we settle for Super<T> for
+      // now). So we need to translate Sub<T> to an instance of Super, which is
+      // Super<T> (not Super<S>).
+      InterfaceType supertype =
+          function.enclosingClass.asInstanceOf(superclass);
+      // Once we have [supertype], we know how to substitute S with T: the type
+      // arguments of [supertype] corresponds to T, and the type variables of
+      // its element correspond to S.
+      type = type.subst(
+          supertype.typeArguments, supertype.element.typeVariables);
+    }
+    return kernel.typeToIr(type);
+  }
+
+  List<ir.DartType> computeTypesFromTypes(NodeList nodes, {int expected}) {
+    if (expected == null) {
+      throw "[expected] is null";
+    }
+    List<ir.DartType> types = new List<ir.DartType>(expected);
+    Iterator<Node> iterator = nodes?.iterator;
+    for (int i = 0; i < expected; i++) {
+      TypeAnnotation type = null;
+      if (iterator != null && iterator.moveNext()) {
+        type = iterator.current;
+      }
+      types[i] = computeType(type);
+    }
+    if (iterator != null && iterator.moveNext()) {
+      // Should already have been reported by resolution.
+      // TODO(ahe): Delete this debug message.
+      kernel.debugMessage(iterator.current, "Extra type arguments.");
+    }
+    return types;
+  }
+
+  ir.DartType computeTypeFromTypes(NodeList node) {
+    return computeTypesFromTypes(node, expected: 1).single;
+  }
+
   ir.MethodInvocation buildInvokeSelector(
       ir.Expression receiver,
       Selector selector,
@@ -250,8 +317,7 @@ class KernelVisitor extends Object
 
   @override
   internalError(Spannable spannable, String message) {
-    kernel.compiler.reporter.internalError(spannable, message);
-    throw new Unsupported(message);
+    kernel.internalError(spannable, message);
   }
 
   @override
@@ -467,10 +533,10 @@ class KernelVisitor extends Object
         (node.exception == null) ? null : getLocal(elements[node.exception]);
     ir.VariableDeclaration trace =
         (node.trace == null) ? null : getLocal(elements[node.trace]);
-
+    ir.DartType guard = computeType(node.type);
     return new ir.Catch(
-        // TODO(ahe): Include the type.
-        exception, buildStatementInBlock(node.block), stackTrace: trace);
+        exception, buildStatementInBlock(node.block), guard: guard,
+        stackTrace: trace);
   }
 
   @override
@@ -625,9 +691,10 @@ class KernelVisitor extends Object
     for (Expression element in node.elements.nodes) {
       elements.add(element.accept(this));
     }
-    return new ir.ListLiteral(elements)
-        // TODO(ahe): Constness should be validated.
-        ..isConst = node.isConst;
+    return new ir.ListLiteral(
+        elements, typeArgument: computeTypeFromTypes(node.typeArguments),
+        // TODO(ahe): Should constness be validated?
+        isConst: node.isConst);
   }
 
   @override
@@ -638,9 +705,12 @@ class KernelVisitor extends Object
       entries.add(
           new ir.MapEntry(entry.key.accept(this), entry.value.accept(this)));
     }
-    return new ir.MapLiteral(entries)
-        // TODO(ahe): Constness should be validated.
-        ..isConst = node.isConst;
+    List<ir.DartType> typeArguments =
+        computeTypesFromTypes(node.typeArguments, expected: 2);
+    return new ir.MapLiteral(
+        entries, keyType: typeArguments.first, valueType: typeArguments.last,
+        // TODO(ahe): Should Constness be validated?
+        isConst: node.isConst);
   }
 
   @override
@@ -880,11 +950,10 @@ class KernelVisitor extends Object
     ConstructorElement effectiveTarget = target.effectiveTarget;
     NodeList arguments = node.send.argumentsNode;
     if (effectiveTarget.isGenerativeConstructor) {
-      return buildGenerativeConstructorInvoke(effectiveTarget, arguments)
-          ..isConst = true;
+      return buildGenerativeConstructorInvoke(
+          effectiveTarget, arguments, isConst: true);
     } else {
-      return buildStaticInvoke(effectiveTarget, arguments)
-          ..isConst = true;
+      return buildStaticInvoke(effectiveTarget, arguments, isConst: true);
     }
   }
 
@@ -1125,7 +1194,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildStaticInvoke(constructor, arguments);
+    return buildStaticInvoke(constructor, arguments, isConst: false);
   }
 
   @override
@@ -1219,7 +1288,9 @@ class KernelVisitor extends Object
       constructorInitializers.add(
           new ir.SuperInitializer(
               kernel.functionToIr(constructor.definingConstructor),
-              new ir.Arguments(arguments, named: named)));
+              new ir.Arguments(
+                  arguments, named: named,
+                  types: kernel.typeArgumentsNotImplemented())));
     } else {
       // TODO(ahe): the following is a (modified) copy of
       // [SemanticDeclarationVisitor.visitInitializers].
@@ -1246,10 +1317,26 @@ class KernelVisitor extends Object
 
   ir.ConstructorInvocation buildGenerativeConstructorInvoke(
       ConstructorElement constructor,
-      NodeList arguments) {
+      NodeList arguments,
+      {bool isConst}) {
+    if (const bool.fromEnvironment("require_kernel_arguments")) {
+      // Check that all constructors from kernel/ast.dart (that are invoked
+      // from this package) provide all arguments (including optional arguments).
+      // TODO(ahe): Remove this when the implementation has matured.
+      if (("package:kernel/ast.dart" ==
+           "${constructor.library.canonicalUri}") &&
+          "${function.library.canonicalUri}".startsWith("package:rasta/")) {
+        if (constructor.functionSignature.parameterCount !=
+            arguments.slowLength()) {
+          kernel.debugMessage(arguments, "Missing arguments");
+          kernel.debugMessage(constructor, "When calling the constructor");
+        }
+      }
+    }
     ir.Arguments argumentsNode = buildArguments(arguments);
     ir.Constructor target = kernel.functionToIr(constructor);
-    return new ir.ConstructorInvocation(target, argumentsNode);
+    return new ir.ConstructorInvocation(
+        target, argumentsNode, isConst: isConst);
   }
 
   @override
@@ -1260,7 +1347,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildGenerativeConstructorInvoke(constructor, arguments);
+    return buildGenerativeConstructorInvoke(
+        constructor, arguments, isConst: false);
   }
 
   Accessor buildNullAwarePropertyAccessor(Node receiver, Name name) {
@@ -1684,9 +1772,10 @@ class KernelVisitor extends Object
       CallStructure callStructure,
       _) {
     if (effectiveTarget.isGenerativeConstructor) {
-      return buildGenerativeConstructorInvoke(effectiveTarget, arguments);
+      return buildGenerativeConstructorInvoke(
+          effectiveTarget, arguments, isConst: false);
     } else {
-      return buildStaticInvoke(effectiveTarget, arguments);
+      return buildStaticInvoke(effectiveTarget, arguments, isConst: false);
     }
   }
 
@@ -1709,7 +1798,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildGenerativeConstructorInvoke(constructor, arguments);
+    return buildGenerativeConstructorInvoke(
+        constructor, arguments, isConst: false);
   }
 
   @override
@@ -1766,8 +1856,11 @@ class KernelVisitor extends Object
   }
 
   ir.VariableDeclaration getLocal(LocalElement local) {
-    return locals.putIfAbsent(
-        local, () => new ir.VariableDeclaration(local.name));
+    return locals.putIfAbsent(local, () {
+      return new ir.VariableDeclaration(
+          local.name, initializer: null, type: typeToIrHack(local.type),
+          isFinal: local.isFinal, isConst: local.isConst);
+    });
   }
 
   ir.FunctionNode buildFunctionNode(FunctionElement function, Node bodyNode) {
@@ -1794,7 +1887,33 @@ class KernelVisitor extends Object
         initializer.parent = variable;
       }
     });
-    return new ir.FunctionNode(body, positionalParameters: positionalParameters,
+    ir.AsyncMarker asyncMarker;
+    switch (function.asyncMarker) {
+      case AsyncMarker.SYNC:
+        asyncMarker = ir.AsyncMarker.Sync;
+        break;
+
+      case AsyncMarker.SYNC_STAR:
+        asyncMarker = ir.AsyncMarker.SyncStar;
+        break;
+
+      case AsyncMarker.ASYNC:
+        asyncMarker = ir.AsyncMarker.Async;
+        break;
+
+      case AsyncMarker.ASYNC_STAR:
+        asyncMarker = ir.AsyncMarker.AsyncStar;
+        break;
+
+      default:
+        internalError(function, "Unknown async maker: ${function.asyncMarker}");
+        break;
+    }
+    return new ir.FunctionNode(
+        body, asyncMarker: asyncMarker,
+        returnType: typeToIrHack(signature.type.returnType),
+        typeParameters: kernel.typeParametersNotImplemented(),
+        positionalParameters: positionalParameters,
         namedParameters: namedParameters,
         requiredParameterCount: requiredParameterCount);
   }
@@ -1860,10 +1979,11 @@ class KernelVisitor extends Object
 
   ir.StaticInvocation buildStaticInvoke(
       FunctionElement function,
-      NodeList arguments) {
+      NodeList arguments,
+      {bool isConst}) {
     ir.Arguments argumentsNode = buildArguments(arguments);
     return new ir.StaticInvocation(
-        kernel.functionToIr(function), argumentsNode);
+        kernel.functionToIr(function), argumentsNode, isConst: isConst);
   }
 
   @override
@@ -1873,7 +1993,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildStaticInvoke(function, arguments);
+    return buildStaticInvoke(function, arguments, isConst: false);
   }
 
   @override
@@ -1893,7 +2013,7 @@ class KernelVisitor extends Object
 
   ir.StaticInvocation buildStaticGetterGet(FunctionElement getter) {
     return new ir.StaticInvocation(
-        kernel.functionToIr(getter), new ir.Arguments.empty());
+        kernel.functionToIr(getter), new ir.Arguments.empty(), isConst: false);
   }
 
   @override
@@ -1981,7 +2101,9 @@ class KernelVisitor extends Object
       SendSet node, FunctionElement setter, Node rhs, _) {
     return new ir.StaticInvocation(
         kernel.functionToIr(setter),
-        new ir.Arguments(<ir.Expression>[rhs.accept(this)]));
+        new ir.Arguments(
+            <ir.Expression>[rhs.accept(this)], types: null, named: null),
+        isConst: false);
   }
 
   @override
@@ -2032,7 +2154,9 @@ class KernelVisitor extends Object
       Send node, FunctionElement function, Node argument, _) {
     return new ir.StaticInvocation(
         kernel.functionToIr(function),
-        new ir.Arguments(<ir.Expression>[argument.accept(this)]));
+        new ir.Arguments(
+            <ir.Expression>[argument.accept(this)], types: null, named: null),
+        isConst: false);
   }
 
   @override
@@ -2422,7 +2546,8 @@ class KernelVisitor extends Object
         positional.add(argument);
       }
     }
-    return new ir.Arguments(positional, named: named);
+    return new ir.Arguments(
+        positional, named: named, types: kernel.typeArgumentsNotImplemented());
   }
 
   @override

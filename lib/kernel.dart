@@ -21,11 +21,21 @@ import 'package:compiler/src/elements/elements.dart' show
     FieldElement,
     FunctionElement,
     LibraryElement,
-    Name;
+    Name,
+    TypeVariableElement;
 
 import 'package:compiler/src/dart_types.dart' show
     DartType,
-    InterfaceType;
+    FunctionType,
+    InterfaceType,
+    TypeKind,
+    TypeVariableType;
+
+import 'package:compiler/src/diagnostics/spannable.dart' show
+    Spannable;
+
+import 'package:compiler/src/diagnostics/messages.dart' show
+    MessageKind;
 
 import 'custom_compiler.dart' show
     CustomCompiler;
@@ -51,6 +61,9 @@ class Kernel {
       <FunctionElement, ir.Member>{};
 
   final Map<FieldElement, ir.Field> fields = <FieldElement, ir.Field>{};
+
+  final Map<TypeVariableElement, ir.TypeParameter> typeParameters =
+      <TypeVariableElement, ir.TypeParameter>{};
 
   /// FIFO queue of work that needs to be completed before the returned AST
   /// nodes are correct.
@@ -104,7 +117,9 @@ class Kernel {
     library = library.declaration;
     return libraries.putIfAbsent(library, () {
       String name = library.hasLibraryName ? library.libraryName : null;
-      ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
+      ir.Library libraryNode = new ir.Library(
+          library.canonicalUri, name: name, classes: null, procedures: null,
+          fields: null);
       addWork(() {
         library.implementation.forEachLocalMember((Element e) {
           if (e.isClass) {
@@ -113,6 +128,10 @@ class Kernel {
             libraryNode.addMember(functionToIr(e));
           } else if (e.isField) {
             libraryNode.addMember(fieldToIr(e));
+          } else if (e.isTypedef) {
+            // Ignored, typedefs are unaliased on use.
+          } else {
+            internalError(e, "Unhandled library member: $e");
           }
         });
       });
@@ -124,14 +143,14 @@ class Kernel {
     cls = cls.declaration;
     return classes.putIfAbsent(cls, () {
       cls.ensureResolved(compiler.resolution);
-      ir.InterfaceType supertype;
-      if (cls.supertype != null) {
-        supertype = interfaceTypeToIr(cls.supertype);
-      }
-
-      ir.Class classNode = new ir.NormalClass(
-          supertype, name: cls.name, isAbstract: cls.isAbstract);
+      ir.NormalClass classNode = new ir.NormalClass(
+          null, name: cls.name, isAbstract: cls.isAbstract,
+          typeParameters: null, implementedClasses: null, constructors: null,
+          procedures: null, fields: null);
       addWork(() {
+        if (cls.supertype != null) {
+          classNode.superType = interfaceTypeToIr(cls.supertype);
+        }
         classNode.parent = libraryToIr(cls.library);
         if (cls.isUnnamedMixinApplication) {
           classNode.enclosingLibrary.addClass(classNode);
@@ -148,26 +167,91 @@ class Kernel {
             classNode.addMember(functionToIr(member));
           } else if (member.isField) {
             classNode.addMember(fieldToIr(member));
+          } else {
+            internalError(member, "Unhandled class member: $member");
           }
         });
+        classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
+        for (ir.InterfaceType interface in typesToIr(cls.interfaces.toList())) {
+          classNode.implementedTypes.add(interface);
+        }
       });
-
-      // TODO(ahe): Fill in the following typeParameters, implementedTypes,
-      // fields, constructors, procedures;
       return classNode;
     });
   }
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
     ir.Class cls = classToIr(type.element);
-    // TODO(ahe): Type arguments.
-    return new ir.InterfaceType(cls);
+    return new ir.InterfaceType(cls, typesToIr(type.typeArguments));
+  }
+
+  // TODO(ahe): Remove this method when dart2js support generic type arguments.
+  List<ir.DartType> typeArgumentsNotImplemented() {
+    return const <ir.DartType>[];
+  }
+
+  // TODO(ahe): Remove this method when dart2js support generic type arguments.
+  List<ir.TypeParameter> typeParametersNotImplemented() {
+    return const <ir.TypeParameter>[];
+  }
+
+  ir.FunctionType functionTypeToIr(FunctionType type) {
+    List<ir.TypeParameter> typeParameters = typeParametersNotImplemented();
+    int requiredParameterCount = type.parameterTypes.length;
+    List<ir.DartType> positionalParameters =
+        new List<ir.DartType>.from(typesToIr(type.parameterTypes))
+            ..addAll(typesToIr(type.optionalParameterTypes));
+    Map<String, ir.DartType> namedParameters = <String, ir.DartType>{};
+    for (int i = 0; i < type.namedParameters.length; i++) {
+      namedParameters[type.namedParameters[i]] =
+          typeToIr(type.namedParameterTypes[i]);
+    }
+    ir.DartType returnType = typeToIr(type.returnType);
+
+    return new ir.FunctionType(positionalParameters, returnType,
+        namedParameters: namedParameters, typeParameters: typeParameters,
+        requiredParameterCount: requiredParameterCount);
+  }
+
+  ir.TypeParameterType typeVariableTypeToIr(TypeVariableType type) {
+    return new ir.TypeParameterType(typeVariableToIr(type.element));
+  }
+
+  List<ir.DartType> typesToIr(List<DartType> types) {
+    List<ir.DartType> result = new List<ir.DartType>(types.length);
+    for (int i = 0; i < types.length; i++) {
+      result[i] = typeToIr(types[i]);
+    }
+    return result;
   }
 
   ir.DartType typeToIr(DartType type) {
-    // TODO(ahe): Implement other types.
-    return type is InterfaceType ?
-        interfaceTypeToIr(type) : const ir.DynamicType();
+    switch (type.kind) {
+      case TypeKind.FUNCTION:
+        return functionTypeToIr(type);
+
+      case TypeKind.INTERFACE:
+        return interfaceTypeToIr(type);
+
+      case TypeKind.STATEMENT:
+        throw "Internal error: statement type: $type.";
+
+      case TypeKind.TYPEDEF:
+        type.computeUnaliased(compiler.resolution);
+        return functionTypeToIr(type.unaliased);
+
+      case TypeKind.TYPE_VARIABLE:
+        return typeVariableTypeToIr(type);
+
+      case TypeKind.MALFORMED_TYPE:
+        return const ir.InvalidType();
+
+      case TypeKind.DYNAMIC:
+        return const ir.DynamicType();
+
+      case TypeKind.VOID:
+        return const ir.VoidType();
+    }
   }
 
   ir.DartType typeLiteralToIr(TypeConstantExpression constant) {
@@ -194,9 +278,7 @@ class Kernel {
     return functions.putIfAbsent(function, () {
       compiler.analyzeElement(function);
       compiler.enqueuer.resolution.emptyDeferredTaskQueue();
-      if (function.isPatched) {
-        function = function.implementation;
-      }
+      function = function.implementation;
       ir.Member member;
       ir.Constructor constructor;
       ir.Procedure procedure;
@@ -204,9 +286,13 @@ class Kernel {
       if (function.isGenerativeConstructor) {
         member = constructor = new ir.Constructor(
             null, name: name, isConst: function.isConst,
-            isExternal: function.isExternal);
+            isExternal: function.isExternal, initializers: null);
       } else {
-        member = procedure = new ir.Procedure(name, null, null);
+        member = procedure = new ir.Procedure(
+            name, null, null, isAbstract: function.isAbstract,
+            isStatic: function.isStatic || function.isTopLevel,
+            isExternal: function.isExternal,
+            isConst: false); // TODO(ahe): When is this true?
       }
       addWork(() {
         setParent(member, function);
@@ -238,11 +324,11 @@ class Kernel {
     field = field.declaration;
     return fields.putIfAbsent(field, () {
       compiler.analyzeElement(field);
-      if (field.isPatched) {
-        field = field.implementation;
-      }
-      ir.Field fieldNode = new ir.Field(nameToIrName(field.memberName));
-      // TODO(ahe): Add type, etc.
+      field = field.implementation;
+      ir.Field fieldNode = new ir.Field(
+          nameToIrName(field.memberName), type: typeToIr(field.type),
+          initializer: null, isFinal: field.isFinal,
+          isStatic: field.isStatic || field.isTopLevel, isConst: field.isConst);
       addWork(() {
         setParent(fieldNode, field);
         // TODO(ahe): Visit initializer.
@@ -251,11 +337,47 @@ class Kernel {
     });
   }
 
+  ir.TypeParameter typeVariableToIr(TypeVariableElement variable) {
+    variable = variable.declaration;
+    return typeParameters.putIfAbsent(variable, () {
+      ir.TypeParameter parameter = new ir.TypeParameter(variable.name, null);
+      addWork(() {
+        // TODO(ahe): This assignment will probably not be correct when dart2js
+        // supports generic methods.
+        ClassElement cls = variable.typeDeclaration;
+        cls.ensureResolved(compiler.resolution);
+        parameter.parent = classToIr(cls);
+        parameter.bound = typeToIr(variable.bound);
+      });
+      return parameter;
+    });
+  }
+
+  List<ir.TypeParameter> typeVariablesToIr(List<DartType> variables) {
+    List<ir.TypeParameter> result =
+        new List<ir.TypeParameter>(variables.length);
+    for (int i = 0; i < variables.length; i++) {
+      TypeVariableType type = variables[i];
+      result[i] = typeVariableToIr(type.element);
+    }
+    return result;
+  }
+
   ir.TreeNode elementToIr(Element element) {
     if (element.isLibrary) return libraryToIr(element);
     if (element.isClass) return classToIr(element);
     if (element.isFunction || element.isAccessor) return functionToIr(element);
     if (element.isField) return fieldToIr(element);
     throw "unhandled element: $element";
+  }
+
+  void debugMessage(Spannable spannable, String message) {
+    compiler.reporter.reportHintMessage(
+        spannable, MessageKind.GENERIC, {'text': message});
+  }
+
+  void internalError(Spannable spannable, String message) {
+    compiler.reporter.internalError(spannable, message);
+    throw message;
   }
 }
