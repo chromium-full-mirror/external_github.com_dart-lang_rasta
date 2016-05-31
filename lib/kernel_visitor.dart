@@ -48,7 +48,6 @@ import 'package:compiler/src/elements/elements.dart' show
     JumpTarget,
     LocalElement,
     LocalFunctionElement,
-    LocalParameterElement,
     LocalVariableElement,
     MethodElement,
     Name,
@@ -1756,7 +1755,7 @@ class KernelVisitor extends Object
         <ir.VariableDeclaration>[];
     List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
     int requiredParameterCount = signature.requiredParameterCount;
-    signature.forEachParameter((LocalElement parameter) {
+    signature.forEachParameter((ParameterElement parameter) {
       ir.VariableDeclaration variable = getLocal(parameter);
       if (parameter.isNamed) {
         namedParameters.add(variable);
@@ -1764,7 +1763,7 @@ class KernelVisitor extends Object
         positionalParameters.add(variable);
       }
     });
-    signature.forEachParameter((LocalElement parameter) {
+    signature.forEachParameter((ParameterElement parameter) {
       ir.Expression initializer = parameter.initializer?.accept(this);
       ir.VariableDeclaration variable = getLocal(parameter);
       if (initializer != null) {

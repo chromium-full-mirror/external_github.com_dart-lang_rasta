@@ -134,7 +134,7 @@ class Kernel {
       addWork(() {
         classNode.parent = libraryToIr(cls.library);
         if (cls.isUnnamedMixinApplication) {
-          classNode.parent.addClass(classNode);
+          classNode.enclosingLibrary.addClass(classNode);
         }
         cls.implementation.forEachMember(
             (ClassElement enclosingClass, Element member) {
