@@ -862,12 +862,26 @@ class KernelVisitor extends Object
     return buildBinaryOperator(left, operator.name, right);
   }
 
+  ir.Expression buildConstConstructorInvoke(NewExpression node) {
+    // TODO(ahe): Should SemanticVisitor provide target and effectiveTarget?
+    ConstructorElement target = elements[node.send];
+    ConstructorElement effectiveTarget = target.effectiveTarget;
+    NodeList arguments = node.send.argumentsNode;
+    if (effectiveTarget.isGenerativeConstructor) {
+      return buildGenerativeConstructorInvoke(effectiveTarget, arguments)
+          ..isConst = true;
+    } else {
+      return buildStaticInvoke(effectiveTarget, arguments)
+          ..isConst = true;
+    }
+  }
+
   @override
-  ir.Throw visitBoolFromEnvironmentConstructorInvoke(
+  ir.Expression visitBoolFromEnvironmentConstructorInvoke(
       NewExpression node,
       BoolFromEnvironmentConstantExpression constant,
       _) {
-    return buildUnsupported(node, "BoolFromEnvironmentConstructorInvoke");
+    return buildConstConstructorInvoke(node);
   }
 
   @override
@@ -932,14 +946,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ConstructorInvocation visitConstConstructorInvoke(
+  ir.Expression visitConstConstructorInvoke(
       NewExpression node,
       ConstructedConstantExpression constant,
       _) {
-    return buildGenerativeConstructorInvoke(
-        // TODO(ahe): Why do I have to get the effective target???
-        constant.target.effectiveTarget, node.send.argumentsNode)
-        ..isConst = true;
+    return buildConstConstructorInvoke(node);
   }
 
   @override
@@ -1396,11 +1407,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitIntFromEnvironmentConstructorInvoke(
+  ir.Expression visitIntFromEnvironmentConstructorInvoke(
       NewExpression node,
       IntFromEnvironmentConstantExpression constant,
       _) {
-    return buildUnsupported(node, "IntFromEnvironmentConstructorInvoke");
+    return buildConstConstructorInvoke(node);
   }
 
   ir.IsExpression buildIs(Node expression, DartType type) {
@@ -1954,11 +1965,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStringFromEnvironmentConstructorInvoke(
+  ir.Expression visitStringFromEnvironmentConstructorInvoke(
       NewExpression node,
       StringFromEnvironmentConstantExpression constant,
       _) {
-    return buildUnsupported(node, "StringFromEnvironmentConstructorInvoke");
+    return buildConstConstructorInvoke(node);
   }
 
   @override
