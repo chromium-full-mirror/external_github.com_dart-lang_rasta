@@ -103,7 +103,7 @@ class Kernel {
   ir.Library libraryToIr(LibraryElement library) {
     library = library.declaration;
     return libraries.putIfAbsent(library, () {
-      String name = library.hasLibraryName ? library.name : null;
+      String name = library.hasLibraryName ? library.libraryName : null;
       ir.Library libraryNode = new ir.Library(library.canonicalUri, name: name);
       addWork(() {
         library.implementation.forEachLocalMember((Element e) {
