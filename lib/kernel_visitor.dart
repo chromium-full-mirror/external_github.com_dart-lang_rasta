@@ -1968,13 +1968,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleStaticFunctionIncompatibleInvoke(
+  ir.StaticInvocation handleStaticFunctionIncompatibleInvoke(
       Send node,
       MethodElement function,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "StaticFunctionIncompatibleInvoke");
+    return buildStaticInvoke(function, arguments, isConst: false);
   }
 
   ir.StaticInvocation buildStaticInvoke(
