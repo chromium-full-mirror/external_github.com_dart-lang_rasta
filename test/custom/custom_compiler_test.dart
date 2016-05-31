@@ -12,9 +12,6 @@ import 'package:compiler/src/elements/elements.dart' show
     Element,
     LibraryElement;
 
-import 'package:rasta/compiler_factory.dart' show
-    CompilerFactory;
-
 import 'package:rasta/io_compiler_factory.dart' show
     IoCompilerFactory;
 
@@ -30,7 +27,7 @@ const bool isVerbose =
 Future<Null> main() async {
   Stopwatch sw = new Stopwatch()..start();
   List<String> options = isVerbose ? <String>['--verbose'] : <String>[];
-  CompilerFactory factory = new IoCompilerFactory(
+  IoCompilerFactory factory = new IoCompilerFactory(
       targetSpecificationUri, options, <String, dynamic>{});
   (await factory.diagnostics)
       ..showWarnings = isVerbose

@@ -7,7 +7,6 @@ library rasta.testa;
 import 'dart:io' show
     Directory,
     File,
-    FileSystemEntity,
     Platform,
     Process,
     stderr,
@@ -17,16 +16,20 @@ import 'dart:isolate' show
     ReceivePort;
 
 import 'dart:async' show
-    Future,
-    Stream,
-    StreamController,
-    StreamSubscription;
+    Future;
+
+import 'package:rasta/testing.dart' show
+    TestDescription,
+    dartSdk,
+    listTests,
+    startDart;
 
 main() async {
   final ReceivePort port = new ReceivePort();
   List<TestDescription> descriptions =
       await listTests(<Uri>[Platform.script.resolve(".")]).toList();
   descriptions.sort();
+  await analyzeTests(descriptions);
   StringBuffer sb = new StringBuffer();
   sb.writeln("library testa_combined;\n");
   sb.writeln("import '${Platform.script.path}' show runTests;\n");
@@ -52,12 +55,7 @@ main() async {
     await generated.writeAsString("$sb", flush: true);
     print("==> ${generated.path} <==");
     print(numberedLines('$sb'));
-    String packageConfig = Platform.packageConfig;
-    if (packageConfig == null) {
-      packageConfig = Platform.script.resolve(".packages").path;
-    }
-    Process process = await Process.start(Platform.resolvedExecutable,
-        <String>["-c", "--packages=$packageConfig", generated.path]);
+    Process process = await startDart(generated.uri);
     process.stdin.close();
     Future stdoutFuture =
         process.stdout.listen((data) => stdout.add(data)).asFuture();
@@ -77,41 +75,47 @@ main() async {
   port.close();
 }
 
-Stream<TestDescription> listTests(List<Uri> testRoots) {
-  StreamController<TestDescription> controller =
-      new StreamController<TestDescription>();
-  Map<Uri, StreamSubscription> subscriptions = <Uri, StreamSubscription>{};
-  for (Uri testRootUri in testRoots) {
-    subscriptions[testRootUri] = null;
-    Directory testRoot = new Directory.fromUri(testRootUri);
-    testRoot.exists().then((bool exists) {
-      if (exists) {
-        Stream<FileSystemEntity> stream =
-            testRoot.list(recursive: true, followLinks: false);
-        var subscription = stream.listen((FileSystemEntity entity) {
-          TestDescription description = TestDescription.from(entity);
-          if (description != null) {
-            controller.add(description);
-          }
-        }, onError: (error, StackTrace trace) {
-          controller.addError(error, trace);
-        }, onDone: () {
-          subscriptions.remove(testRootUri);
-          if (subscriptions.isEmpty) {
-            controller.close(); // TODO(ahe): catchError???
-          }
-        });
-        subscriptions[testRootUri] = subscription;
-      } else {
-        controller.addError("$testRootUri isn't a directory");
-        subscriptions.remove(testRootUri);
-      }
-      if (subscriptions.isEmpty) {
-        controller.close(); // TODO(ahe): catchError???
-      }
-    });
+/// Run dartanalyzer on all tests in [descriptions], "../bin/rastak.dart", and
+/// this script.
+Future<Null> analyzeTests(List<TestDescription> descriptions) async {
+  const String analyzerPath = "bin/dartanalyzer";
+  Uri analyzer = dartSdk.resolve(analyzerPath);
+  if (!await new File.fromUri(analyzer).exists()) {
+    throw "Couldn't find '$analyzerPath' in '${dartSdk.toFilePath()}'";
   }
-  return controller.stream;
+  List<String> arguments = new List<String>.from(
+      descriptions.map(
+          (TestDescription desciption) => desciption.uri.toFilePath()));
+  arguments
+      ..add(Platform.script.resolve("../bin/rastak.dart").toFilePath())
+      ..add(Platform.script.toFilePath());
+  print("Running analyzer");
+  Stopwatch sw = new Stopwatch()..start();
+  Process process = await Process.start(
+      "./run_analyzer.sh", arguments,
+      environment: {"DART_SDK": dartSdk.toFilePath()});
+  process.stdin.close();
+  bool hasStdout = false;
+  bool hasStderr = false;
+  Future stdoutFuture = process.stdout.listen((data) {
+    stdout.add(data);
+    hasStdout = true;
+  }).asFuture();
+  Future stderrFuture = process.stderr.listen((data) {
+    stderr.add(data);
+    hasStderr = true;
+  }).asFuture();
+  int exitCode = await process.exitCode;
+  await stdoutFuture;
+  await stderrFuture;
+  if (exitCode != 0) {
+    throw "Non-zero exit code ($exitCode) from analyzer.";
+  }
+  if (hasStdout || hasStderr) {
+    throw "Non-empty output from analyzer.";
+  }
+  sw.stop();
+  print("Running analyzer took: ${sw.elapsed}");
 }
 
 Future<Null> runTests(Map<String, Function> tests) async {
@@ -121,30 +125,6 @@ Future<Null> runTests(Map<String, Function> tests) async {
     await tests[name]();
   }
   port.close();
-}
-
-class TestDescription implements Comparable<TestDescription> {
-  final File file;
-
-  TestDescription(this.file);
-
-  Uri get uri => file.uri;
-
-  String get shortName {
-    String baseName = uri.path.split("/").last;
-    return baseName.substring(0, baseName.length - ".dart".length);
-  }
-
-  static TestDescription from(FileSystemEntity entity) {
-    if (entity is File) {
-      if ("${entity.uri}".endsWith("_test.dart")) {
-        return new TestDescription(entity);
-      }
-    }
-    return null;
-  }
-
-  int compareTo(TestDescription other) => "$uri".compareTo("${other.uri}");
 }
 
 String numberedLines(String text) {

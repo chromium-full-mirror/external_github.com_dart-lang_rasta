@@ -4,6 +4,9 @@
 
 library rasta.rastak;
 
+import 'dart:async' show
+    Future;
+
 import 'dart:io' show
     File,
     IOSink;
