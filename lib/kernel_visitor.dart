@@ -9,6 +9,7 @@ import 'package:kernel/ast.dart' as ir;
 import 'package:kernel/accessors.dart' show
     Accessor,
     IndexAccessor,
+    NullAwarePropertyAccessor,
     PropertyAccessor,
     StaticAccessor,
     SuperIndexAccessor,
@@ -17,6 +18,7 @@ import 'package:kernel/accessors.dart' show
     VariableAccessor,
     buildIsNull,
     makeBinary,
+    makeLet,
     makeOrReuseVariable;
 
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
@@ -1029,13 +1031,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitDynamicPropertySetIfNull(
+  ir.Expression visitDynamicPropertySetIfNull(
       Send node,
       Node receiver,
       Name name,
       Node rhs,
       _) {
-    return buildUnsupported(node, "DynamicPropertySetIfNull");
+    ir.Name irName = kernel.nameToIrName(name);
+    return PropertyAccessor.make(receiver.accept(this), irName)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -1254,43 +1258,49 @@ class KernelVisitor extends Object
     return buildGenerativeConstructorInvoke(constructor, arguments);
   }
 
+  Accessor buildNullAwarePropertyAccessor(Node receiver, Name name) {
+    return new NullAwarePropertyAccessor(
+        receiver.accept(this), kernel.nameToIrName(name));
+  }
+
   @override
-  ir.Throw visitIfNotNullDynamicPropertyGet(
+  ir.Expression visitIfNotNullDynamicPropertyGet(
       Send node,
       Node receiver,
       Name name,
       _) {
-    return buildUnsupported(node, "IfNotNullDynamicPropertyGet");
+    return buildNullAwarePropertyAccessor(receiver, name).buildSimpleRead();
   }
 
   @override
   ir.Let visitIfNotNullDynamicPropertyInvoke(
       Send node,
-      Node receiver,
+      Node receiverNode,
       NodeList arguments,
       Selector selector,
       _) {
-    VariableAccessor receiverAccessor = new VariableAccessor(
-        new ir.VariableDeclaration.forValue(receiver.accept(this)));
-    return new ir.Let(
-        receiverAccessor.variable,
+    ir.VariableDeclaration receiver =
+        makeOrReuseVariable(receiverNode.accept(this));
+    return makeLet(
+        receiver,
         new ir.ConditionalExpression(
-            buildIsNull(receiverAccessor.buildSimpleRead()),
+            buildIsNull(new ir.VariableGet(receiver)),
             new ir.NullLiteral(),
             new ir.MethodInvocation(
-                receiverAccessor.buildSimpleRead(),
+                new ir.VariableGet(receiver),
                 kernel.nameToIrName(selector.memberName),
                 buildArguments(arguments))));
   }
 
   @override
-  ir.Throw visitIfNotNullDynamicPropertySet(
+  ir.Expression visitIfNotNullDynamicPropertySet(
       SendSet node,
       Node receiver,
       Name name,
       Node rhs,
       _) {
-    return buildUnsupported(node, "IfNotNullDynamicPropertySet");
+    return buildNullAwarePropertyAccessor(receiver, name).buildAssignment(
+        rhs.accept(this));
   }
 
   @override
@@ -1300,7 +1310,8 @@ class KernelVisitor extends Object
       Name name,
       Node rhs,
       _) {
-    return buildUnsupported(node, "IfNotNullDynamicPropertySetIfNull");
+    return buildNullAwarePropertyAccessor(receiver, name)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   ir.LogicalExpression buildLogicalExpression(
@@ -1544,12 +1555,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitLocalVariableSetIfNull(
+  ir.Expression visitLocalVariableSetIfNull(
       Send node,
       LocalVariableElement variable,
       Node rhs,
       _) {
-    return buildUnsupported(node, "LocalVariableSetIfNull");
+    return new VariableAccessor(getLocal(variable))
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
