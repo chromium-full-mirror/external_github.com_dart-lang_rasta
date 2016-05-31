@@ -54,6 +54,8 @@ class CustomPatchParserTask extends CompilerTask implements PatchParserTask {
   CustomPatchParserTask(CustomCompiler compiler)
       : super(compiler);
 
+  @override String get name => "Custom patch parser";
+
   @override ParserOptions get parserOptions => compiler.parsing.parserOptions;
 
   @override Future patchLibrary(

@@ -47,7 +47,14 @@ import 'kernel_visitor.dart' show
 import 'package:compiler/src/constants/expressions.dart' show
     TypeConstantExpression;
 
-typedef void VoidFunction();
+typedef void WorkAction(bool isTargeted);
+
+class WorkItem {
+  final Element element;
+  final WorkAction action;
+
+  WorkItem(this.element, this.action);
+}
 
 class Kernel {
   final CustomCompiler compiler;
@@ -67,15 +74,28 @@ class Kernel {
 
   /// FIFO queue of work that needs to be completed before the returned AST
   /// nodes are correct.
-  final Queue<VoidFunction> workQueue = new Queue<VoidFunction>();
+  final Queue<WorkItem> workQueue = new Queue<WorkItem>();
+
+  LibraryElement targetLibrary;
 
   Kernel(this.compiler);
 
-  void addWork(VoidFunction work) {
-    workQueue.addFirst(work);
+  bool hasMainMethod(Uri uri) {
+    LibraryElement library = compiler.libraryLoader.lookupLibrary(uri);
+    return library.localLookup("main") != null;
+  }
+
+  bool isTargeted(Element element) {
+    if (targetLibrary == null) return true;
+    return element.library.declaration == targetLibrary;
+  }
+
+  void addWork(Element element, WorkAction action) {
+    workQueue.addFirst(new WorkItem(element, action));
   }
 
   void checkMember(Element key, ir.TreeNode value) {
+    if (!isTargeted(key)) return;
     if (value.parent == null) {
       compiler.reporter.internalError(key, "Missing parent on IR node.");
     }
@@ -86,15 +106,22 @@ class Kernel {
     }
   }
 
-  void processWorkQueue() {
-    while (workQueue.isNotEmpty) {
-      VoidFunction work = workQueue.removeLast();
-      work();
+  void processWorkQueue({Uri targetLibrary}) {
+    if (targetLibrary != null) {
+      this.targetLibrary = compiler.libraryLoader.lookupLibrary(targetLibrary);
+      assert(this.targetLibrary != null);
     }
-    libraries.values.forEach(CheckParentPointers.check);
-    classes.forEach(checkMember);
-    functions.forEach(checkMember);
-    fields.forEach(checkMember);
+    while (workQueue.isNotEmpty) {
+      WorkItem work = workQueue.removeLast();
+      work.action(isTargeted(work.element));
+    }
+    assert(() {
+      libraries.values.forEach(CheckParentPointers.check);
+      classes.forEach(checkMember);
+      functions.forEach(checkMember);
+      fields.forEach(checkMember);
+      return true;
+    });
   }
 
   ir.Name irName(String name, Element element) {
@@ -120,7 +147,7 @@ class Kernel {
       ir.Library libraryNode = new ir.Library(
           library.canonicalUri, name: name, classes: null, procedures: null,
           fields: null);
-      addWork(() {
+      addWork(library, (bool isTargeted) {
         library.implementation.forEachLocalMember((Element e) {
           if (e.isClass) {
             libraryNode.addClass(classToIr(e));
@@ -147,7 +174,7 @@ class Kernel {
           null, name: cls.name, isAbstract: cls.isAbstract,
           typeParameters: null, implementedClasses: null, constructors: null,
           procedures: null, fields: null);
-      addWork(() {
+      addWork(cls, (bool isTargeted) {
         if (cls.supertype != null) {
           classNode.superType = interfaceTypeToIr(cls.supertype);
         }
@@ -294,8 +321,9 @@ class Kernel {
             isExternal: function.isExternal,
             isConst: false); // TODO(ahe): When is this true?
       }
-      addWork(() {
+      addWork(function, (bool isTargeted) {
         setParent(member, function);
+        if (!isTargeted) return;
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
         IrFunction irFunction = visitor.build();
@@ -314,7 +342,10 @@ class Kernel {
           procedure.function = irFunction.node;
           procedure.kind = irFunction.kind;
         }
-        visitor.locals.forEach(checkMember);
+        assert(() {
+          visitor.locals.forEach(checkMember);
+          return true;
+        });
       });
       return member;
     });
@@ -329,8 +360,9 @@ class Kernel {
           nameToIrName(field.memberName), type: typeToIr(field.type),
           initializer: null, isFinal: field.isFinal,
           isStatic: field.isStatic || field.isTopLevel, isConst: field.isConst);
-      addWork(() {
+      addWork(field, (bool isTargeted) {
         setParent(fieldNode, field);
+        if (!isTargeted) return;
         // TODO(ahe): Visit initializer.
       });
       return fieldNode;
@@ -341,7 +373,7 @@ class Kernel {
     variable = variable.declaration;
     return typeParameters.putIfAbsent(variable, () {
       ir.TypeParameter parameter = new ir.TypeParameter(variable.name, null);
-      addWork(() {
+      addWork(variable, (bool isTargeted) {
         // TODO(ahe): This assignment will probably not be correct when dart2js
         // supports generic methods.
         ClassElement cls = variable.typeDeclaration;

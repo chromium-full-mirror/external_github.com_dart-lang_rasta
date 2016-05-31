@@ -78,4 +78,41 @@ class CustomCompiler extends CompilerImpl {
     reporter.reportErrorMessage(
         spannable, MessageKind.GENERIC, {'text': text ?? ""});
   }
+
+  void printVerboseTimings(Duration setupDuration) {
+    // TODO(ahe): Copied from package:compiler/src/apiimpl.dart. Remove this
+    // copy when merged with SDK version that provides this as a public method.
+    StringBuffer timings = new StringBuffer();
+    timings.writeln("Timings:");
+    Duration totalDuration = measurer.wallClock.elapsed;
+    Duration asyncDuration = measurer.asyncWallClock.elapsed;
+    Duration cumulatedDuration = Duration.ZERO;
+    for (final task in tasks) {
+      String running = task.isRunning ? "*" : "";
+      Duration duration = task.duration;
+      if (duration != Duration.ZERO) {
+        cumulatedDuration += duration;
+        timings.writeln(
+            '    $running${task.name} took'
+            ' ${duration.inMilliseconds}msec');
+        for (String subtask in task.subtasks) {
+          int subtime = task.getSubtaskTime(subtask);
+          String running = task.getSubtaskIsRunning(subtask) ? "*" : "";
+          timings.writeln(
+              '    $running${task.name} > $subtask took ${subtime}msec');
+        }
+      }
+    }
+    Duration unaccountedDuration =
+        totalDuration - cumulatedDuration - setupDuration - asyncDuration;
+    double percent = unaccountedDuration.inMilliseconds * 100
+        / totalDuration.inMilliseconds;
+    timings.write(
+        '    Total compile-time ${totalDuration.inMilliseconds}msec;'
+        ' setup ${setupDuration.inMilliseconds}msec;'
+        ' async ${asyncDuration.inMilliseconds}msec;'
+        ' unaccounted ${unaccountedDuration.inMilliseconds}msec'
+        ' (${percent.toStringAsFixed(2)}%)');
+    log("$timings");
+  }
 }

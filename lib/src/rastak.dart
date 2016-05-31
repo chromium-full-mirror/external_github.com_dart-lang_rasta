@@ -22,18 +22,75 @@ import 'package:rasta/custom_compiler.dart' show
 import 'package:rasta/kernel.dart' show
     Kernel;
 
-const bool isVerbose =
-    const bool.fromEnvironment("verbose", defaultValue: false);
+class Options {
+  final Uri input;
+  final Uri output;
+  final bool generateLibrary;
+  final bool isVerbose;
 
-main(List<String> arguments, isolateArgument) async {
-  Uri input = Uri.base.resolve(arguments[0]);
-  Uri output = Uri.base.resolve(arguments[1]);
-  List<String> options = isVerbose ? <String>['--verbose'] : <String>[];
+  Options(this.input, this.output, {this.generateLibrary, this.isVerbose});
+}
+
+class OptionParser {
+  Options parse(List<String> arguments, Uri base) {
+    Iterator<String> iterator = arguments.iterator;
+    // Null means not specified.
+    bool generateLibrary = null;
+    bool hasNext = false;
+    bool isVerbose = false;
+    while (hasNext = iterator.moveNext()) {
+      if (!iterator.current.startsWith("-")) break;
+      if (iterator.current == "--") break;
+      switch (iterator.current) {
+        case "--library":
+          generateLibrary = true;
+          break;
+
+        case "--program":
+          generateLibrary = false;
+          break;
+
+        case "--verbose":
+          isVerbose = true;
+          break;
+
+        default:
+          throw "Unknown option: '${iterator.current}'.";
+      }
+    }
+    if (!hasNext) {
+      throw "Missing required arguments: [input] [output].";
+    }
+    Uri input = base.resolve(iterator.current);
+    if (!iterator.moveNext()) {
+      throw "Missing required argument: [output].";
+    }
+    Uri output = base.resolve(iterator.current);
+    if (iterator.moveNext()) {
+      throw "Missing additional argument: '${iterator.current}'.";
+    }
+    return new Options(
+        input, output, generateLibrary: generateLibrary, isVerbose: isVerbose);
+  }
+}
+
+Stopwatch wallClock;
+
+Future<Null> main(List<String> arguments, isolateArgument) {
+  wallClock = new Stopwatch()..start();
+  return slowMain(arguments, isolateArgument);
+}
+
+Future<Null> slowMain(List<String> arguments, isolateArgument) async {
+  Options options = new OptionParser().parse(arguments, Uri.base);
+  List<String> compilerOptions =
+      options.isVerbose ? <String>['--verbose'] : <String>[];
   IoCompilerFactory factory = new IoCompilerFactory(
-      Uri.base.resolve("dart_vm_standalone.json"), options,
+      Uri.base.resolve("dart_vm_standalone.json"), compilerOptions,
       <String, dynamic>{});
 
   (await factory.diagnostics)
+      ..verbose = options.isVerbose
       ..showWarnings = true
       ..throwOnError = true
       ..throwOnErrorCount = 1;
@@ -41,30 +98,45 @@ main(List<String> arguments, isolateArgument) async {
   CustomCompiler compiler = await factory.compiler;
   await compiler.setupSdk();
 
-  await compiler.setupPackages(input);
+  await compiler.setupPackages(options.input);
+
+  Duration setupDuration = wallClock.elapsed;
 
   Kernel kernel = new Kernel(compiler);
-  ir.Library library = await kernel.loadLibrary(input);
-  kernel.processWorkQueue();
+  ir.Library library = await kernel.loadLibrary(options.input);
 
-  Iterable<ir.Procedure> mainMethods = library.procedures.where(
-      (ir.Procedure function) => function.name.name == "main");
+  bool generateLibrary = options.generateLibrary;
+  if (generateLibrary == null) {
+    generateLibrary = !kernel.hasMainMethod(options.input);
+  }
+  if (generateLibrary) {
+    kernel.processWorkQueue(targetLibrary: options.input);
+  } else {
+    if (!kernel.hasMainMethod(options.input)) {
+      throw "No main method in ${options.input}.";
+    }
+    kernel.processWorkQueue();
+  }
+
   ir.Program program;
-  if (mainMethods.isNotEmpty) {
+  if (!generateLibrary) {
+    Iterable<ir.Procedure> mainMethods = library.procedures.where(
+        (ir.Procedure function) => function.name.name == "main");
     program =
         new ir.Program(new List<ir.Library>.from(kernel.libraries.values))
-        ..mainMethod = mainMethods.single;
+            ..mainMethod = mainMethods.single;
   }
-  IOSink sink = new File.fromUri(output).openWrite();
+  compiler.printVerboseTimings(setupDuration);
+  IOSink sink = new File.fromUri(options.output).openWrite();
   try {
     BinaryPrinter printer = new BinaryPrinter(sink);
-    if (mainMethods.isNotEmpty) {
-      printer.writeProgramFile(program);
-    } else {
+    if (generateLibrary) {
       printer.writeLibraryFile(library);
+    } else {
+      printer.writeProgramFile(program);
     }
   } finally {
     await sink.close();
   }
-  print("Wrote $output");
+  print("Wrote ${options.output}");
 }
