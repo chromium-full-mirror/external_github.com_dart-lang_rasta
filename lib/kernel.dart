@@ -321,7 +321,8 @@ class Kernel {
       } else {
         member = procedure = new ir.Procedure(
             name, null, null, isAbstract: function.isAbstract,
-            isStatic: function.isStatic || function.isTopLevel,
+            isStatic: function.isStatic || function.isTopLevel
+                || function.isFactoryConstructor,
             isExternal: function.isExternal,
             isConst: false); // TODO(ahe): When is this true?
       }
