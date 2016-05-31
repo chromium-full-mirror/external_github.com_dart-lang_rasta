@@ -1891,23 +1891,30 @@ class KernelVisitor extends Object
     return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
   }
 
-  @override
-  ir.StaticInvocation handleStaticGetterGet(
-      Send node,
-      FunctionElement getter,
-      _) {
+  ir.StaticInvocation buildStaticGetterGet(FunctionElement getter) {
     return new ir.StaticInvocation(
         kernel.functionToIr(getter), new ir.Arguments.empty());
   }
 
   @override
-  ir.Throw handleStaticGetterInvoke(
+  ir.StaticInvocation handleStaticGetterGet(
+      Send node,
+      FunctionElement getter,
+      _) {
+    return buildStaticGetterGet(getter);
+  }
+
+  @override
+  ir.MethodInvocation handleStaticGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "StaticGetterInvoke");
+    return new ir.MethodInvocation(
+        buildStaticGetterGet(getter),
+        kernel.nameToIrName(callStructure.callSelector.memberName),
+        buildArguments(arguments));
   }
 
   @override
@@ -1971,9 +1978,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleStaticSetterSet(
+  ir.StaticInvocation handleStaticSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
-    return buildUnsupported(node, "StaticSetterSet");
+    return new ir.StaticInvocation(
+        kernel.functionToIr(setter),
+        new ir.Arguments(<ir.Expression>[rhs.accept(this)]));
   }
 
   @override
