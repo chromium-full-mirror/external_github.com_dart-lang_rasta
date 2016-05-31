@@ -209,7 +209,11 @@ class Kernel {
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
     ir.Class cls = classToIr(type.element);
-    return new ir.InterfaceType(cls, typesToIr(type.typeArguments));
+    if (type.typeArguments.isEmpty) {
+      return cls.rawType;
+    } else {
+      return new ir.InterfaceType(cls, typesToIr(type.typeArguments));
+    }
   }
 
   // TODO(ahe): Remove this method when dart2js support generic type arguments.
