@@ -220,6 +220,14 @@ class KernelVisitor extends Object
 
   KernelVisitor get declVisitor => this;
 
+  ir.MethodInvocation buildInvokeSelector(
+      ir.Expression receiver,
+      Selector selector,
+      ir.Arguments arguments) {
+    return new ir.MethodInvocation(
+        receiver, kernel.nameToIrName(selector.memberName), arguments);
+  }
+
   @override
   ir.InvalidExpression handleUnresolved(Node node) {
     return new ir.InvalidExpression();
@@ -999,10 +1007,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    ir.Arguments argumentsNode = buildArguments(arguments);
-    return new ir.MethodInvocation(
-        receiver.accept(this), kernel.nameToIrName(selector.memberName),
-        argumentsNode);
+    return buildInvokeSelector(
+        receiver.accept(this), selector, buildArguments(arguments));
   }
 
   @override
@@ -1096,9 +1102,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return new ir.MethodInvocation(
-        expression.accept(this),
-        kernel.nameToIrName(callStructure.callSelector.memberName),
+    return buildInvokeSelector(
+        expression.accept(this), callStructure.callSelector,
         buildArguments(arguments));
   }
 
@@ -1286,9 +1291,8 @@ class KernelVisitor extends Object
         new ir.ConditionalExpression(
             buildIsNull(new ir.VariableGet(receiver)),
             new ir.NullLiteral(),
-            new ir.MethodInvocation(
-                new ir.VariableGet(receiver),
-                kernel.nameToIrName(selector.memberName),
+            buildInvokeSelector(
+                new ir.VariableGet(receiver), selector,
                 buildArguments(arguments))));
   }
 
@@ -1643,11 +1647,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = buildArguments(arguments);
-    return new ir.MethodInvocation(
-        buildLocalGet(element),
-        kernel.nameToIrName(callStructure.callSelector.memberName),
-        argumentsNode);
+    return buildInvokeSelector(
+        buildLocalGet(element), callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
@@ -1746,11 +1748,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    ir.Arguments argumentsNode = buildArguments(arguments);
-    return new ir.MethodInvocation(
-        buildStaticGet(field),
-        kernel.nameToIrName(callStructure.callSelector.memberName),
-        argumentsNode);
+    return buildInvokeSelector(
+        buildStaticGet(field), callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
@@ -1911,9 +1911,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return new ir.MethodInvocation(
-        buildStaticGetterGet(getter),
-        kernel.nameToIrName(callStructure.callSelector.memberName),
+    return buildInvokeSelector(
+        buildStaticGetterGet(getter), callStructure.callSelector,
         buildArguments(arguments));
   }
 
@@ -2098,25 +2097,28 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperFieldInvoke(
+  ir.MethodInvocation visitSuperFieldInvoke(
       Send node,
       FieldElement field,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperFieldInvoke");
+    return buildInvokeSelector(
+        buildSuperPropertyAccessor(field).buildSimpleRead(),
+        callStructure.callSelector, buildArguments(arguments));
   }
 
   @override
-  ir.Throw visitSuperFieldSet(
+  ir.Expression visitSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return buildUnsupported(node, "SuperFieldSet");
+    return buildSuperPropertyAccessor(field).buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperFieldSetIfNull(
+  ir.Expression visitSuperFieldSetIfNull(
       Send node, FieldElement field, Node rhs, _) {
-    return buildUnsupported(node, "SuperFieldSetIfNull");
+    return buildSuperPropertyAccessor(field)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -2358,10 +2360,8 @@ class KernelVisitor extends Object
       NodeList arguments,
       Selector selector,
       _) {
-    ir.Arguments argumentsNode = buildArguments(arguments);
-    return new ir.MethodInvocation(
-        new ir.ThisExpression(), kernel.nameToIrName(selector.memberName),
-        argumentsNode);
+    return buildInvokeSelector(
+        new ir.ThisExpression(), selector, buildArguments(arguments));
   }
 
   @override
