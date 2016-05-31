@@ -11,6 +11,10 @@ import 'dart:io' show
     File,
     IOSink;
 
+import 'package:compiler/src/elements/elements.dart' show
+    CompilationUnitElement,
+    LibraryElement;
+
 import 'package:kernel/ast.dart' as ir;
 
 import 'package:kernel/binary/ast_to_binary.dart' show
@@ -28,23 +32,39 @@ import 'package:rasta/kernel.dart' show
 class Options {
   final Uri input;
   final Uri output;
+  final Uri dependenciesFile;
   final bool generateLibrary;
   final bool isVerbose;
 
-  Options(this.input, this.output, {this.generateLibrary, this.isVerbose});
+  Options(this.input, this.output,
+          {this.dependenciesFile, this.generateLibrary, this.isVerbose});
 }
 
 class OptionParser {
   Options parse(List<String> arguments, Uri base) {
     Iterator<String> iterator = arguments.iterator;
+    String getArgument(String name) {
+      if (!iterator.moveNext()) {
+        throw "Missing argument to option '$name'";
+      }
+      return iterator.current;
+    }
     // Null means not specified.
     bool generateLibrary = null;
     bool hasNext = false;
     bool isVerbose = false;
+    Uri dependenciesFile;
     while (hasNext = iterator.moveNext()) {
       if (!iterator.current.startsWith("-")) break;
       if (iterator.current == "--") break;
-      switch (iterator.current) {
+      String name = iterator.current;
+      String argument;
+      int equalSignIndex = name.indexOf("=");
+      if (equalSignIndex != -1) {
+        argument = name.substring(equalSignIndex + 1);
+        name = name.substring(0, equalSignIndex);
+      }
+      switch (name) {
         case "--library":
           generateLibrary = true;
           break;
@@ -55,6 +75,11 @@ class OptionParser {
 
         case "--verbose":
           isVerbose = true;
+          break;
+
+        case "--list-dependencies":
+          argument ??= getArgument(name);
+          dependenciesFile = Uri.base.resolveUri(new Uri.file(argument));
           break;
 
         default:
@@ -73,8 +98,19 @@ class OptionParser {
       throw "Missing additional argument: '${iterator.current}'.";
     }
     return new Options(
-        input, output, generateLibrary: generateLibrary, isVerbose: isVerbose);
+        input, output, dependenciesFile: dependenciesFile,
+        generateLibrary: generateLibrary, isVerbose: isVerbose);
   }
+}
+
+Future openWrite(Uri uri, f(IOSink sink)) async {
+  IOSink sink = new File.fromUri(uri).openWrite();
+  try {
+    await f(sink);
+  } finally {
+    await sink.close();
+  }
+  print("Wrote $uri");
 }
 
 Future<Null> main(List<String> arguments, isolateArgument) async {
@@ -85,7 +121,6 @@ Future<Null> main(List<String> arguments, isolateArgument) async {
   IoCompilerFactory factory = new IoCompilerFactory(
       Uri.base.resolve("dart_vm_standalone.json"), compilerOptions,
       <String, dynamic>{});
-
   (await factory.diagnostics)
       ..verbose = options.isVerbose
       ..showWarnings = true
@@ -124,16 +159,23 @@ Future<Null> main(List<String> arguments, isolateArgument) async {
             ..mainMethod = mainMethods.single;
   }
   compiler.printVerboseTimings(setupDuration);
-  IOSink sink = new File.fromUri(options.output).openWrite();
-  try {
+  await openWrite(options.output, (IOSink sink) {
     BinaryPrinter printer = new BinaryPrinter(sink);
     if (generateLibrary) {
       printer.writeLibraryFile(library);
     } else {
       printer.writeProgramFile(program);
     }
-  } finally {
-    await sink.close();
+  });
+
+  if (options.dependenciesFile != null) {
+    await openWrite(options.dependenciesFile, (IOSink sink) {
+      void writeCompilationUnit(CompilationUnitElement unit) {
+        sink.write("${unit.script.resourceUri}\n");
+      }
+      kernel.forEachLibraryElement((LibraryElement library) {
+        library.compilationUnits.forEach(writeCompilationUnit);
+      });
+    });
   }
-  print("Wrote ${options.output}");
 }

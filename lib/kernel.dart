@@ -416,4 +416,8 @@ class Kernel {
     compiler.reporter.internalError(spannable, message);
     throw message;
   }
+
+  forEachLibraryElement(f(LibraryElement library)) {
+    return compiler.libraryLoader.libraries.forEach(f);
+  }
 }
