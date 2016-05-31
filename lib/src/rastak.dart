@@ -77,14 +77,8 @@ class OptionParser {
   }
 }
 
-Stopwatch wallClock;
-
-Future<Null> main(List<String> arguments, isolateArgument) {
-  wallClock = new Stopwatch()..start();
-  return slowMain(arguments, isolateArgument);
-}
-
-Future<Null> slowMain(List<String> arguments, isolateArgument) async {
+Future<Null> main(List<String> arguments, isolateArgument) async {
+  Stopwatch wallClock = new Stopwatch()..start();
   Options options = new OptionParser().parse(arguments, Uri.base);
   List<String> compilerOptions =
       options.isVerbose ? <String>['--verbose'] : <String>[];
