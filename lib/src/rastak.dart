@@ -11,6 +11,9 @@ import 'dart:io' show
     File,
     IOSink;
 
+import 'package:compiler/src/common/tasks.dart' show
+    CompilerTask;
+
 import 'package:compiler/src/elements/elements.dart' show
     CompilationUnitElement,
     LibraryElement;
@@ -103,6 +106,13 @@ class OptionParser {
   }
 }
 
+class Rastask extends CompilerTask {
+  Rastask(CustomCompiler compiler)
+      : super(compiler);
+
+  String get name => "rastak";
+}
+
 Future openWrite(Uri uri, f(IOSink sink)) async {
   IOSink sink = new File.fromUri(uri).openWrite();
   try {
@@ -128,11 +138,28 @@ Future<Null> main(List<String> arguments, isolateArgument) async {
       ..throwOnErrorCount = 1;
 
   CustomCompiler compiler = await factory.compiler;
+  Rastask task = new Rastask(compiler);
+  compiler.tasks.add(task);
+
+  // Due to an implementation detail (an optimization that may be wrong) in
+  // zones, a `then` handler on a future may be run recursively inside a
+  // measuring zone. If the handler belongs to a non-measuring zone, its run
+  // time will be incorrectly counted in the measuring zone. In practice, the
+  // library loader was blamed for the execution time of rastak. By adding a
+  // Rasta task, we avoid counting rastak towards the library loader, and we
+  // get a counter for rastak.
+  await task.measure(() => run(wallClock, compiler, options));
+}
+
+Future<Null> run(
+    Stopwatch wallClock,
+    CustomCompiler compiler,
+    Options options) async {
+  Duration setupDuration = wallClock.elapsed;
+
   await compiler.setupSdk();
 
   await compiler.setupPackages(options.input);
-
-  Duration setupDuration = wallClock.elapsed;
 
   Kernel kernel = new Kernel(compiler);
   ir.Library library = await kernel.loadLibrary(options.input);
