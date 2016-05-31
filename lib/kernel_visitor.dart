@@ -13,8 +13,11 @@ import 'package:kernel/accessors.dart' show
     StaticAccessor,
     SuperIndexAccessor,
     SuperPropertyAccessor,
+    ThisPropertyAccessor,
     VariableAccessor,
-    buildIsNull;
+    buildIsNull,
+    makeBinary,
+    makeOrReuseVariable;
 
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
     BaseImplementationOfCompoundsMixin,
@@ -409,8 +412,7 @@ class KernelVisitor extends Object
     Cascade cascade = node;
     List<Cascade> cascades = <Cascade>[];
     CascadeReceiver receiver;
-    ir.VariableDeclaration receiverVariable =
-        new ir.VariableDeclaration.forValue(null);
+    ir.VariableDeclaration receiverVariable = makeOrReuseVariable(null);
 
     do {
       cascades.add(cascade);
@@ -432,7 +434,7 @@ class KernelVisitor extends Object
       // When evaluating `cascade.expression`, we stop the recursion at
       // [visitCascadeReceiver] and instead returns an [ir.VariableGet].
       ir.Expression value = cascade.expression.accept(this);
-      result = new ir.Let(new ir.VariableDeclaration.forValue(value), result);
+      result = new ir.Let(makeOrReuseVariable(value), result);
     }
 
     assert(startLength == cascadeReceivers.length);
@@ -1074,10 +1076,8 @@ class KernelVisitor extends Object
       Node left,
       String operator,
       Node right) {
-    ir.Arguments arguments =
-        new ir.Arguments(<ir.Expression>[right.accept(this)]);
-    return new ir.MethodInvocation(
-        left.accept(this), kernel.irName(operator, function), arguments);
+    ir.Name name = kernel.irName(operator, function);
+    return makeBinary(left.accept(this), name, right.accept(this));
   }
 
   @override
@@ -1324,7 +1324,7 @@ class KernelVisitor extends Object
       _) {
     return new ir.SuperInitializer(
         kernel.functionToIr(superConstructor),
-        new ir.Arguments(const <ir.Expression>[]));
+        new ir.Arguments.empty());
   }
 
   Accessor buildIndexAccessor(Node receiver, Node index) {
@@ -2322,10 +2322,13 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "ThisInvoke");
   }
 
+  Accessor buildThisPropertyAccessor(Name name) {
+    return new ThisPropertyAccessor(kernel.nameToIrName(name));
+  }
+
   @override
-  ir.PropertyGet visitThisPropertyGet(Send node, Name name, _) {
-    return new ir.PropertyGet(
-        new ir.ThisExpression(), kernel.nameToIrName(name));
+  ir.Expression visitThisPropertyGet(Send node, Name name, _) {
+    return buildThisPropertyAccessor(name).buildSimpleRead();
   }
 
   @override
@@ -2341,14 +2344,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.PropertySet visitThisPropertySet(SendSet node, Name name, Node rhs, _) {
-    return new ir.PropertySet(
-        new ir.ThisExpression(), kernel.nameToIrName(name), rhs.accept(this));
+  ir.Expression visitThisPropertySet(SendSet node, Name name, Node rhs, _) {
+    return buildThisPropertyAccessor(name).buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
-    return buildUnsupported(node, "ThisPropertySetIfNull");
+  ir.Expression visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
+    return buildThisPropertyAccessor(name)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -2524,7 +2527,7 @@ class KernelVisitor extends Object
       Send node, UnaryOperator operator, Node expression, _) {
     return new ir.MethodInvocation(
         expression.accept(this), kernel.irName(operator.name, function),
-        new ir.Arguments(<ir.Expression>[]));
+        new ir.Arguments.empty());
   }
 
   @override
