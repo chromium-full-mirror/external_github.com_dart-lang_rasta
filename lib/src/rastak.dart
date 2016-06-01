@@ -11,6 +11,9 @@ import 'dart:io' show
     File,
     IOSink;
 
+import 'dart:isolate' show
+    Isolate;
+
 import 'package:compiler/src/common/tasks.dart' show
     CompilerTask;
 
@@ -128,9 +131,12 @@ Future<Null> main(List<String> arguments, isolateArgument) async {
   Options options = new OptionParser().parse(arguments, Uri.base);
   List<String> compilerOptions =
       options.isVerbose ? <String>['--verbose'] : <String>[];
+  Uri script = await Isolate.resolvePackageUri(
+      Uri.parse("package:rasta/src/rastak.dart"));
+  Uri targetSpecification = Uri.base.resolveUri(script)
+      .resolve("../../dart_vm_standalone.json");
   IoCompilerFactory factory = new IoCompilerFactory(
-      Uri.base.resolve("dart_vm_standalone.json"), compilerOptions,
-      <String, dynamic>{});
+      targetSpecification, compilerOptions, <String, dynamic>{});
   (await factory.diagnostics)
       ..verbose = options.isVerbose
       ..showWarnings = true
