@@ -48,9 +48,11 @@ import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     ConstructorElement,
     Element,
+    Elements,
     FieldElement,
     FunctionElement,
     FunctionSignature,
+    GetterElement,
     InitializingFormalElement,
     JumpTarget,
     LocalElement,
@@ -381,16 +383,89 @@ class KernelVisitor extends Object
     }
   }
 
- ir.Statement buildForIn(ForIn node, {bool isAsync}) {
-    ir.VariableDeclaration variable =
-        buildStatementInBlock(node.declaredIdentifier);
+  ir.Statement buildForInCommon(
+      ForIn node,
+      ir.VariableDeclaration variable,
+      ir.Statement body,
+      {bool isAsync}) {
     ir.Expression iterable = node.expression.accept(this);
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
-    ir.Statement body = buildContinueTarget(
-        buildStatementInBlock(node.body), node, jumpTarget);
+    body = buildContinueTarget(body, node, jumpTarget);
     return buildBreakTarget(
         new ir.ForInStatement(variable, iterable, body, isAsync: isAsync),
         node, jumpTarget);
+  }
+
+  /// Builds a for-in statement for this case:
+  ///
+  ///     for (constOrVarOrType loopVariable in expression) body
+  ir.Statement buildForInWithDeclaration(
+      ForIn node,
+      VariableDefinitions declaration,
+      {bool isAsync}) {
+    ir.VariableDeclaration variable = buildStatementInBlock(declaration);
+    return buildForInCommon(
+        node, variable, buildStatementInBlock(node.body), isAsync: isAsync);
+  }
+
+  Accessor computeAccessor(ForIn node, Element element) {
+    if (Elements.isError(element) || Elements.isMalformed(element)) {
+      return new StaticAccessor(null, null);
+    } else if (element.isGetter) {
+      if (element.isInstanceMember) {
+        return new ThisPropertyAccessor(kernel.irName(element.name, element));
+      } else {
+        GetterElement getter = element;
+        Element setter = getter.setter;
+        return new StaticAccessor(
+            kernel.elementToIr(element),
+            setter == null ? null : kernel.elementToIr(element));
+      }
+    } else if (element.isLocal) {
+      return new VariableAccessor(getLocal(element));
+    } else {
+      throw internalError(node, "Unhandled for-in variable: $element");
+    }
+  }
+
+  /// Builds a for-in statement for this case:
+  ///
+  ///     for (element in expression) body
+  ///
+  /// This is normalized to:
+  ///
+  ///     for (final #t in expression) {
+  ///       element = #t;
+  ///       body;
+  ///     }
+  ir.Statement buildForInWithoutDeclaration(
+      ForIn node,
+      Element element,
+      {bool isAsync}) {
+    Accessor accessor = computeAccessor(node, elements.getForInVariable(node));
+    // Since we've created [variable], we know it's only assigned to in the
+    // loop header and can be final.
+    ir.VariableDeclaration variable =
+        new ir.VariableDeclaration.forValue(null, isFinal: true);
+    ir.Statement assigment = new ir.ExpressionStatement(
+        accessor.buildAssignment(
+            new ir.VariableGet(variable), voidContext: true));
+    ir.Block body = buildStatementInBlock(node.body, forceBlock: true);
+    List<ir.Statement> statements = <ir.Statement>[assigment]
+        ..addAll(body.statements);
+    return buildForInCommon(
+        node, variable, new ir.Block(statements), isAsync: isAsync);
+  }
+
+  ir.Statement buildForIn(ForIn node, {bool isAsync}) {
+    VariableDefinitions declaration =
+        node.declaredIdentifier.asVariableDefinitions();
+    if (declaration != null) {
+      return buildForInWithDeclaration(node, declaration, isAsync: isAsync);
+    } else {
+      Element element = elements.getForInVariable(node);
+      return buildForInWithoutDeclaration(node, element, isAsync: isAsync);
+    }
   }
 
   @override
