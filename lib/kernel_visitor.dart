@@ -2832,7 +2832,11 @@ class KernelVisitor extends Object
 
   IrFunction buildFunction() {
     return kernel.compiler.reporter.withCurrentElement(currentElement, () {
-      if (currentElement.isSynthesized) {
+      if (currentElement.isMalformed) {
+        ir.FunctionNode functionNode = buildFunctionNode(currentElement, null);
+        functionNode.body = new ir.InvalidStatement()..parent = functionNode;
+        return new IrFunction.procedure(ir.ProcedureKind.Method, functionNode);
+      } else if (currentElement.isSynthesized) {
         if (currentElement.isGenerativeConstructor) {
           return buildGenerativeConstructor(currentElement, null);
         } else {

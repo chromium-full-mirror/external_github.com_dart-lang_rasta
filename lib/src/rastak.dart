@@ -140,7 +140,7 @@ Future<Null> main(List<String> arguments, isolateArgument) async {
   (await factory.diagnostics)
       ..verbose = options.isVerbose
       ..showWarnings = true
-      ..throwOnError = true
+      ..throwOnError = false
       ..throwOnErrorCount = 1;
 
   CustomCompiler compiler = await factory.compiler;
