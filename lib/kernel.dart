@@ -21,6 +21,7 @@ import 'package:compiler/src/elements/elements.dart' show
     FieldElement,
     FunctionElement,
     LibraryElement,
+    MixinApplicationElement,
     Name,
     TypeVariableElement;
 
@@ -167,6 +168,7 @@ class Kernel {
   }
 
   ir.Class classToIr(ClassElement cls) {
+    if (cls.isMixinApplication) return mixinApplicationToIr(cls);
     cls = cls.declaration;
     return classes.putIfAbsent(cls, () {
       cls.ensureResolved(compiler.resolution);
@@ -185,10 +187,7 @@ class Kernel {
         cls.implementation.forEachMember(
             (ClassElement enclosingClass, Element member) {
           if (member.enclosingClass.declaration != cls) {
-            // Mixin applications include members declared in the applied
-            // mixin.
-            assert(cls.isMixinApplication);
-            return;
+            internalError(cls, "`$member` isn't mine.");
           } else if (member.isFunction || member.isAccessor ||
                      member.isConstructor) {
             classNode.addMember(functionToIr(member));
@@ -202,6 +201,43 @@ class Kernel {
         for (ir.InterfaceType interface in typesToIr(cls.interfaces.toList())) {
           classNode.implementedTypes.add(interface);
         }
+      });
+      return classNode;
+    });
+  }
+
+  ir.MixinClass mixinApplicationToIr(MixinApplicationElement cls) {
+    cls = cls.declaration;
+    return classes.putIfAbsent(cls, () {
+      cls.ensureResolved(compiler.resolution);
+      InterfaceType supertype = null; // Computed and set below.
+      InterfaceType mixedInType = null; // Computed and set below.
+      String name = cls.isUnnamedMixinApplication ? null : cls.name;
+      ir.MixinClass classNode = new ir.MixinClass(
+          supertype, mixedInType, name: name,
+          isAbstract: cls.isAbstract,
+          typeParameters: null,
+          implementedClasses: null,
+          constructors: null);
+      addWork(cls, (bool isTargeted) {
+        classNode.superType = interfaceTypeToIr(cls.supertype);
+        classNode.parent = libraryToIr(cls.library);
+        if (cls.isUnnamedMixinApplication) {
+          classNode.enclosingLibrary.addClass(classNode);
+        }
+        classNode.mixedInType = interfaceTypeToIr(cls.mixinType);
+        classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
+        for (ir.InterfaceType interface in typesToIr(cls.interfaces.toList())) {
+          classNode.implementedTypes.add(interface);
+        }
+        cls.implementation.forEachMember(
+            (ClassElement enclosingClass, Element member) {
+          if (member.isConstructor) {
+            ir.Constructor constructor = functionToIr(member);
+            classNode.constructors.add(constructor);
+            constructor.parent = classNode;
+          }
+        });
       });
       return classNode;
     });
