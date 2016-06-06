@@ -44,6 +44,7 @@ import 'package:compiler/src/resolution/send_resolver.dart' show
     DeclarationResolverMixin;
 
 import 'package:compiler/src/elements/elements.dart' show
+    AstElement,
     AsyncMarker,
     ClassElement,
     ConstructorElement,
@@ -200,7 +201,7 @@ class KernelVisitor extends Object
     implements
         SemanticVisitor, SemanticSendVisitor, SemanticDeclarationVisitor {
   TreeElements elements;
-  FunctionElement function;
+  AstElement currentElement;
   final Kernel kernel;
 
   final Map<JumpTarget, ir.LabeledStatement> continueTargets =
@@ -218,11 +219,22 @@ class KernelVisitor extends Object
   final Map<CascadeReceiver, ir.VariableGet> cascadeReceivers =
       <CascadeReceiver, ir.VariableGet>{};
 
-  KernelVisitor(this.function, this.elements, this.kernel);
+  KernelVisitor(this.currentElement, this.elements, this.kernel);
 
   KernelVisitor get sendVisitor => this;
 
   KernelVisitor get declVisitor => this;
+
+  withCurrentElement(AstElement element, f()) {
+    assert(element.library == kernel.compiler.currentElement.library);
+    Element previousElement = currentElement;
+    currentElement = element;
+    try {
+      return f();
+    } finally {
+      currentElement = previousElement;
+    }
+  }
 
   ir.DartType computeType(TypeAnnotation node) {
     if (node == null) return const ir.DynamicType();
@@ -232,11 +244,12 @@ class KernelVisitor extends Object
   // This works around a bug in dart2js.
   // TODO(ahe): Fix the bug in dart2js and remove this function.
   ir.DartType typeToIrHack(DartType type) {
-    if (function.isSynthesized && function.enclosingClass.isMixinApplication) {
+    if (currentElement.isSynthesized &&
+        currentElement.enclosingClass.isMixinApplication) {
       // Dart2js doesn't compute the correct functionSignature for synthetic
       // constructors in mixin applications. So we compute the correct type:
       // First, find the first superclass that isn't a mixin.
-      ClassElement superclass = function.enclosingClass.superclass;
+      ClassElement superclass = currentElement.enclosingClass.superclass;
       while (superclass.isMixinApplication) {
         superclass = superclass.superclass;
       }
@@ -254,7 +267,7 @@ class KernelVisitor extends Object
       // now). So we need to translate Sub<T> to an instance of Super, which is
       // Super<T> (not Super<S>).
       InterfaceType supertype =
-          function.enclosingClass.asInstanceOf(superclass);
+          currentElement.enclosingClass.asInstanceOf(superclass);
       // Once we have [supertype], we know how to substitute S with T: the type
       // arguments of [supertype] corresponds to T, and the type variables of
       // its element correspond to S.
@@ -1084,13 +1097,9 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    FunctionElement oldFunction = function;
-    function = closure;
-    try {
+    return withCurrentElement(closure, () {
       return new ir.FunctionExpression(buildFunctionNode(closure, body));
-    } finally {
-      function = oldFunction;
-    }
+    });
   }
 
   @override
@@ -1102,7 +1111,7 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildIndexAccessor(receiver, index).buildCompoundAssignment(
-        kernel.irName(operator.name, function), rhs.accept(this));
+        kernel.irName(operator.name, currentElement), rhs.accept(this));
   }
 
   @override
@@ -1234,7 +1243,7 @@ class KernelVisitor extends Object
       Node left,
       String operator,
       Node right) {
-    ir.Name name = kernel.irName(operator, function);
+    ir.Name name = kernel.irName(operator, currentElement);
     return makeBinary(left.accept(this), name, right.accept(this));
   }
 
@@ -1400,11 +1409,13 @@ class KernelVisitor extends Object
       {bool isConst}) {
     if (const bool.fromEnvironment("require_kernel_arguments")) {
       // Check that all constructors from kernel/ast.dart (that are invoked
-      // from this package) provide all arguments (including optional arguments).
+      // from this package) provide all arguments (including optional
+      // arguments).
       // TODO(ahe): Remove this when the implementation has matured.
       if (("package:kernel/ast.dart" ==
            "${constructor.library.canonicalUri}") &&
-          "${function.library.canonicalUri}".startsWith("package:rasta/")) {
+          "${currentElement.library.canonicalUri}".startsWith(
+              "package:rasta/")) {
         if (constructor.functionSignature.parameterCount !=
             arguments.slowLength()) {
           kernel.debugMessage(arguments, "Missing arguments");
@@ -1526,7 +1537,7 @@ class KernelVisitor extends Object
       IncDecOperator operator,
       _) {
     Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.name, function);
+    ir.Name name = kernel.irName(operator.name, currentElement);
     return accessor.buildPostfixIncrement(name);
   }
 
@@ -1538,7 +1549,7 @@ class KernelVisitor extends Object
       IncDecOperator operator,
       _) {
     Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.name, function);
+    ir.Name name = kernel.irName(operator.name, currentElement);
     return accessor.buildPrefixIncrement(name);
   }
 
@@ -1640,18 +1651,14 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    FunctionElement oldFunction = function;
-    function = localFunction;
-    try {
+    return withCurrentElement(localFunction, () {
       ir.VariableDeclaration local = getLocal(localFunction);
       ir.FunctionExpression expression =
           new ir.FunctionExpression(buildFunctionNode(localFunction, body));
       local.initializer = expression;
       expression.parent = local;
       return local;
-    } finally {
-      function = oldFunction;
-    }
+    });
   }
 
   @override
@@ -1683,7 +1690,7 @@ class KernelVisitor extends Object
   }
 
   ir.Expression buildCompound(Accessor accessor, CompoundRhs rhs) {
-    ir.Name name = kernel.irName(rhs.operator.name, function);
+    ir.Name name = kernel.irName(rhs.operator.name, currentElement);
     switch (rhs.kind) {
       case CompoundKind.POSTFIX:
         return accessor.buildPostfixIncrement(name);
@@ -2029,7 +2036,8 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body,
       _) {
-    return buildIrFunction(computeInstanceMethodKind(function), function, body);
+    return buildIrFunction(
+        computeInstanceMethodKind(currentElement), currentElement, body);
   }
 
   @override
@@ -2038,7 +2046,8 @@ class KernelVisitor extends Object
       MethodElement method,
       NodeList parameters,
       _) {
-    return buildIrFunction(computeInstanceMethodKind(function), function, null);
+    return buildIrFunction(
+        computeInstanceMethodKind(currentElement), currentElement, null);
   }
 
   @override
@@ -2751,7 +2760,7 @@ class KernelVisitor extends Object
   ir.MethodInvocation visitUnary(
       Send node, UnaryOperator operator, Node expression, _) {
     return new ir.MethodInvocation(
-        expression.accept(this), kernel.irName(operator.name, function),
+        expression.accept(this), kernel.irName(operator.name, currentElement),
         new ir.Arguments.empty());
   }
 
@@ -2822,15 +2831,15 @@ class KernelVisitor extends Object
   }
 
   IrFunction build() {
-    return kernel.compiler.reporter.withCurrentElement(function, () {
-      if (function.isSynthesized) {
-        if (function.isGenerativeConstructor) {
-          return buildGenerativeConstructor(function, null);
+    return kernel.compiler.reporter.withCurrentElement(currentElement, () {
+      if (currentElement.isSynthesized) {
+        if (currentElement.isGenerativeConstructor) {
+          return buildGenerativeConstructor(currentElement, null);
         } else {
-          return internalError(function, "Unhandled synthetic function.");
+          return internalError(currentElement, "Unhandled synthetic function.");
         }
       } else {
-        return function.node.accept(this);
+        return currentElement.node.accept(this);
       }
     });
   }
