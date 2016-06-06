@@ -19,6 +19,20 @@ import 'package:rasta/testing.dart' show
 
 import '../../bin/rastak.dart' as rastak show main;
 
+void addRegressions(Map<Uri, Uri> tests, Uri temp) {
+  // TODO(ahe): Generate this list with listTests. Also, compare to golden
+  // files.
+  List<String> regressions = [
+      "test/kernel/regression/issue_000001.dart",
+      "test/kernel/regression/issue_000002.dart",
+      // "test/kernel/regression/issue_000004.dart",
+      "test/kernel/regression/issue_000006.dart",
+  ];
+  for (String regression in regressions) {
+    tests[Uri.base.resolve(regression)] = temp.resolve("${regression}.bart");
+  }
+}
+
 Future<Null> main() async {
   // When running via `testa.dart`, [Platform.script] is located in a temporary
   // directory.
@@ -32,9 +46,13 @@ Future<Null> main() async {
     temp.resolve("dart2js.bart"),
   };
 
+  addRegressions(tests, temp);
+
   for (Uri source in tests.keys) {
     print("Rastarizing $source");
     Uri bart = tests[source];
+    File output = new File.fromUri(bart);
+    await output.parent.create(recursive: true);
     await rastak.main(<String>["$source", "$bart"], null);
 
     Uri textOutput = bart.resolve("${bart.path}.txt");
