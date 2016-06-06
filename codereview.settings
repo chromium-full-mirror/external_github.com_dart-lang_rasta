@@ -4,3 +4,5 @@
 CODE_REVIEW_SERVER: http://codereview.chromium.org
 VIEW_VC: https://github.com/dart-lang/rasta/commit/
 CC_LIST: rasta-dart+reviews@googlegroups.com
+PROJECT: Rasta
+BUG_PREFIX: https://github.com/dart-lang/rasta/issues/
