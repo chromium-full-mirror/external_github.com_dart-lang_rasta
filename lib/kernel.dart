@@ -367,7 +367,7 @@ class Kernel {
         if (!isTargeted) return;
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
-        IrFunction irFunction = visitor.build();
+        IrFunction irFunction = visitor.buildFunction();
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
         irFunction.node.parent = member;
         if (irFunction.isConstructor) {
@@ -404,7 +404,12 @@ class Kernel {
       addWork(field, (bool isTargeted) {
         setParent(fieldNode, field);
         if (!isTargeted) return;
-        // TODO(ahe): Visit initializer.
+        if (!field.isInstanceMember && field.initializer != null) {
+          KernelVisitor visitor =
+              new KernelVisitor(field, field.treeElements, this);
+          fieldNode.initializer = visitor.buildInitializer()
+              ..parent = fieldNode;
+        }
       });
       return fieldNode;
     });

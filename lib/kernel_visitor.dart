@@ -2830,7 +2830,7 @@ class KernelVisitor extends Object
     return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
 
-  IrFunction build() {
+  IrFunction buildFunction() {
     return kernel.compiler.reporter.withCurrentElement(currentElement, () {
       if (currentElement.isSynthesized) {
         if (currentElement.isGenerativeConstructor) {
@@ -2841,6 +2841,13 @@ class KernelVisitor extends Object
       } else {
         return currentElement.node.accept(this);
       }
+    });
+  }
+
+  ir.Expression buildInitializer() {
+    return kernel.compiler.reporter.withCurrentElement(currentElement, () {
+      FieldElement field = currentElement;
+      return field.initializer.accept(this);
     });
   }
 }
