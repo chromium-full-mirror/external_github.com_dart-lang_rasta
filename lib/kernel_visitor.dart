@@ -423,6 +423,10 @@ class KernelVisitor extends Object
       }
     } else if (element.isLocal) {
       return new VariableAccessor(getLocal(element));
+    } else if (element.isField) {
+      ir.Member member = kernel.elementToIr(element);
+      return new StaticAccessor(
+          member, (element.isFinal || element.isConst) ? null : member);
     } else {
       throw internalError(node, "Unhandled for-in variable: $element");
     }

@@ -25,7 +25,7 @@ void addRegressions(Map<Uri, Uri> tests, Uri temp) {
   List<String> regressions = [
       "test/kernel/regression/issue_000001.dart",
       "test/kernel/regression/issue_000002.dart",
-      // "test/kernel/regression/issue_000004.dart",
+      "test/kernel/regression/issue_000004.dart",
       "test/kernel/regression/issue_000006.dart",
   ];
   for (String regression in regressions) {
