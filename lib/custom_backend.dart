@@ -104,7 +104,7 @@ class CustomBackend extends Backend {
 
   @override WorldImpact codegen(CodegenWorkItem work) => unimplemented;
 
-  @override bool get supportsReflection => unimplemented;
+  @override bool get supportsReflection => false;
 
   @override bool get supportsAsyncAwait => true;
 

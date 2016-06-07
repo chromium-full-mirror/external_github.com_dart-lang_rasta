@@ -45,6 +45,7 @@ void addRegressions(Map<Uri, Uri> tests, Uri temp) {
       "test/kernel/regression/issue_000007.dart",
       "test/kernel/regression/issue_000011.dart",
       "test/kernel/regression/parser_error.dart",
+      "test/kernel/regression/supports_reflection.dart",
   ];
   for (String regression in regressions) {
     tests[Uri.base.resolve(regression)] = temp.resolve("${regression}.bart");
