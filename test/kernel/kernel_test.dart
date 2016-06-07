@@ -38,16 +38,18 @@ void addRegressions(Map<Uri, Uri> tests, Uri temp) {
   // TODO(ahe): Generate this list with listTests. Also, compare to golden
   // files.
   List<String> regressions = [
-      "test/kernel/regression/issue_000001.dart",
-      "test/kernel/regression/issue_000002.dart",
-      "test/kernel/regression/issue_000004.dart",
-      "test/kernel/regression/issue_000006.dart",
-      "test/kernel/regression/issue_000007.dart",
-      "test/kernel/regression/issue_000011.dart",
-      "test/kernel/regression/parser_error.dart",
-      "test/kernel/regression/supports_reflection.dart",
+      "issue_000001.dart",
+      "issue_000002.dart",
+      "issue_000004.dart",
+      "issue_000006.dart",
+      "issue_000007.dart",
+      "issue_000011.dart",
+      "parser_error.dart",
+      "supports_reflection.dart",
+      "malformed_function_type.dart",
   ];
   for (String regression in regressions) {
+    regression = "test/kernel/regression/$regression";
     tests[Uri.base.resolve(regression)] = temp.resolve("${regression}.bart");
   }
 }

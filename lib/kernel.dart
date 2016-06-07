@@ -306,7 +306,7 @@ class Kernel {
 
       case TypeKind.TYPEDEF:
         type.computeUnaliased(compiler.resolution);
-        return functionTypeToIr(type.unaliased);
+        return typeToIr(type.unaliased);
 
       case TypeKind.TYPE_VARIABLE:
         return typeVariableTypeToIr(type);
