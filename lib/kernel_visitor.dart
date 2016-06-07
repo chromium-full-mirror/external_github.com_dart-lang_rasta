@@ -539,7 +539,13 @@ class KernelVisitor extends Object
     CascadeReceiver receiver;
     Expression send = cascade.expression.asSend();
     while (send != null && (receiver = send.asCascadeReceiver()) == null) {
-      send = send.asSend()?.receiver;
+      Expression possibleReceiver = send.asSend()?.receiver;
+      if (possibleReceiver != null) {
+        send = possibleReceiver;
+      } else {
+        // Can happen in this case: `a..add(foo)('WHAT')`.
+        send = send.asSend()?.selector;
+      }
     }
     if (receiver == null) {
       internalError(cascade, "Can't find cascade receiver");

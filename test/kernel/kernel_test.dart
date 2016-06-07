@@ -47,6 +47,7 @@ void addRegressions(Map<Uri, Uri> tests, Uri temp) {
       "parser_error.dart",
       "supports_reflection.dart",
       "malformed_function_type.dart",
+      "cascades.dart",
   ];
   for (String regression in regressions) {
     regression = "test/kernel/regression/$regression";
