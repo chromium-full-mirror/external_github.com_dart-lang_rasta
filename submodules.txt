@@ -1,6 +1,6 @@
  5bcae6ddb17e0648eb0dd270a29a6653eaa6bef5 third_party/charcode (1.1.0)
  f6135e6350c63eb3f4dd12953b8d4363faff16fc third_party/collection (1.1.2-4-gf6135e6)
- 5da32a570698e6d97ec4c9f38e050dfe917fb50b third_party/dart-sdk (heads/vm_patch_files)
+ ab51f9344e9e6531804e094696877584310e6b4b third_party/dart-sdk (heads/vm_patch_files)
  0a221eaf16aec3879c45719de656680ccb80d8a1 third_party/dart2js_info (0.1.0-10-g0a221ea)
  30372f0f3f6008f172cb6796a9c23cc3195b05e7 third_party/kernel (heads/master)
  be4c9c649277363a9cc9a3a41159a4262a973342 third_party/package_config (0.1.3)
