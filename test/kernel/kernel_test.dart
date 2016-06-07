@@ -43,6 +43,7 @@ void addRegressions(Map<Uri, Uri> tests, Uri temp) {
       "test/kernel/regression/issue_000004.dart",
       "test/kernel/regression/issue_000006.dart",
       "test/kernel/regression/issue_000007.dart",
+      "test/kernel/regression/issue_000011.dart",
       "test/kernel/regression/parser_error.dart",
   ];
   for (String regression in regressions) {

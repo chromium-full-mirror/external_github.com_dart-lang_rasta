@@ -932,7 +932,7 @@ class KernelVisitor extends Object
     }
     assert(!casesIterator.moveNext());
 
-    return  buildBreakTarget(
+    return buildBreakTarget(
         new ir.SwitchStatement(expression, cases),
         node, elements.getTargetDefinition(node));
   }
@@ -950,7 +950,7 @@ class KernelVisitor extends Object
   @override
   ir.Statement visitTryStatement(TryStatement node) {
     ir.Statement result = buildStatementInBlock(node.tryBlock);
-    if (node.catchBlocks != null) {
+    if (node.catchBlocks != null && !node.catchBlocks.isEmpty) {
       List<ir.Catch> catchBlocks = <ir.Catch>[];
       for (CatchBlock block in node.catchBlocks.nodes) {
         catchBlocks.add(block.accept(this));
