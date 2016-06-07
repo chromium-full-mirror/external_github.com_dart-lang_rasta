@@ -1,0 +1,25 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+class Sub extends self::#class1 {
+  constructor •() → self::Sub
+    : super self::#class1::•();
+}
+class Mixin extends core::Object {
+  constructor •() → self::Mixin
+    : super core::Object::•();
+  method foo() → dynamic
+    return core::print("foo");
+}
+class Base extends core::Object {
+  constructor •() → self::Base
+    : super core::Object::•();
+}
+abstract mixin #class1 = self::Base with self::Mixin implements self::Mixin {
+  constructor •() → self::Base
+    : super self::Base::•();
+}
+static method main() → dynamic {
+  new self::Sub::•().foo();
+}

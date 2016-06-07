@@ -51,7 +51,7 @@ abstract class Rastask extends CompilerTask {
 
   CustomCompiler get compiler => super.compiler;
 
-  Future<Null> run();
+  Future run();
 
   static Future<Rastask> setup(
       Stopwatch wallClock,

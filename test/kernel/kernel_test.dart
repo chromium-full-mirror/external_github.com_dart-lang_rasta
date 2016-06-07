@@ -9,15 +9,30 @@ import 'dart:async' show
 
 import 'dart:io' show
     File,
+    IOSink,
     Platform,
     Process,
     stderr;
+
+import 'package:kernel/text/ast_to_text.dart' show
+    Printer;
+
+import 'package:kernel/ast.dart' as ir;
 
 import 'package:rasta/testing.dart' show
     dartSdk,
     startDart;
 
+import 'package:rasta/src/rastask.dart' show
+    openWrite;
+
+import 'package:expect/expect.dart' show
+    Expect;
+
 import '../../bin/rastak.dart' as rastak show main;
+
+const bool generateExpectations =
+    const bool.fromEnvironment("generateExpectations");
 
 void addRegressions(Map<Uri, Uri> tests, Uri temp) {
   // TODO(ahe): Generate this list with listTests. Also, compare to golden
@@ -50,12 +65,16 @@ Future<Null> main() async {
 
   addRegressions(tests, temp);
 
+  List<Uri> generated = <Uri>[];
+
   for (Uri source in tests.keys) {
     print("Rastarizing $source");
     Uri bart = tests[source];
     File output = new File.fromUri(bart);
     await output.parent.create(recursive: true);
-    await rastak.main(<String>["$source", "$bart"], null);
+    ir.TreeNode node = await rastak.main(<String>["$source", "$bart"], null);
+
+    await checkAgainstExpectations(node, generated);
 
     Uri textOutput = bart.resolve("${bart.path}.txt");
     print("Kernelizing $bart to $textOutput");
@@ -74,5 +93,34 @@ Future<Null> main() async {
     if (exitCode != 0) {
       throw "non-zero exit code ($exitCode) from rastak";
     }
+  }
+  if (generated.isNotEmpty) {
+    throw "The following files were generated, "
+        "please check them and re-run this test: ${generated}";
+  }
+}
+
+Future<Null> checkAgainstExpectations(ir.Node node, List<Uri> generated) async {
+  ir.Library library = (node is ir.Program) ? node.mainMethod.parent : node;
+  Uri uri = library.importUri;
+
+  // We only validate output of the small tests fully under our control.
+  if (!uri.path.contains("/regression/")) return;
+
+  StringBuffer buffer = new StringBuffer();
+  new Printer(buffer).writeLibraryFile(library);
+  File expectedFile = new File("${uri.toFilePath()}.txt");
+  if (await expectedFile.exists()) {
+    String expected = await expectedFile.readAsString();
+    Expect.stringEquals(expected.trim(), "$buffer".trim());
+  } else if (generateExpectations) {
+    await openWrite(expectedFile.uri, (IOSink sink) {
+      sink.write("$buffer".trim());
+    });
+    generated.add(expectedFile.uri);
+  } else {
+    throw """
+Please create file ${expectedFile.path} with this content:
+$buffer""";
   }
 }

@@ -10,22 +10,26 @@ import 'dart:async' show
 import 'dart:isolate' show
     ReceivePort;
 
+import 'package:kernel/ast.dart' as ir;
+
 import 'rastask.dart' show
     Rastask;
 
-Future<Null> main(List<String> arguments, isolateArgument) async {
+Future<ir.TreeNode> main(List<String> arguments, isolateArgument) async {
   final ReceivePort port = new ReceivePort();
-  Stopwatch wallClock = new Stopwatch()..start();
-  Rastask task = await Rastask.setup(wallClock, arguments);
+  try {
+    Stopwatch wallClock = new Stopwatch()..start();
+    Rastask task = await Rastask.setup(wallClock, arguments);
 
-  // Due to an implementation detail (an optimization that may be wrong) in
-  // zones, a `then` handler on a future may be run recursively inside a
-  // measuring zone. If the handler belongs to a non-measuring zone, its run
-  // time will be incorrectly counted in the measuring zone. In practice, the
-  // library loader was blamed for the execution time of rastak. By adding a
-  // Rasta task, we avoid counting rastak towards the library loader, and we
-  // get a counter for rastak.
-  await task.measure(task.run);
-
-  port.close();
+    // Due to an implementation detail (an optimization that may be wrong) in
+    // zones, a `then` handler on a future may be run recursively inside a
+    // measuring zone. If the handler belongs to a non-measuring zone, its run
+    // time will be incorrectly counted in the measuring zone. In practice, the
+    // library loader was blamed for the execution time of rastak. By adding a
+    // Rasta task, we avoid counting rastak towards the library loader, and we
+    // get a counter for rastak.
+    return await task.measure(task.run);
+  } finally {
+    port.close();
+  }
 }

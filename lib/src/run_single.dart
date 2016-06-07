@@ -36,7 +36,7 @@ class RunSingle extends Rastask {
   RunSingle(CustomCompiler compiler, Stopwatch wallClock, Options options)
       : super(compiler, wallClock, options);
 
-  Future<Null> run() async {
+  Future<ir.TreeNode> run() async {
     Duration setupDuration = wallClock.elapsed;
 
     await compiler.setupSdk();
@@ -87,5 +87,6 @@ class RunSingle extends Rastask {
         });
       });
     }
+    return generateLibrary ? library : program;
   }
 }
