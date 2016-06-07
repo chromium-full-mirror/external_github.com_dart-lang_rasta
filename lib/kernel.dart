@@ -20,6 +20,7 @@ import 'package:compiler/src/elements/elements.dart' show
     Element,
     FieldElement,
     FunctionElement,
+    ImportElement,
     LibraryElement,
     MixinApplicationElement,
     Name,
@@ -92,7 +93,7 @@ class Kernel {
   }
 
   void addWork(Element element, WorkAction action) {
-    workQueue.addFirst(new WorkItem(element, action));
+    workQueue.addLast(new WorkItem(element, action));
   }
 
   void checkMember(Element key, ir.TreeNode value) {
@@ -113,7 +114,7 @@ class Kernel {
       assert(this.targetLibrary != null);
     }
     while (workQueue.isNotEmpty) {
-      WorkItem work = workQueue.removeLast();
+      WorkItem work = workQueue.removeFirst();
       work.action(isTargeted(work.element));
     }
     assert(() {
@@ -461,5 +462,40 @@ class Kernel {
 
   forEachLibraryElement(f(LibraryElement library)) {
     return compiler.libraryLoader.libraries.forEach(f);
+  }
+
+  /// Compute all the dependencies on the library with [uri] (including the
+  /// library itself). This is useful for creating a Kernel IR `Program`.
+  List<ir.Library> libraryDependencies(Uri uri) {
+    List<ir.Library> result = <ir.Library>[];
+    Queue<LibraryElement> notProcessed = new Queue<LibraryElement>();
+    Set<LibraryElement> seen = new Set<LibraryElement>();
+    LibraryElement library = compiler.libraryLoader.lookupLibrary(uri);
+    notProcessed.addLast(library);
+    seen.add(library);
+    LibraryElement core =
+        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
+    if (seen.add(core)) {
+      // `dart:core` is implicitly imported by most libraries, and for some
+      // reason not included in `library.imports` below.
+      notProcessed.addLast(core);
+    }
+    while (notProcessed.isNotEmpty) {
+      LibraryElement library = notProcessed.removeFirst();
+      ir.Library irLibrary = libraries[library];
+      if (irLibrary == null) continue;
+      result.add(irLibrary);
+      for (ImportElement import in library.imports) {
+        if (seen.add(import.importedLibrary)) {
+          notProcessed.addLast(import.importedLibrary);
+        }
+      }
+      for (ImportElement import in library.implementation.imports) {
+        if (seen.add(import.importedLibrary)) {
+          notProcessed.addLast(import.importedLibrary);
+        }
+      }
+    }
+    return result;
   }
 }

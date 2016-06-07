@@ -30,6 +30,9 @@ import 'options.dart' show
 import 'run_single.dart' show
     RunSingle;
 
+import 'run_batch.dart' show
+    RunBatch;
+
 Future openWrite(Uri uri, f(IOSink sink)) async {
   IOSink sink = new File.fromUri(uri).openWrite();
   try {
@@ -73,7 +76,11 @@ abstract class Rastask extends CompilerTask {
 
     CustomCompiler compiler = await factory.compiler;
     Rastask task;
-    task = new RunSingle(compiler, wallClock, options);
+    if (options.isBatch) {
+      task = new RunBatch(compiler, wallClock, options);
+    } else {
+      task = new RunSingle(compiler, wallClock, options);
+    }
     compiler.tasks.add(task);
     return task;
   }

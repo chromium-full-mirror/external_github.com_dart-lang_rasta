@@ -14,7 +14,20 @@ const Map<String, OptionDescription> descriptions =
 
     "--list-dependencies":
         const OptionDescription(Option.listDependencies, hasArgument: true),
+
+    "--batch": const OptionDescription(Option.batch),
 };
+
+const List<Option> supportedBatchOptions = const <Option>[
+    Option.batch,
+    Option.verbose,
+
+    // TODO(ahe): These options shouldn't be supported in batch server
+    // mode. See run_batch.dart.
+    Option.argument,
+    Option.library,
+    Option.program,
+];
 
 enum Option {
   /// `--library`.
@@ -28,6 +41,9 @@ enum Option {
 
   /// `--list-dependencies`.
   listDependencies,
+
+  /// `--batch`.
+  batch,
 
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
@@ -56,9 +72,11 @@ class Options {
   final Uri dependenciesFile;
   final bool generateLibrary;
   final bool isVerbose;
+  final bool isBatch;
 
   Options(this.input, this.output,
-          {this.dependenciesFile, this.generateLibrary, this.isVerbose});
+          {this.dependenciesFile, this.generateLibrary, this.isVerbose,
+           this.isBatch});
 }
 
 class OptionParser {
@@ -74,6 +92,7 @@ class OptionParser {
     // Null means not specified.
     bool generateLibrary;
     bool isVerbose;
+    bool isBatch;
     Uri dependenciesFile;
     List<String> uris = <String>[];
     for (OptionValue value in values) {
@@ -94,6 +113,10 @@ class OptionParser {
           dependenciesFile = Uri.base.resolveUri(new Uri.file(value.argument));
           break;
 
+        case Option.batch:
+          isBatch = true;
+          break;
+
         case Option.skip:
           throw "internal error";
 
@@ -103,7 +126,22 @@ class OptionParser {
     }
     Uri input;
     Uri output;
-    if (uris.length == 2) {
+    if (isBatch == true) {
+      if (uris.length == 1) {
+        input = Uri.base.resolve(uris.single);
+      } else if (uris.length == 0) {
+        throw "Missing required argument: [input].";
+      } else {
+        assert(uris.length > 1);
+        throw "Additional arguments: '${uris.join("' '")}'.";
+      }
+      Set<Option> extraOptions = values.map((v) => v.option).toSet()
+          ..removeAll(supportedBatchOptions);
+      if (extraOptions.isNotEmpty) {
+        throw "Batch mode (--batch) doesn't support these options: "
+            "'${extraOptions.join("' '")}'.";
+      }
+    } else if (uris.length == 2) {
       input = Uri.base.resolve(uris[0]);
       output = Uri.base.resolve(uris[1]);
     } else if (uris.length == 0) {
@@ -117,7 +155,8 @@ class OptionParser {
     }
     return new Options(
         input, output, dependenciesFile: dependenciesFile,
-        generateLibrary: generateLibrary, isVerbose: isVerbose ?? false);
+        generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
+        isBatch: isBatch ?? false);
   }
 
   List<OptionValue> parseValues() {
