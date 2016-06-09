@@ -1,0 +1,14 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+class Fisk extends core::Object {
+  constructor •() → self::Fisk
+    : super core::Object::•();
+  method it1(dynamic x) → dynamic {
+    for(final #t1 in x) {
+      this.key = #t1;
+      core::print(this.key);
+    }
+  }
+}

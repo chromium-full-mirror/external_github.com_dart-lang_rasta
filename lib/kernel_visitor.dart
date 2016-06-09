@@ -421,7 +421,14 @@ class KernelVisitor extends Object
   }
 
   Accessor computeAccessor(ForIn node, Element element) {
-    if (Elements.isError(element) || Elements.isMalformed(element)) {
+    if (element == null) {
+      // This should be the situation where `node.declaredIdentifier` is
+      // unresolved, but in an instance method context. If it is some different
+      // situation, the assignment to [ir.PropertyGet] should act as an
+      // assertion.
+      ir.PropertyGet expression = node.declaredIdentifier.accept(this);
+      return PropertyAccessor.make(expression.receiver, expression.name);
+    } else if (Elements.isError(element) || Elements.isMalformed(element)) {
       return new StaticAccessor(null, null);
     } else if (element.isGetter) {
       if (element.isInstanceMember) {
