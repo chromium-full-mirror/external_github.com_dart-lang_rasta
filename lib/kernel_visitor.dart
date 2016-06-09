@@ -663,12 +663,21 @@ class KernelVisitor extends Object
   @override
   ir.Statement visitContinueStatement(ContinueStatement node) {
     JumpTarget target = elements.getTargetOf(node);
-    ir.SwitchCase switchCase = getContinueSwitchTarget(target);
-    if (switchCase == null) {
-      return new ir.BreakStatement(getContinueTarget(target));
-    } else {
-      return new ir.ContinueSwitchStatement(switchCase);
+    if (target == null) {
+      // This is a continue in an invalid position.
+      return new ir.InvalidStatement();
     }
+    ir.SwitchCase switchCase = getContinueSwitchTarget(target);
+    ir.Statement result;
+    if (switchCase == null) {
+      result = new ir.BreakStatement(getContinueTarget(target));
+    } else {
+      result = new ir.ContinueSwitchStatement(switchCase);
+    }
+    // A continue target can refer to itself in the degenerate case: `label:
+    // continue label;`.
+    return buildContinueTarget(
+        result, node, elements.getTargetDefinition(node));
   }
 
   @override
