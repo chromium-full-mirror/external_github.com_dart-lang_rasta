@@ -1852,6 +1852,13 @@ class KernelVisitor extends Object
       DartType redirectionType, // TODO(ahe): Should be InterfaceType.
       ConstructorElement redirectionTarget,
       _) {
+    if (!constructor.isFactoryConstructor) {
+      // TODO(ahe): This seems like a bug in semantic visitor and how it
+      // recovers from a bad constructor.
+      return new IrFunction.constructor(
+          buildFunctionNode(constructor, null),
+          <ir.Initializer>[new ir.InvalidInitializer()]);
+    }
     ir.Statement body = null;
     if (redirectionTarget.isMalformed) {
       body = new ir.InvalidStatement();
