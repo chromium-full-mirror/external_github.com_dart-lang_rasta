@@ -2441,6 +2441,10 @@ class KernelVisitor extends Object
   }
 
   Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
+    if (setter == null && getter.isField && !getter.isFinal &&
+        !getter.isConst) {
+      setter = getter;
+    }
     return new SuperPropertyAccessor(
         (getter == null) ? null : kernel.elementToIr(getter),
         (setter == null) ? null : kernel.elementToIr(setter));
