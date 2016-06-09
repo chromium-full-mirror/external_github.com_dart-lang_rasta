@@ -353,6 +353,9 @@ class Kernel {
   }
 
   ir.Member functionToIr(FunctionElement function) {
+    if (function.isDeferredLoaderGetter) {
+      compiler.reporter.internalError(function, "Deferred loader.");
+    }
     if (function.isLocal) {
       compiler.reporter.internalError(function, "Local function.");
     }

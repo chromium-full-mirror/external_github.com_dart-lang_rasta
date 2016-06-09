@@ -2173,20 +2173,26 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.StaticInvocation handleStaticGetterGet(
+  ir.Expression handleStaticGetterGet(
       Send node,
       FunctionElement getter,
       _) {
+    if (getter.isDeferredLoaderGetter) {
+      return buildUnsupported(node, "deferred access");
+    }
     return buildStaticGetterGet(getter);
   }
 
   @override
-  ir.MethodInvocation handleStaticGetterInvoke(
+  ir.Expression handleStaticGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
+    if (getter.isDeferredLoaderGetter) {
+      return buildUnsupported(node, "deferred access");
+    }
     return buildInvokeSelector(
         buildStaticGetterGet(getter), callStructure.callSelector,
         buildArguments(arguments));
