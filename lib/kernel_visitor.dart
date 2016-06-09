@@ -49,7 +49,6 @@ import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     ConstructorElement,
     Element,
-    Elements,
     FieldElement,
     FunctionElement,
     FunctionSignature,
@@ -428,7 +427,7 @@ class KernelVisitor extends Object
       // assertion.
       ir.PropertyGet expression = node.declaredIdentifier.accept(this);
       return PropertyAccessor.make(expression.receiver, expression.name);
-    } else if (Elements.isError(element) || Elements.isMalformed(element)) {
+    } else if (kernel.isSyntheticError(element)) {
       return new StaticAccessor(null, null);
     } else if (element.isGetter) {
       if (element.isInstanceMember) {
@@ -1074,7 +1073,9 @@ class KernelVisitor extends Object
     ConstructorElement target = elements[node.send];
     ConstructorElement effectiveTarget = target.effectiveTarget;
     NodeList arguments = node.send.argumentsNode;
-    if (effectiveTarget.isGenerativeConstructor) {
+    if (kernel.isSyntheticError(effectiveTarget)) {
+      return new ir.InvalidExpression();
+    } else if (effectiveTarget.isGenerativeConstructor) {
       return buildGenerativeConstructorInvoke(
           effectiveTarget, arguments, isConst: true);
     } else {
@@ -1408,7 +1409,7 @@ class KernelVisitor extends Object
           }
         });
       }
-      if (constructor.definingConstructor.isMalformed) {
+      if (kernel.isSyntheticError(constructor.definingConstructor)) {
         constructorInitializers.add(new ir.InvalidInitializer());
       } else {
         constructorInitializers.add(
@@ -1895,7 +1896,7 @@ class KernelVisitor extends Object
           <ir.Initializer>[new ir.InvalidInitializer()]);
     }
     ir.Statement body = null;
-    if (redirectionTarget.isMalformed) {
+    if (kernel.isSyntheticError(redirectionTarget)) {
       body = new ir.InvalidStatement();
     } else {
       // TODO(ahe): This should be implemented, but doesn't matter much unless
@@ -2043,7 +2044,7 @@ class KernelVisitor extends Object
       returnType = typeToIrHack(signature.type.returnType);
     }
     ir.AsyncMarker asyncMarker = ir.AsyncMarker.Sync;
-    if (!function.isMalformed) {
+    if (!kernel.isSyntheticError(function)) {
       switch (function.asyncMarker) {
         case AsyncMarker.SYNC:
           asyncMarker = ir.AsyncMarker.Sync;
@@ -2310,7 +2311,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    if (superConstructor.isMalformed) {
+    if (kernel.isSyntheticError(superConstructor)) {
       // TODO(ahe): Semantic visitor shouldn't call in this case.
       return new ir.InvalidInitializer();
     }
@@ -2912,10 +2913,19 @@ class KernelVisitor extends Object
 
   IrFunction buildFunction() {
     return kernel.compiler.reporter.withCurrentElement(currentElement, () {
-      if (currentElement.isMalformed) {
-        ir.FunctionNode functionNode = buildFunctionNode(currentElement, null);
-        functionNode.body = new ir.InvalidStatement()..parent = functionNode;
-        return new IrFunction.procedure(ir.ProcedureKind.Method, functionNode);
+      if (kernel.isSyntheticError(currentElement)) {
+        kernel.internalError(
+            currentElement,
+            "Can't build synthetic function element: $currentElement");
+      } else if (currentElement.isMalformed) {
+        ir.FunctionNode node = buildFunctionNode(currentElement, null);
+        if (currentElement.isGenerativeConstructor) {
+          return new IrFunction.constructor(
+              node, <ir.Initializer>[new ir.InvalidInitializer()]);
+        } else {
+          node.body = new ir.InvalidStatement()..parent = node;
+          return new IrFunction.procedure(ir.ProcedureKind.Method, node);
+        }
       } else if (currentElement.isSynthesized) {
         if (currentElement.isGenerativeConstructor) {
           return buildGenerativeConstructor(currentElement, null);
@@ -2923,7 +2933,12 @@ class KernelVisitor extends Object
           return internalError(currentElement, "Unhandled synthetic function.");
         }
       } else {
-        return currentElement.node.accept(this);
+        Node node = currentElement.node;
+        if (node.isErroneous) {
+          return internalError(currentElement, "Unexpected syntax error.");
+        } else {
+          return node.accept(this);
+        }
       }
     });
   }

@@ -99,12 +99,12 @@ class Kernel {
   void checkMember(Element key, ir.TreeNode value) {
     if (!isTargeted(key)) return;
     if (value.parent == null) {
-      compiler.reporter.internalError(key, "Missing parent on IR node.");
+      internalError(key, "Missing parent on IR node.");
     }
     try {
       CheckParentPointers.check(value);
     } catch (e, s) {
-      compiler.reporter.internalError(key, "$e\n$s");
+      internalError(key, "$e\n$s");
     }
   }
 
@@ -354,10 +354,13 @@ class Kernel {
 
   ir.Member functionToIr(FunctionElement function) {
     if (function.isDeferredLoaderGetter) {
-      compiler.reporter.internalError(function, "Deferred loader.");
+      internalError(function, "Deferred loader.");
     }
     if (function.isLocal) {
-      compiler.reporter.internalError(function, "Local function.");
+      internalError(function, "Local function.");
+    }
+    if (isSyntheticError(function)) {
+      internalError(function, "Synthetic error function: $function.");
     }
     function = function.declaration;
     return functions.putIfAbsent(function, () {
@@ -514,5 +517,20 @@ class Kernel {
       }
     }
     return result;
+  }
+
+  /// Returns true if [element] is synthesized to recover or represent a
+  /// semantic error, for example, missing, duplicated, or ambiguous elements.
+  /// However, returns true for elements that have an unrecoverable syntax
+  /// error. Both kinds of element will return true from [Element.isMalformed],
+  /// but they must be handled differently. For example, a static call to
+  /// synthetic error element should be compiled to [ir.InvalidExpression],
+  /// whereas a static call to a method which has a syntax error should be
+  /// compiled to a static call to the method. The method itself will have a
+  /// method body that is [ir.InvalidStatement].
+  bool isSyntheticError(Element element) {
+    if (element.isAmbiguous) return true;
+    if (element.isError) return true;
+    return false;
   }
 }

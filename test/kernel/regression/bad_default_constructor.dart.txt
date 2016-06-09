@@ -13,4 +13,5 @@ class B extends self::A {
 }
 static method main() → dynamic {
   new self::B::•();
+  throw "Kernel IR not yet implemented for 'handleError'.";
 }

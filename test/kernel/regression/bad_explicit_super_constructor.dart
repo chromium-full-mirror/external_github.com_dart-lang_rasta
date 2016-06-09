@@ -7,9 +7,10 @@ class A {
 }
 
 class B extends A {
-  B() : super();
+  const B() : super();
 }
 
 main() {
   new B();
+  const B();
 }

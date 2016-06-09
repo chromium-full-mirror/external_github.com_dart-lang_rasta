@@ -11,4 +11,5 @@ class B extends A {
 
 main() {
   new B();
+  const B();
 }

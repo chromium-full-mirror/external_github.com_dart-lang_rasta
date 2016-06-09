@@ -8,10 +8,11 @@ class A extends core::Object {
     ;
 }
 class B extends self::A {
-  constructor •() → dynamic
+  const constructor •() → dynamic
     : invalid-initializer
     ;
 }
 static method main() → dynamic {
   new self::B::•();
+  const self::B::•();
 }
