@@ -20,13 +20,17 @@ class TestDescription implements Comparable<TestDescription> {
     return baseName.substring(0, baseName.length - ".dart".length);
   }
 
-  static TestDescription from(FileSystemEntity entity) {
-    if (entity is File) {
-      if ("${entity.uri}".endsWith("_test.dart")) {
-        return new TestDescription(entity);
-      }
+  static TestDescription from(FileSystemEntity entity, {Pattern pattern}) {
+    if (entity is! File) return null;
+    pattern ??= "_test.dart";
+    String path = entity.uri.path;
+    bool hasMatch = false;
+    if (pattern is String) {
+      if (path.endsWith(pattern)) hasMatch = true;
+    } else if (path.contains(pattern)) {
+      hasMatch = true;
     }
-    return null;
+    return hasMatch ? new TestDescription(entity) : null;
   }
 
   int compareTo(TestDescription other) => "$uri".compareTo("${other.uri}");

@@ -27,7 +27,7 @@ final Uri dartSdk = computeDartSdk();
 /// safely be modified by caller.
 List<String> get dartArguments => <String>["-c", "--packages=$packageConfig"];
 
-Stream<TestDescription> listTests(List<Uri> testRoots) {
+Stream<TestDescription> listTests(List<Uri> testRoots, {Pattern pattern}) {
   StreamController<TestDescription> controller =
       new StreamController<TestDescription>();
   Map<Uri, StreamSubscription> subscriptions = <Uri, StreamSubscription>{};
@@ -39,7 +39,8 @@ Stream<TestDescription> listTests(List<Uri> testRoots) {
         Stream<FileSystemEntity> stream =
             testRoot.list(recursive: true, followLinks: false);
         var subscription = stream.listen((FileSystemEntity entity) {
-          TestDescription description = TestDescription.from(entity);
+          TestDescription description =
+              TestDescription.from(entity, pattern: pattern);
           if (description != null) {
             controller.add(description);
           }

@@ -5,7 +5,8 @@
 library rasta.dart2js_test;
 
 import 'dart:async' show
-    Future;
+    Future,
+    Stream;
 
 import 'dart:io' show
     File,
@@ -20,7 +21,9 @@ import 'package:kernel/text/ast_to_text.dart' show
 import 'package:kernel/ast.dart' as ir;
 
 import 'package:rasta/testing.dart' show
+    TestDescription,
     dartSdk,
+    listTests,
     startDart;
 
 import 'package:rasta/src/rastask.dart' show
@@ -34,24 +37,11 @@ import '../../bin/rastak.dart' as rastak show main;
 const bool generateExpectations =
     const bool.fromEnvironment("generateExpectations");
 
-void addRegressions(Map<Uri, Uri> tests, Uri temp) {
-  // TODO(ahe): Generate this list with listTests. Also, compare to golden
-  // files.
-  List<String> regressions = [
-      "issue_000001.dart",
-      "issue_000002.dart",
-      "issue_000004.dart",
-      "issue_000006.dart",
-      "issue_000007.dart",
-      "issue_000011.dart",
-      "parser_error.dart",
-      "supports_reflection.dart",
-      "malformed_function_type.dart",
-      "cascades.dart",
-  ];
-  for (String regression in regressions) {
-    regression = "test/kernel/regression/$regression";
-    tests[Uri.base.resolve(regression)] = temp.resolve("${regression}.bart");
+Future<Null> addRegressions(Map<Uri, Uri> tests, Uri temp) async {
+  Stream<TestDescription> regressions = listTests(
+      <Uri>[Uri.base.resolve("test/kernel/regression/")], pattern: ".dart");
+  await for (TestDescription regression in regressions) {
+    tests[regression.uri] = temp.resolve("${regression.shortName}.bart");
   }
 }
 
@@ -62,13 +52,11 @@ Future<Null> main() async {
   Map<Uri, Uri> tests = <Uri, Uri>{
     Uri.parse("dart:core"): temp.resolve("core.bart"),
 
-    Uri.base.resolve("hello.dart"): temp.resolve("hello.bart"),
-
     Uri.parse("package:compiler/src/dart2js.dart"):
     temp.resolve("dart2js.bart"),
   };
 
-  addRegressions(tests, temp);
+  await addRegressions(tests, temp);
 
   List<Uri> generated = <Uri>[];
 
