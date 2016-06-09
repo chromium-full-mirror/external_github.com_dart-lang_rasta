@@ -2303,13 +2303,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.SuperInitializer visitSuperConstructorInvoke(
+  ir.Initializer visitSuperConstructorInvoke(
       Send node,
       ConstructorElement superConstructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
+    if (superConstructor.isMalformed) {
+      // TODO(ahe): Semantic visitor shouldn't call in this case.
+      return new ir.InvalidInitializer();
+    }
     return new ir.SuperInitializer(
         kernel.functionToIr(superConstructor),
         buildArguments(arguments));
