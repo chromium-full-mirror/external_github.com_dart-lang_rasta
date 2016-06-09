@@ -150,19 +150,25 @@ class Kernel {
           library.canonicalUri, name: name, classes: null, procedures: null,
           fields: null);
       addWork(library, (bool isTargeted) {
+        Queue<ir.Class> classes = new Queue<ir.Class>();
+        Queue<ir.Member> members = new Queue<ir.Member>();
         library.implementation.forEachLocalMember((Element e) {
           if (e.isClass) {
-            libraryNode.addClass(classToIr(e));
+            classes.addFirst(classToIr(e));
           } else if (e.isFunction || e.isAccessor) {
-            libraryNode.addMember(functionToIr(e));
+            members.addFirst(functionToIr(e));
           } else if (e.isField) {
-            libraryNode.addMember(fieldToIr(e));
+            members.addFirst(fieldToIr(e));
           } else if (e.isTypedef) {
             // Ignored, typedefs are unaliased on use.
           } else {
             internalError(e, "Unhandled library member: $e");
           }
         });
+        // The elements were inserted in reverse order as forEachLocalMember
+        // above gives them in reversed order.
+        classes.forEach(libraryNode.addClass);
+        members.forEach(libraryNode.addMember);
       });
       return libraryNode;
     });

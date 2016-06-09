@@ -3,32 +3,32 @@ import self as self;
 import "package:expect/expect.dart" as exp;
 
 static field dynamic global;
-static method main() → dynamic {
-  exp::Expect::isTrue(self::fact4().==(24));
-  exp::Expect::isTrue(self::fact5().==(120));
-  exp::Expect::isTrue(self::fact6().==(720));
-}
-static method fact6() → dynamic {
-  dynamic f = 1;
-  for(final #t1 in <dynamic>[1, 2, 3, 4, 5, 6]) {
-    self::global = #t1;
-    f = f.*(self::global);
-  }
-  return f;
-}
-static method fact5() → dynamic {
-  dynamic f = 1;
-  dynamic n;
-  for(final #t2 in <dynamic>[1, 2, 3, 4, 5]) {
-    n = #t2;
-    f = f.*(n);
-  }
-  return f;
-}
 static method fact4() → dynamic {
   dynamic f = 1;
   for(dynamic n in <dynamic>[1, 2, 3, 4]) {
     f = f.*(n);
   }
   return f;
+}
+static method fact5() → dynamic {
+  dynamic f = 1;
+  dynamic n;
+  for(final #t1 in <dynamic>[1, 2, 3, 4, 5]) {
+    n = #t1;
+    f = f.*(n);
+  }
+  return f;
+}
+static method fact6() → dynamic {
+  dynamic f = 1;
+  for(final #t2 in <dynamic>[1, 2, 3, 4, 5, 6]) {
+    self::global = #t2;
+    f = f.*(self::global);
+  }
+  return f;
+}
+static method main() → dynamic {
+  exp::Expect::isTrue(self::fact4().==(24));
+  exp::Expect::isTrue(self::fact5().==(120));
+  exp::Expect::isTrue(self::fact6().==(720));
 }

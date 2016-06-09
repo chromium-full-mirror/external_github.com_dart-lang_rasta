@@ -2,9 +2,9 @@ library;
 import self as self;
 import "dart:core" as core;
 
-static method main() → dynamic {
-  self::test0(0, 1);
-}
 static method test0(dynamic x) → dynamic {
   core::print("test0");
+}
+static method main() → dynamic {
+  self::test0(0, 1);
 }

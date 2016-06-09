@@ -2,8 +2,8 @@ library;
 import self as self;
 import "package:expect/expect.dart" as exp;
 
+static method test() → dynamic
+  invalid-statement;
 static method main() → dynamic {
   exp::Expect::equals(6, invalid-expression);
 }
-static method test() → dynamic
-  invalid-statement;
