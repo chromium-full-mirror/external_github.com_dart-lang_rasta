@@ -38,6 +38,7 @@ import 'package:compiler/src/resolution/semantic_visitor.dart' show
 import 'package:compiler/src/resolution/send_structure.dart' show
     InitializerStructure,
     InitializersStructure,
+    ParameterStructure,
     VariableStructure;
 
 import 'package:compiler/src/resolution/send_resolver.dart' show
@@ -1392,6 +1393,7 @@ class KernelVisitor extends Object
 
   IrFunction buildGenerativeConstructor(
       ConstructorElement constructor,
+      NodeList parameters,
       Node body) {
     List<ir.Initializer> constructorInitializers = <ir.Initializer>[];
     if (constructor.enclosingClass.hasIncompleteHierarchy) {
@@ -1424,8 +1426,19 @@ class KernelVisitor extends Object
                     types: kernel.typeArgumentsNotImplemented())));
       }
     } else {
+      if (parameters != null) {
+        // TODO(ahe): the following is a (modified) copy of
+        // [SemanticDeclarationResolvedMixin.visitParameters].
+        List<ParameterStructure> structures =
+            computeParameterStructures(parameters);
+        for (ParameterStructure structure in structures) {
+          if (structure.parameter.isInitializingFormal) {
+            constructorInitializers.add(structure.dispatch(declVisitor, null));
+          }
+        }
+      }
       // TODO(ahe): the following is a (modified) copy of
-      // [SemanticDeclarationVisitor.visitInitializers].
+      // [SemanticDeclarationResolvedMixin.visitInitializers].
       InitializersStructure initializers =
           computeInitializersStructure(constructor.node);
       for (InitializerStructure structure in initializers.initializers) {
@@ -1444,7 +1457,7 @@ class KernelVisitor extends Object
       NodeList initializers,
       Node body,
       _) {
-    return buildGenerativeConstructor(constructor, body);
+    return buildGenerativeConstructor(constructor, parameters, body);
   }
 
   ir.ConstructorInvocation buildGenerativeConstructorInvoke(
@@ -1608,14 +1621,24 @@ class KernelVisitor extends Object
         .buildAssignment(rhs.accept(this));
   }
 
+  ir.Initializer buildInitializingFormal(InitializingFormalElement parameter) {
+    FieldElement field = parameter.fieldElement;
+    if (kernel.isSyntheticError(field)) {
+      return new ir.InvalidInitializer();
+    } else {
+      return new ir.FieldInitializer(
+          kernel.fieldToIr(field), buildLocalGet(parameter));
+    }
+  }
+
   @override
-  ir.Throw visitInitializingFormalDeclaration(
+  ir.Initializer visitInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
       int index,
       _) {
-    return buildUnsupported(node, "InitializingFormalDeclaration");
+    return buildInitializingFormal(parameter);
   }
 
   @override
@@ -1801,13 +1824,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitNamedInitializingFormalDeclaration(
+  ir.Initializer visitNamedInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
       ConstantExpression defaultValue,
       _) {
-    return buildUnsupported(node, "NamedInitializingFormalDeclaration");
+    return buildInitializingFormal(parameter);
   }
 
   @override
@@ -1831,14 +1854,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitOptionalInitializingFormalDeclaration(
+  ir.Initializer visitOptionalInitializingFormalDeclaration(
       VariableDefinitions node,
       Node definition,
       InitializingFormalElement parameter,
       ConstantExpression defaultValue,
       int index,
       _) {
-    return buildUnsupported(node, "OptionalInitializingFormalDeclaration");
+    return buildInitializingFormal(parameter);
   }
 
   @override
@@ -1942,7 +1965,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       NodeList initializers,
       _) {
-    return buildGenerativeConstructor(constructor, null);
+    return buildGenerativeConstructor(constructor, parameters, null);
   }
 
   @override
@@ -2940,7 +2963,7 @@ class KernelVisitor extends Object
         }
       } else if (currentElement.isSynthesized) {
         if (currentElement.isGenerativeConstructor) {
-          return buildGenerativeConstructor(currentElement, null);
+          return buildGenerativeConstructor(currentElement, null, null);
         } else {
           return internalError(currentElement, "Unhandled synthetic function.");
         }

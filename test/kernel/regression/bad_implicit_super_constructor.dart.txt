@@ -4,7 +4,7 @@ import "dart:core" as core;
 
 class A extends core::Object {
   constructor •(dynamic x) → dynamic
-    : super core::Object::•()
+    : invalid-initializer, super core::Object::•()
     ;
 }
 class B extends self::A {

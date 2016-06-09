@@ -7,7 +7,7 @@ import "dart:typed_data" as typ;
 class Foo extends core::Object {
   final field dynamic value;
   constructor •(dynamic value) → dynamic
-    : super core::Object::•() {}
+    : self::Foo::value = value, super core::Object::•() {}
   static factory fac(dynamic value) → self::Foo {
     return new self::Foo::•(value);
   }
