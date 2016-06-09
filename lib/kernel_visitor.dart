@@ -2616,14 +2616,18 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.RedirectingInitializer visitThisConstructorInvoke(
+  ir.Initializer visitThisConstructorInvoke(
       Send node,
       ConstructorElement thisConstructor,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return new ir.RedirectingInitializer(
-        kernel.functionToIr(thisConstructor), buildArguments(arguments));
+    if (kernel.isSyntheticError(thisConstructor)) {
+      return new ir.InvalidInitializer();
+    } else {
+      return new ir.RedirectingInitializer(
+          kernel.functionToIr(thisConstructor), buildArguments(arguments));
+    }
   }
 
   @override
