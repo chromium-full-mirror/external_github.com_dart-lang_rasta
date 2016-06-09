@@ -1381,12 +1381,16 @@ class KernelVisitor extends Object
           }
         });
       }
-      constructorInitializers.add(
-          new ir.SuperInitializer(
-              kernel.functionToIr(constructor.definingConstructor),
-              new ir.Arguments(
-                  arguments, named: named,
-                  types: kernel.typeArgumentsNotImplemented())));
+      if (constructor.definingConstructor.isMalformed) {
+        constructorInitializers.add(new ir.InvalidInitializer());
+      } else {
+        constructorInitializers.add(
+            new ir.SuperInitializer(
+                kernel.functionToIr(constructor.definingConstructor),
+                new ir.Arguments(
+                    arguments, named: named,
+                    types: kernel.typeArgumentsNotImplemented())));
+      }
     } else {
       // TODO(ahe): the following is a (modified) copy of
       // [SemanticDeclarationVisitor.visitInitializers].
