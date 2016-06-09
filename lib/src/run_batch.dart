@@ -68,7 +68,9 @@ class RunBatch extends Rastask {
 
     int count = 1;
     print("\n");
-    await for (TestDescription description in listTests(<Uri>[testDirectory])) {
+    Stream<TestDescription> tests =
+        listTests(<Uri>[testDirectory], pattern: options.pattern);
+    await for (TestDescription description in tests) {
       try {
         Options options = new Options(
             description.uri,

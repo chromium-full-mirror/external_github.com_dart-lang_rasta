@@ -16,6 +16,8 @@ const Map<String, OptionDescription> descriptions =
         const OptionDescription(Option.listDependencies, hasArgument: true),
 
     "--batch": const OptionDescription(Option.batch),
+
+    "--pattern": const OptionDescription(Option.pattern, hasArgument: true),
 };
 
 const List<Option> supportedBatchOptions = const <Option>[
@@ -27,6 +29,7 @@ const List<Option> supportedBatchOptions = const <Option>[
     Option.argument,
     Option.library,
     Option.program,
+    Option.pattern,
 ];
 
 enum Option {
@@ -44,6 +47,9 @@ enum Option {
 
   /// `--batch`.
   batch,
+
+  /// `--pattern`.
+  pattern,
 
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
@@ -73,10 +79,11 @@ class Options {
   final bool generateLibrary;
   final bool isVerbose;
   final bool isBatch;
+  final Pattern pattern;
 
   Options(this.input, this.output,
           {this.dependenciesFile, this.generateLibrary, this.isVerbose,
-           this.isBatch});
+           this.isBatch, this.pattern});
 }
 
 class OptionParser {
@@ -95,6 +102,7 @@ class OptionParser {
     bool isBatch;
     Uri dependenciesFile;
     List<String> uris = <String>[];
+    Pattern pattern;
     for (OptionValue value in values) {
       switch (value.option) {
         case Option.library:
@@ -115,6 +123,11 @@ class OptionParser {
 
         case Option.batch:
           isBatch = true;
+          break;
+
+        case Option.pattern:
+          pattern = (value.argument.contains(new RegExp(r'[*$^]')))
+              ? new RegExp(value.argument) : value.argument;
           break;
 
         case Option.skip:
@@ -156,7 +169,7 @@ class OptionParser {
     return new Options(
         input, output, dependenciesFile: dependenciesFile,
         generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
-        isBatch: isBatch ?? false);
+        isBatch: isBatch ?? false, pattern: pattern);
   }
 
   List<OptionValue> parseValues() {
