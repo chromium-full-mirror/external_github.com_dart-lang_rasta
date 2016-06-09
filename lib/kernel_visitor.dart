@@ -1549,11 +1549,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.SuperInitializer visitImplicitSuperConstructorInvoke(
+  ir.Initializer visitImplicitSuperConstructorInvoke(
       FunctionExpression node,
       ConstructorElement superConstructor,
       InterfaceType type,
       _) {
+    if (superConstructor == null) {
+      // TODO(ahe): Semantic visitor shouldn't call this.
+      return new ir.InvalidInitializer();
+    }
     return new ir.SuperInitializer(
         kernel.functionToIr(superConstructor),
         new ir.Arguments.empty());
