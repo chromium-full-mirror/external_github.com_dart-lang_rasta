@@ -992,7 +992,9 @@ class KernelVisitor extends Object
       result =
           new ir.TryFinally(result, buildStatementInBlock(node.finallyBlock));
     }
-    return result;
+    JumpTarget jumpTarget = elements.getTargetDefinition(node);
+    return buildContinueTarget(
+        buildBreakTarget(result, node, jumpTarget), node, jumpTarget);
   }
 
   @override
