@@ -5,7 +5,8 @@
 library rasta.run_batch;
 
 import 'dart:async' show
-    Future;
+    Future,
+    Stream;
 
 import 'dart:io' show
     IOSink;
