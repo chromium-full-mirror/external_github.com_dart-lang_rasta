@@ -227,15 +227,23 @@ class Kernel {
           implementedClasses: null,
           constructors: null);
       addWork(cls, (bool isTargeted) {
-        classNode.superType = interfaceTypeToIr(cls.supertype);
         classNode.parent = libraryToIr(cls.library);
         if (cls.isUnnamedMixinApplication) {
           classNode.enclosingLibrary.addClass(classNode);
         }
-        classNode.mixedInType = interfaceTypeToIr(cls.mixinType);
-        classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
-        for (ir.InterfaceType interface in typesToIr(cls.interfaces.toList())) {
-          classNode.implementedTypes.add(interface);
+        if (cls.hasIncompleteHierarchy) {
+          ir.InterfaceType objectType =
+              interfaceTypeToIr(compiler.coreTypes.objectType);
+          classNode.superType = objectType;
+          classNode.mixedInType = objectType;
+        } else {
+          classNode.superType = interfaceTypeToIr(cls.supertype);
+          classNode.mixedInType = interfaceTypeToIr(cls.mixinType);
+          classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
+          for (ir.InterfaceType interface in
+                   typesToIr(cls.interfaces.toList())) {
+            classNode.implementedTypes.add(interface);
+          }
         }
         cls.implementation.forEachMember(
             (ClassElement enclosingClass, Element member) {

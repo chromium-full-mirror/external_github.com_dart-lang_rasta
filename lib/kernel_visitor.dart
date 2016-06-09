@@ -1362,7 +1362,9 @@ class KernelVisitor extends Object
       ConstructorElement constructor,
       Node body) {
     List<ir.Initializer> constructorInitializers = <ir.Initializer>[];
-    if (constructor.isSynthesized) {
+    if (constructor.enclosingClass.hasIncompleteHierarchy) {
+      constructorInitializers.add(new ir.InvalidInitializer());
+    } else if (constructor.isSynthesized) {
       List<ir.Expression> arguments = const <ir.Expression>[];
       List<ir.NamedExpression> named = const <ir.NamedExpression>[];
       FunctionSignature signature = constructor.functionSignature;
@@ -1847,10 +1849,24 @@ class KernelVisitor extends Object
       FunctionExpression node,
       ConstructorElement constructor,
       NodeList parameters,
-      InterfaceType redirectionType,
+      DartType redirectionType, // TODO(ahe): Should be InterfaceType.
       ConstructorElement redirectionTarget,
       _) {
-    return buildIrFunction(ir.ProcedureKind.Factory, constructor, null);
+    ir.Statement body = null;
+    if (redirectionTarget.isMalformed) {
+      body = new ir.InvalidStatement();
+    } else {
+      // TODO(ahe): This should be implemented, but doesn't matter much unless
+      // we support reflection. At the call-site, we bypass this factory and
+      // call its effective target directly. So this factory is only necessary
+      // for reflection.
+      body = buildUnsupportedStatement(
+          node, "redirecting factory constructor body.");
+    }
+    IrFunction function =
+        buildIrFunction(ir.ProcedureKind.Factory, constructor, null);
+    function.node.body = body..parent = function.node;
+    return function;
   }
 
   @override
@@ -2830,9 +2846,7 @@ class KernelVisitor extends Object
         new ir.StringLiteral("Kernel IR not yet implemented for '$name'."));
   }
 
-  ir.ExpressionStatement buildUnsupportedStatement(
-      Statement node,
-      String name) {
+  ir.ExpressionStatement buildUnsupportedStatement(Node node, String name) {
     return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
 
