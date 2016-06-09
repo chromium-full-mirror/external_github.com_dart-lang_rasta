@@ -537,8 +537,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.BreakStatement visitBreakStatement(BreakStatement node) {
-    return new ir.BreakStatement(getBreakTarget(elements.getTargetOf(node)));
+  ir.Statement visitBreakStatement(BreakStatement node) {
+    JumpTarget target = elements.getTargetOf(node);
+    if (target == null) {
+      // This is a break in an invalid position.
+      return new ir.InvalidStatement();
+    }
+    // A break can break to itself in the degenerate case `label: break
+    // label'`.
+    return buildBreakTarget(
+        new ir.BreakStatement(getBreakTarget(target)), node,
+        elements.getTargetDefinition(node));
   }
 
   CascadeReceiver computeCascadeReceiver(Cascade cascade) {
