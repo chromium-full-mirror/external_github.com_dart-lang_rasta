@@ -1320,13 +1320,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.FieldInitializer visitFieldInitializer(
+  ir.Initializer visitFieldInitializer(
       SendSet node,
       FieldElement field,
       Node expression,
       _) {
-    return new ir.FieldInitializer(
-        kernel.fieldToIr(field), expression.accept(this));
+    if (kernel.isSyntheticError(field)) {
+      return new ir.InvalidInitializer();
+    } else {
+      return new ir.FieldInitializer(
+          kernel.fieldToIr(field), expression.accept(this));
+    }
   }
 
   @override

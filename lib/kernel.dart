@@ -26,6 +26,9 @@ import 'package:compiler/src/elements/elements.dart' show
     Name,
     TypeVariableElement;
 
+import 'package:compiler/src/elements/modelx.dart' show
+    ErroneousFieldElementX;
+
 import 'package:compiler/src/dart_types.dart' show
     DartType,
     FunctionType,
@@ -414,6 +417,9 @@ class Kernel {
   }
 
   ir.Field fieldToIr(FieldElement field) {
+    if (isSyntheticError(field)) {
+      internalError(field, "Synthetic error field: $field.");
+    }
     field = field.declaration;
     return fields.putIfAbsent(field, () {
       compiler.analyzeElement(field);
@@ -531,6 +537,9 @@ class Kernel {
   bool isSyntheticError(Element element) {
     if (element.isAmbiguous) return true;
     if (element.isError) return true;
+    if (element.isField && element is ErroneousFieldElementX) {
+      return true;
+    }
     return false;
   }
 }
