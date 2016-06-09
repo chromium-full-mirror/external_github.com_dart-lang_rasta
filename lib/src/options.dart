@@ -155,12 +155,26 @@ class OptionParser {
             "'${extraOptions.join("' '")}'.";
       }
     } else if (uris.length == 2) {
-      input = Uri.base.resolve(uris[0]);
-      output = Uri.base.resolve(uris[1]);
+      if (uris[0] != "-") {
+        // `-` means read from `stdin`.
+        input = Uri.base.resolve(uris[0]);
+      } else {
+        throw "Unable to read from stdin (-).";
+      }
+      if (uris[1] != "-") {
+        // `-` means print to stdout.
+        output = Uri.base.resolve(uris[1]);
+      }
     } else if (uris.length == 0) {
-      throw "Missing required arguments: [input] [output].";
+      throw "Missing required argument: [input].";
     } else if (uris.length == 1) {
-      throw "Missing required argument: [output].";
+      if (uris[0] != "-") {
+        // `-` means read from `stdin`.
+        input = Uri.base.resolve(uris[0]);
+      } else {
+        throw "Unable to read from stdin (-).";
+      }
+      output = null; // Print on stdout.
     } else {
       assert(uris.length > 2);
       String extraArguments = uris.join("' '");
@@ -189,7 +203,7 @@ class OptionParser {
     if (!arguments.moveNext()) return null;
     String name = arguments.current;
     if (name == "--") return const OptionValue(Option.skip);
-    if (!name.startsWith("-")) {
+    if (name == "-" || !name.startsWith("-")) {
       return new OptionValue(Option.argument, name);
     }
 

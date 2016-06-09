@@ -19,6 +19,9 @@ import 'package:kernel/ast.dart' as ir;
 import 'package:kernel/binary/ast_to_binary.dart' show
     BinaryPrinter;
 
+import 'package:kernel/text/ast_to_text.dart' show
+    Printer;
+
 import 'package:rasta/custom_compiler.dart' show
     CustomCompiler;
 
@@ -68,14 +71,25 @@ class RunSingle extends Rastask {
               ..mainMethod = mainMethods.single;
     }
     compiler.printVerboseTimings(setupDuration);
-    await openWrite(options.output, (IOSink sink) {
-      BinaryPrinter printer = new BinaryPrinter(sink);
+    if (options.output != null) {
+      await openWrite(options.output, (IOSink sink) {
+        BinaryPrinter printer = new BinaryPrinter(sink);
+        if (generateLibrary) {
+          printer.writeLibraryFile(library);
+        } else {
+          printer.writeProgramFile(program);
+        }
+      });
+    } else {
+      StringBuffer buffer = new StringBuffer();
+      Printer printer = new Printer(buffer);
       if (generateLibrary) {
         printer.writeLibraryFile(library);
       } else {
         printer.writeProgramFile(program);
       }
-    });
+      print("$buffer");
+    }
 
     if (options.dependenciesFile != null) {
       await openWrite(options.dependenciesFile, (IOSink sink) {
