@@ -327,7 +327,6 @@ class KernelVisitor extends Object
 
   @override
   void previsitDeferredAccess(Send node, PrefixElement prefix, _) {
-    throw new Unsupported("Not implemented yet.");
   }
 
   @override
