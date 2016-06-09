@@ -1974,52 +1974,60 @@ class KernelVisitor extends Object
   ir.FunctionNode buildFunctionNode(FunctionElement function, Node bodyNode) {
     ir.Statement body = (bodyNode == null)
         ? null : buildStatementInBlock(bodyNode);
-    FunctionSignature signature = function.functionSignature;
     List<ir.VariableDeclaration> positionalParameters =
         <ir.VariableDeclaration>[];
     List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
-    int requiredParameterCount = signature.requiredParameterCount;
-    signature.forEachParameter((ParameterElement parameter) {
-      ir.VariableDeclaration variable = getLocal(parameter);
-      if (parameter.isNamed) {
-        namedParameters.add(variable);
-      } else {
-        positionalParameters.add(variable);
+    int requiredParameterCount = 0;
+    ir.DartType returnType = null;
+    if (function.hasFunctionSignature) {
+      FunctionSignature signature = function.functionSignature;
+      requiredParameterCount = signature.requiredParameterCount;
+      signature.forEachParameter((ParameterElement parameter) {
+        ir.VariableDeclaration variable = getLocal(parameter);
+        if (parameter.isNamed) {
+          namedParameters.add(variable);
+        } else {
+          positionalParameters.add(variable);
+        }
+      });
+      signature.forEachParameter((ParameterElement parameter) {
+        ir.Expression initializer = parameter.initializer?.accept(this);
+        ir.VariableDeclaration variable = getLocal(parameter);
+        if (initializer != null) {
+          variable.initializer = initializer;
+          initializer.parent = variable;
+        }
+      });
+      returnType = typeToIrHack(signature.type.returnType);
+    }
+    ir.AsyncMarker asyncMarker = ir.AsyncMarker.Sync;
+    if (!function.isMalformed) {
+      switch (function.asyncMarker) {
+        case AsyncMarker.SYNC:
+          asyncMarker = ir.AsyncMarker.Sync;
+          break;
+
+        case AsyncMarker.SYNC_STAR:
+          asyncMarker = ir.AsyncMarker.SyncStar;
+          break;
+
+        case AsyncMarker.ASYNC:
+          asyncMarker = ir.AsyncMarker.Async;
+          break;
+
+        case AsyncMarker.ASYNC_STAR:
+          asyncMarker = ir.AsyncMarker.AsyncStar;
+          break;
+
+        default:
+          internalError(
+              function, "Unknown async maker: ${function.asyncMarker}");
+          break;
       }
-    });
-    signature.forEachParameter((ParameterElement parameter) {
-      ir.Expression initializer = parameter.initializer?.accept(this);
-      ir.VariableDeclaration variable = getLocal(parameter);
-      if (initializer != null) {
-        variable.initializer = initializer;
-        initializer.parent = variable;
-      }
-    });
-    ir.AsyncMarker asyncMarker;
-    switch (function.asyncMarker) {
-      case AsyncMarker.SYNC:
-        asyncMarker = ir.AsyncMarker.Sync;
-        break;
-
-      case AsyncMarker.SYNC_STAR:
-        asyncMarker = ir.AsyncMarker.SyncStar;
-        break;
-
-      case AsyncMarker.ASYNC:
-        asyncMarker = ir.AsyncMarker.Async;
-        break;
-
-      case AsyncMarker.ASYNC_STAR:
-        asyncMarker = ir.AsyncMarker.AsyncStar;
-        break;
-
-      default:
-        internalError(function, "Unknown async maker: ${function.asyncMarker}");
-        break;
     }
     return new ir.FunctionNode(
         body, asyncMarker: asyncMarker,
-        returnType: typeToIrHack(signature.type.returnType),
+        returnType: returnType,
         typeParameters: kernel.typeParametersNotImplemented(),
         positionalParameters: positionalParameters,
         namedParameters: namedParameters,
