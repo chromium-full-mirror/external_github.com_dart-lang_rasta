@@ -1391,6 +1391,23 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
+  void addFieldsWithInitializers(
+      ConstructorElement constructor,
+      List<ir.Initializer> initializers) {
+    constructor.enclosingClass.forEachInstanceField((_, FieldElement element) {
+      // Convert the element into the corresponding IR field before asking
+      // if the initializer exists. This is necessary to ensure that the
+      // element has been analyzed before looking at its initializer.
+      ir.Field field = kernel.fieldToIr(element);
+      if (element.initializer != null) {
+        KernelVisitor visitor = new KernelVisitor(
+            element, element.treeElements, kernel);
+        ir.Expression value = visitor.buildInitializer();
+        initializers.add(new ir.FieldInitializer(field, value));
+      }
+    });
+  }
+
   IrFunction buildGenerativeConstructor(
       ConstructorElement constructor,
       NodeList parameters,
@@ -1418,6 +1435,7 @@ class KernelVisitor extends Object
       if (kernel.isSyntheticError(constructor.definingConstructor)) {
         constructorInitializers.add(new ir.InvalidInitializer());
       } else {
+        addFieldsWithInitializers(constructor, constructorInitializers);
         constructorInitializers.add(
             new ir.SuperInitializer(
                 kernel.functionToIr(constructor.definingConstructor),
@@ -1426,6 +1444,7 @@ class KernelVisitor extends Object
                     types: kernel.typeArgumentsNotImplemented())));
       }
     } else {
+      addFieldsWithInitializers(constructor, constructorInitializers);
       if (parameters != null) {
         // TODO(ahe): the following is a (modified) copy of
         // [SemanticDeclarationResolvedMixin.visitParameters].
