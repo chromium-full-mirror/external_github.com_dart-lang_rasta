@@ -422,11 +422,15 @@ class KernelVisitor extends Object
 
   Accessor computeAccessor(ForIn node, Element element) {
     if (element == null) {
+      Send send = node.declaredIdentifier.asSend();
+      if (send == null) {
+        return new StaticAccessor(null, null);
+      }
       // This should be the situation where `node.declaredIdentifier` is
       // unresolved, but in an instance method context. If it is some different
       // situation, the assignment to [ir.PropertyGet] should act as an
       // assertion.
-      ir.PropertyGet expression = node.declaredIdentifier.accept(this);
+      ir.PropertyGet expression = send.accept(this);
       return PropertyAccessor.make(expression.receiver, expression.name);
     } else if (kernel.isSyntheticError(element)) {
       return new StaticAccessor(null, null);
@@ -447,7 +451,7 @@ class KernelVisitor extends Object
       return new StaticAccessor(
           member, (element.isFinal || element.isConst) ? null : member);
     } else {
-      throw internalError(node, "Unhandled for-in variable: $element");
+      return new StaticAccessor(null, null);
     }
   }
 

@@ -10,5 +10,44 @@ class Fisk extends core::Object {
       this.key = #t1;
       core::print(this.key);
     }
+    for(final #t2 in x) {
+      let final #t3 = #t2 in invalid-expression;
+      core::print(self::Fisk);
+    }
+    for(final #t4 in x) {
+      let final #t5 = #t4 in invalid-expression;
+      core::print(throw "Kernel IR not yet implemented for 'handleError'.");
+    }
+    for(final #t6 in x) {
+      let final #t7 = #t6 in invalid-expression;
+      core::print(throw "Kernel IR not yet implemented for 'TypedefTypeLiteralGet'.");
+    }
+    for(final #t8 in x) {
+      let final #t9 = #t8 in invalid-expression;
+      core::print(this.key);
+    }
+  }
+}
+static method main(dynamic arguments) → dynamic {
+  new self::Fisk::•();
+  for(final #t10 in arguments) {
+    let final #t11 = #t10 in invalid-expression;
+    core::print(invalid-expression);
+  }
+  for(final #t12 in arguments) {
+    let final #t13 = #t12 in invalid-expression;
+    core::print(self::Fisk);
+  }
+  for(final #t14 in arguments) {
+    let final #t15 = #t14 in invalid-expression;
+    core::print(throw "Kernel IR not yet implemented for 'handleError'.");
+  }
+  for(final #t16 in arguments) {
+    let final #t17 = #t16 in invalid-expression;
+    core::print(throw "Kernel IR not yet implemented for 'TypedefTypeLiteralGet'.");
+  }
+  for(final #t18 in arguments) {
+    let final #t19 = #t18 in invalid-expression;
+    core::print(invalid-expression);
   }
 }
