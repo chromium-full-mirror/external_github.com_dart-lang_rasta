@@ -67,11 +67,12 @@ class RunBatch extends Rastask {
 
     List<TestDescription> failures = <TestDescription>[];
 
-    int count = 1;
+    int count = 0;
     print("\n");
     Stream<TestDescription> tests =
         listTests(<Uri>[testDirectory], pattern: options.pattern);
     await for (TestDescription description in tests) {
+      count++;
       try {
         Options options = new Options(
             description.uri,
@@ -117,7 +118,6 @@ class RunBatch extends Rastask {
           "Average time per test: ${averageTimeMs}ms\n"
           "[${wallClock.elapsed} | --% | +$successes | -$failuresPadded ]"
         );
-      count++;
     }
     wallClock.stop();
     String averageTimeMs =
