@@ -2098,6 +2098,7 @@ class KernelVisitor extends Object
         }
       });
       signature.forEachParameter((ParameterElement parameter) {
+        if (!parameter.isOptional) return;
         ir.Expression initializer = parameter.initializer?.accept(this);
         ir.VariableDeclaration variable = getLocal(parameter);
         if (initializer != null) {
