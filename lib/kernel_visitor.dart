@@ -1066,7 +1066,7 @@ class KernelVisitor extends Object
   @override
   ir.MethodInvocation visitBinary(
       Send node, Node left, BinaryOperator operator, Node right, _) {
-    return buildBinaryOperator(left, operator.name, right);
+    return buildBinaryOperator(left, operator.selectorName, right);
   }
 
   ir.Expression buildConstConstructorInvoke(NewExpression node) {
@@ -1146,7 +1146,8 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildIndexAccessor(receiver, index).buildCompoundAssignment(
-        kernel.irName(operator.name, currentElement), rhs.accept(this));
+        kernel.irName(operator.selectorName, currentElement),
+        rhs.accept(this));
   }
 
   @override
@@ -1630,7 +1631,7 @@ class KernelVisitor extends Object
       IncDecOperator operator,
       _) {
     Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.name, currentElement);
+    ir.Name name = kernel.irName(operator.selectorName, currentElement);
     return accessor.buildPostfixIncrement(name);
   }
 
@@ -1642,7 +1643,7 @@ class KernelVisitor extends Object
       IncDecOperator operator,
       _) {
     Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.name, currentElement);
+    ir.Name name = kernel.irName(operator.selectorName, currentElement);
     return accessor.buildPrefixIncrement(name);
   }
 
@@ -1793,7 +1794,7 @@ class KernelVisitor extends Object
   }
 
   ir.Expression buildCompound(Accessor accessor, CompoundRhs rhs) {
-    ir.Name name = kernel.irName(rhs.operator.name, currentElement);
+    ir.Name name = kernel.irName(rhs.operator.selectorName, currentElement);
     switch (rhs.kind) {
       case CompoundKind.POSTFIX:
         return accessor.buildPostfixIncrement(name);
@@ -2907,7 +2908,8 @@ class KernelVisitor extends Object
   ir.MethodInvocation visitUnary(
       Send node, UnaryOperator operator, Node expression, _) {
     return new ir.MethodInvocation(
-        expression.accept(this), kernel.irName(operator.name, currentElement),
+        expression.accept(this),
+        kernel.irName(operator.selectorName, currentElement),
         new ir.Arguments.empty());
   }
 
