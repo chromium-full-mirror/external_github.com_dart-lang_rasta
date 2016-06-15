@@ -80,7 +80,11 @@ class RunBatch extends Rastask {
             generateLibrary: this.options.generateLibrary);
 
         ir.Library library = await kernel.loadLibrary(options.input);
-        kernel.processWorkQueue(targetLibrary: options.input);
+        if (this.options.generateLibrary) {
+          kernel.processWorkQueue(targetLibrary: options.input);
+        } else {
+          kernel.processWorkQueue();
+        }
 
         if (options.generateLibrary == true) {
           await openWrite(options.output, (IOSink sink) {
