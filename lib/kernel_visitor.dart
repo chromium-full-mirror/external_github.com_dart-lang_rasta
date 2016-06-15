@@ -2344,17 +2344,19 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperBinary(
+  ir.SuperMethodInvocation visitSuperBinary(
       Send node,
       FunctionElement function,
       BinaryOperator operator,
       Node argument,
       _) {
-    return buildUnsupported(node, "SuperBinary");
+    return new ir.SuperMethodInvocation(
+        kernel.functionToIr(function),
+        new ir.Arguments(<ir.Expression>[argument.accept(this)]));
   }
 
   @override
-  ir.Throw visitSuperCompoundIndexSet(
+  ir.Expression visitSuperCompoundIndexSet(
       SendSet node,
       MethodElement getter,
       MethodElement setter,
@@ -2362,7 +2364,10 @@ class KernelVisitor extends Object
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperCompoundIndexSet");
+    return
+        buildSuperIndexAccessor(index, getter, setter).buildCompoundAssignment(
+            kernel.irName(operator.selectorName, currentElement),
+            rhs.accept(this));
   }
 
   @override
@@ -2510,12 +2515,16 @@ class KernelVisitor extends Object
 
   Accessor buildSuperIndexAccessor(
       Expression index,
-      Element read,
-      [Element write]) {
+      Element getter,
+      [Element setter]) {
+    if (setter == null && getter.isField && !getter.isFinal &&
+        !getter.isConst) {
+      setter = getter;
+    }
     return new SuperIndexAccessor(
         index.accept(this),
-        kernel.elementToIr(read),
-        (write == null) ? null : kernel.elementToIr(write));
+        (getter == null) ? null : kernel.elementToIr(getter),
+        (setter == null) ? null : kernel.elementToIr(setter));
   }
 
   @override
