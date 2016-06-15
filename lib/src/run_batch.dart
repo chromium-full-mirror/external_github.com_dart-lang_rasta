@@ -9,7 +9,12 @@ import 'dart:async' show
     Stream;
 
 import 'dart:io' show
+    File,
     IOSink;
+
+import 'dart:convert' show
+    LineSplitter,
+    UTF8;
 
 import 'package:compiler/src/util/uri_extras.dart' show
     relativize;
@@ -36,6 +41,25 @@ import 'rastask.dart' show
     Rastask,
     openWrite;
 
+// Reads lines of the form '<input> <output>' (space separated) from the given
+// file and generates a test case that compiles each input to the corresponding
+// output file.
+Stream<TestDescription> readTestsFromFile(Stream<List<int>> input) async* {
+  Stream<String> lines = input
+      .transform(UTF8.decoder)
+      .transform(new LineSplitter());
+  await for (String line in lines) {
+    int splitPoint = line.indexOf(' ');
+    if (splitPoint < 0) {
+      print("Skipping garbage in input file: $line");
+    } else {
+      Uri input = Uri.parse(line.substring(0, splitPoint));
+      Uri output = Uri.parse(line.substring(splitPoint + 1));
+      yield new TestDescription(new File.fromUri(input), output: output);
+    }
+  }
+}
+
 class RunBatch extends Rastask {
   RunBatch(CustomCompiler compiler, Stopwatch wallClock, Options options)
       : super(compiler, wallClock, options);
@@ -58,25 +82,35 @@ class RunBatch extends Rastask {
         ..start();
 
 
-    Uri testDirectory = compiler.translateUri(null, options.input);
+    Uri testUri = compiler.translateUri(null, options.input);
 
-    // TODO(ahe): This lists all tests in [testDirectory] and generates Kernel
-    // IR for them all. However, batch mode should be a server that is
-    // controlled by test.dart.
+    // TODO(ahe): This lists all tests in [testUri] if it is a directory
+    // and generates Kernel IR for them all. If [testUri] is a file, it
+    // reads the file as a sequence of lines with pairs of test inputs and
+    // outputs. However, batch mode should be a server that is controlled
+    // by test.dart.
+
     // TODO(ahe): Share more code with RunSingle.
 
     List<TestDescription> failures = <TestDescription>[];
 
     int count = 0;
     print("\n");
-    Stream<TestDescription> tests =
-        listTests(<Uri>[testDirectory], pattern: options.pattern);
+
+    File inputFile = new File.fromUri(testUri);
+    Stream<TestDescription> tests = await inputFile.exists()
+        ? readTestsFromFile(inputFile.openRead())
+        : listTests(<Uri>[testUri], pattern: options.pattern);
+
     await for (TestDescription description in tests) {
       count++;
       try {
+        Uri output = description.output;
+        output ??= description.uri.resolve("${description.uri.path}.bart");
+
         Options options = new Options(
             description.uri,
-            description.uri.resolve("${description.uri.path}.bart"),
+            output,
             generateLibrary: this.options.generateLibrary);
 
         ir.Library library = await kernel.loadLibrary(options.input);

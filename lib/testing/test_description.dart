@@ -10,8 +10,9 @@ import 'dart:io' show
 
 class TestDescription implements Comparable<TestDescription> {
   final File file;
+  final Uri output;
 
-  TestDescription(this.file);
+  TestDescription(this.file, {this.output});
 
   Uri get uri => file.uri;
 
