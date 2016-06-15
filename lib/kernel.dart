@@ -18,6 +18,7 @@ import 'package:kernel/checks.dart' show
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     Element,
+    ExportElement,
     FieldElement,
     FunctionElement,
     ImportElement,
@@ -514,17 +515,28 @@ class Kernel {
     while (notProcessed.isNotEmpty) {
       LibraryElement library = notProcessed.removeFirst();
       ir.Library irLibrary = libraries[library];
-      if (irLibrary == null) continue;
-      result.add(irLibrary);
       for (ImportElement import in library.imports) {
         if (seen.add(import.importedLibrary)) {
           notProcessed.addLast(import.importedLibrary);
+        }
+      }
+      for (ExportElement export in library.exports) {
+        if (seen.add(export.exportedLibrary)) {
+          notProcessed.addLast(export.exportedLibrary);
         }
       }
       for (ImportElement import in library.implementation.imports) {
         if (seen.add(import.importedLibrary)) {
           notProcessed.addLast(import.importedLibrary);
         }
+      }
+      for (ExportElement export in library.implementation.exports) {
+        if (seen.add(export.exportedLibrary)) {
+          notProcessed.addLast(export.exportedLibrary);
+        }
+      }
+      if (irLibrary != null) {
+        result.add(irLibrary);
       }
     }
     return result;
