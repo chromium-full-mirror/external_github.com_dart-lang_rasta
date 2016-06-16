@@ -25,11 +25,12 @@ import 'package:kernel/accessors.dart' show
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
     BaseImplementationOfCompoundsMixin,
     BaseImplementationOfLocalsMixin,
+    BaseImplementationOfSetIfNullsMixin,
     BaseImplementationOfStaticsMixin,
     CompoundGetter,
-    CompoundSetter,
     CompoundKind,
     CompoundRhs,
+    CompoundSetter,
     SemanticDeclarationResolvedMixin,
     SemanticDeclarationVisitor,
     SemanticSendResolvedMixin,
@@ -195,6 +196,7 @@ class KernelVisitor extends Object
         BaseImplementationOfStaticsMixin,
         BaseImplementationOfLocalsMixin,
         BaseImplementationOfCompoundsMixin,
+        BaseImplementationOfSetIfNullsMixin,
         SemanticDeclarationResolvedMixin,
         DeclarationResolverMixin,
         RastaUnavailable,
@@ -1123,15 +1125,6 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "ClassTypeLiteralSet");
   }
 
-  @override
-  ir.Throw visitClassTypeLiteralSetIfNull(
-      Send node,
-      ConstantExpression constant,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "ClassTypeLiteralSetIfNull");
-  }
-
   @override ir.FunctionExpression visitClosureDeclaration(
       FunctionExpression node,
       LocalFunctionElement closure,
@@ -1236,15 +1229,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitDynamicPropertySetIfNull(
+  ir.Expression handleDynamicSetIfNulls(
       Send node,
       Node receiver,
       Name name,
       Node rhs,
       _) {
     ir.Name irName = kernel.nameToIrName(name);
-    return PropertyAccessor.make(receiver.accept(this), irName)
-        .buildNullAwareAssignment(rhs.accept(this));
+    Accessor accessor = (receiver == null)
+        ? new ThisPropertyAccessor(irName)
+        : PropertyAccessor.make(receiver.accept(this), irName);
+    return accessor.buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -1270,15 +1265,6 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildUnsupported(node, "DynamicTypeLiteralSet");
-  }
-
-  @override
-  ir.Throw visitDynamicTypeLiteralSetIfNull(
-      Send node,
-      ConstantExpression constant,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "DynamicTypeLiteralSetIfNull");
   }
 
   ir.MethodInvocation buildBinaryOperator(
@@ -1342,61 +1328,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitFinalLocalVariableSetIfNull(
-      Send node,
-      LocalVariableElement variable,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "FinalLocalVariableSetIfNull");
-  }
-
-  @override
-  ir.Throw visitFinalParameterSetIfNull(
-      Send node,
-      ParameterElement parameter,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "FinalParameterSetIfNull");
-  }
-
-  @override
   ir.StaticSet handleFinalStaticFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return handleStaticFieldSet(node, field, rhs, _);
   }
 
   @override
-  ir.Throw visitFinalStaticFieldSetIfNull(
-      Send node,
-      FieldElement field,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "FinalStaticFieldSetIfNull");
-  }
-
-  @override
   ir.Expression visitFinalSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return buildSuperPropertyAccessor(field).buildAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Expression visitFinalSuperFieldSetIfNull(
-      Send node,
-      FieldElement field,
-      Node rhs,
-      _) {
-    return buildSuperPropertyAccessor(field)
-        .buildNullAwareAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Throw visitFinalTopLevelFieldSetIfNull(
-      Send node,
-      FieldElement field,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "FinalTopLevelFieldSetIfNull");
   }
 
   void addFieldsWithInitializers(
@@ -1782,15 +1722,6 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitLocalFunctionSetIfNull(
-      Send node,
-      LocalFunctionElement function,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "LocalFunctionSetIfNull");
-  }
-
-  @override
   ir.VariableDeclaration visitLocalVariableDeclaration(
       VariableDefinitions node,
       Node definition,
@@ -1850,16 +1781,6 @@ class KernelVisitor extends Object
       _) {
     // TODO(ahe): Build invalid?
     return handleLocalSet(node, element, rhs, _);
-  }
-
-  @override
-  ir.Expression visitLocalVariableSetIfNull(
-      Send node,
-      LocalVariableElement variable,
-      Node rhs,
-      _) {
-    return new VariableAccessor(getLocal(variable))
-        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -1947,12 +1868,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ConditionalExpression visitParameterSetIfNull(
-      Send node,
-      ParameterElement parameter,
+  ir.Expression handleLocalSetIfNulls(
+      SendSet node,
+      LocalElement local,
       Node rhs,
-      _) {
-    return new VariableAccessor(getLocal(parameter))
+      _,
+      {bool isSetterValid}) {
+    return new VariableAccessor(getLocal(local))
         .buildNullAwareAssignment(rhs.accept(this));
   }
 
@@ -2077,9 +1999,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStaticFieldSetIfNull(
-      Send node, FieldElement field, Node rhs, _) {
-    return buildUnsupported(node, "StaticFieldSetIfNull");
+  ir.Expression handleStaticSetIfNulls(
+      SendSet node,
+      Element getter,
+      CompoundGetter getterKind,
+      Element setter,
+      CompoundSetter setterKind,
+      Node rhs,
+      _) {
+    return buildUnsupported(node, "StaticSetIfNulls");
   }
 
   ir.VariableDeclaration getLocal(LocalElement local) {
@@ -2286,35 +2214,6 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStaticGetterSetterSetIfNull(
-      Send node,
-      FunctionElement getter,
-      FunctionElement setter,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "StaticGetterSetterSetIfNull");
-  }
-
-  @override
-  ir.Throw visitStaticMethodSetIfNull(
-      Send node,
-      FunctionElement method,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "StaticMethodSetIfNull");
-  }
-
-  @override
-  ir.Throw visitStaticMethodSetterSetIfNull(
-      Send node,
-      MethodElement method,
-      MethodElement setter,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "StaticMethodSetterSetIfNull");
-  }
-
-  @override
   IrFunction visitStaticSetterDeclaration(
       FunctionExpression node,
       MethodElement setter,
@@ -2468,18 +2367,6 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitSuperFieldFieldSetIfNull(
-      Send node,
-      FieldElement readField,
-      FieldElement writtenField,
-      Node rhs,
-      _) {
-    // This case isn't supported by dart2js' resolver yet. We end up in
-    // [visitFinalSuperFieldSetIfNull] instead.
-    return internalError(node, "Not implemented.");
-  }
-
-  @override
   ir.SuperPropertyGet visitSuperFieldGet(Send node, FieldElement field, _) {
     return buildSuperPropertyAccessor(field).buildSimpleRead();
   }
@@ -2500,35 +2387,6 @@ class KernelVisitor extends Object
   ir.Expression visitSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return buildSuperPropertyAccessor(field).buildAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Expression visitSuperFieldSetIfNull(
-      Send node, FieldElement field, Node rhs, _) {
-    return buildSuperPropertyAccessor(field)
-        .buildNullAwareAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Expression visitSuperFieldSetterSetIfNull(
-      Send node,
-      FieldElement field,
-      FunctionElement setter,
-      Node rhs,
-      _) {
-    return buildSuperPropertyAccessor(field, setter)
-        .buildNullAwareAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Expression visitSuperGetterFieldSetIfNull(
-      Send node,
-      FunctionElement getter,
-      FieldElement field,
-      Node rhs,
-      _) {
-    return buildSuperPropertyAccessor(getter, field)
-        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
@@ -2583,12 +2441,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitSuperGetterSetterSetIfNull(
-      Send node,
-      FunctionElement getter,
-      FunctionElement setter,
+  ir.Expression handleSuperSetIfNulls(
+      SendSet node,
+      Element getter,
+      CompoundGetter getterKind,
+      Element setter,
+      CompoundSetter setterKind,
       Node rhs,
       _) {
+    if (setterKind == CompoundSetter.INVALID) {
+      setter = null;
+    }
     return buildSuperPropertyAccessor(getter, setter)
         .buildNullAwareAssignment(rhs.accept(this));
   }
@@ -2673,27 +2536,6 @@ class KernelVisitor extends Object
       Send node, MethodElement method, Node rhs, _) {
     return buildSuperPropertyAccessor(method)
         .buildAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Expression visitSuperMethodSetIfNull(
-      Send node,
-      FunctionElement method,
-      Node rhs,
-      _) {
-    return buildSuperPropertyAccessor(method)
-        .buildNullAwareAssignment(rhs.accept(this));
-  }
-
-  @override
-  ir.Throw visitSuperMethodSetterSetIfNull(
-      Send node,
-      FunctionElement method,
-      FunctionElement setter,
-      Node rhs,
-      _) {
-    // TODO(ahe): Not called. Bug in dart2js' resolver?
-    return internalError(node, "Not implemented.");
   }
 
   @override
@@ -2797,12 +2639,6 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitThisPropertySetIfNull(Send node, Name name, Node rhs, _) {
-    return buildThisPropertyAccessor(name)
-        .buildNullAwareAssignment(rhs.accept(this));
-  }
-
-  @override
   ir.Throw visitTopLevelConstantDeclaration(
       VariableDefinitions node,
       Node definition,
@@ -2820,12 +2656,6 @@ class KernelVisitor extends Object
       Node initializer,
       _) {
     return buildUnsupported(node, "TopLevelFieldDeclaration");
-  }
-
-  @override
-  ir.Throw visitTopLevelFieldSetIfNull(
-      Send node, FieldElement field, Node rhs, _) {
-    return buildUnsupported(node, "TopLevelFieldSetIfNull");
   }
 
   @override
@@ -2860,35 +2690,6 @@ class KernelVisitor extends Object
       Node body,
       _) {
     return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
-  }
-
-  @override
-  ir.Throw visitTopLevelGetterSetterSetIfNull(
-      Send node,
-      FunctionElement getter,
-      FunctionElement setter,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "TopLevelGetterSetterSetIfNull");
-  }
-
-  @override
-  ir.Throw visitTopLevelMethodSetIfNull(
-      Send node,
-      FunctionElement method,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "TopLevelMethodSetIfNull");
-  }
-
-  @override
-  ir.Throw visitTopLevelMethodSetterSetIfNull(
-      Send node,
-      FunctionElement method,
-      FunctionElement setter,
-      Node rhs,
-      _) {
-    return buildUnsupported(node, "TopLevelMethodSetterSetIfNull");
   }
 
   @override
@@ -2972,8 +2773,8 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitTypedefTypeLiteralSetIfNull(
-      Send node,
+  ir.Expression handleTypeLiteralConstantSetIfNulls(
+      SendSet node,
       ConstantExpression constant,
       Node rhs,
       _) {
