@@ -17,11 +17,26 @@ import 'dart:io' show
 import 'package:compiler/src/common/tasks.dart' show
     CompilerTask;
 
-import 'package:rasta/io_compiler_factory.dart' show
+import 'package:compiler/src/elements/elements.dart' show
+    CompilationUnitElement,
+    LibraryElement;
+
+import 'package:kernel/ast.dart' as ir;
+
+import 'package:kernel/binary/ast_to_binary.dart' show
+    BinaryPrinter;
+
+import 'package:kernel/text/ast_to_text.dart' show
+    Printer;
+
+import '../io_compiler_factory.dart' show
     IoCompilerFactory;
 
-import 'package:rasta/custom_compiler.dart' show
+import '../custom_compiler.dart' show
     CustomCompiler;
+
+import '../kernel.dart' show
+    Kernel;
 
 import 'options.dart' show
     OptionParser,
@@ -45,9 +60,12 @@ Future openWrite(Uri uri, f(IOSink sink)) async {
 
 abstract class Rastask extends CompilerTask {
   final Stopwatch wallClock;
-  final Options options;
+  final Options globalOptions;
+  Duration setupDuration;
+  Kernel kernel;
+  ir.Library coreLibrary;
 
-  Rastask(CustomCompiler compiler, this.wallClock, this.options)
+  Rastask(CustomCompiler compiler, this.wallClock, this.globalOptions)
       : super(compiler);
 
   String get name => "rastak";
@@ -56,7 +74,80 @@ abstract class Rastask extends CompilerTask {
 
   Future run();
 
-  static Future<Rastask> setup(
+  Future<Null> setup([Uri uri]) async {
+    if (setupDuration != null) {
+      throw new StateError("[setup] can only be called once.");
+    }
+    setupDuration = wallClock.elapsed;
+    await compiler.setupSdk();
+    await compiler.setupPackages(uri);
+    kernel = new Kernel(compiler);
+
+    coreLibrary = await loadLibrary(Uri.parse("dart:core"));
+    print(
+        "Loading platform libraries took: "
+        "${(wallClock.elapsedMilliseconds).toStringAsFixed(3)}ms");
+  }
+
+  Future<ir.Library> loadLibrary(Uri uri) async {
+    ir.Library library = await kernel.loadLibrary(uri);
+    kernel.processWorkQueue();
+    return library;
+  }
+
+  Future<ir.TreeNode> runOne(Options options) async {
+    ir.Library library = await loadLibrary(options.input);
+
+    bool generateLibrary = options.generateLibrary;
+    if (generateLibrary == null) {
+      generateLibrary = !kernel.hasMainMethod(options.input);
+    }
+    if (!generateLibrary && !kernel.hasMainMethod(options.input)) {
+      throw "No main method in ${options.input}.";
+    }
+
+    ir.Program program;
+    if (!generateLibrary) {
+      Iterable<ir.Procedure> mainMethods = library.procedures.where(
+          (ir.Procedure function) => function.name.name == "main");
+      program = new ir.Program(kernel.libraryDependencies(options.input))
+          ..mainMethod = mainMethods.single;
+    }
+    compiler.printVerboseTimings(setupDuration);
+    if (options.output != null) {
+      await openWrite(options.output, (IOSink sink) {
+        BinaryPrinter printer = new BinaryPrinter(sink);
+        if (generateLibrary) {
+          printer.writeLibraryFile(library);
+        } else {
+          printer.writeProgramFile(program);
+        }
+      });
+    } else {
+      StringBuffer buffer = new StringBuffer();
+      Printer printer = new Printer(buffer);
+      if (generateLibrary) {
+        printer.writeLibraryFile(library);
+      } else {
+        printer.writeProgramFile(program);
+      }
+      print("$buffer");
+    }
+
+    if (options.dependenciesFile != null) {
+      await openWrite(options.dependenciesFile, (IOSink sink) {
+        void writeCompilationUnit(CompilationUnitElement unit) {
+          sink.write("${unit.script.resourceUri}\n");
+        }
+        kernel.forEachLibraryElement((LibraryElement library) {
+          library.compilationUnits.forEach(writeCompilationUnit);
+        });
+      });
+    }
+    return generateLibrary ? library : program;
+  }
+
+  static Future<Rastask> create(
       Stopwatch wallClock,
       List<String> arguments) async {
     Options options = new OptionParser(arguments, Uri.base).parse();

@@ -10,7 +10,6 @@ import 'dart:async' show
 
 import 'dart:io' show
     File,
-    IOSink,
     stderr,
     stdin;
 
@@ -21,18 +20,10 @@ import 'dart:convert' show
 import 'package:compiler/src/util/uri_extras.dart' show
     relativize;
 
-import 'package:kernel/ast.dart' as ir;
-
-import 'package:kernel/binary/ast_to_binary.dart' show
-    BinaryPrinter;
-
-import 'package:rasta/custom_compiler.dart' show
+import '../custom_compiler.dart' show
     CustomCompiler;
 
-import 'package:rasta/kernel.dart' show
-    Kernel;
-
-import 'package:rasta/testing.dart' show
+import '../testing.dart' show
     TestDescription,
     listTests;
 
@@ -40,8 +31,7 @@ import 'options.dart' show
     Options;
 
 import 'rastask.dart' show
-    Rastask,
-    openWrite;
+    Rastask;
 
 // Reads lines of the form '<input> <output>' (space separated) from the
 // given stream and generates a test case that compiles each input to the
@@ -67,29 +57,9 @@ class RunBatch extends Rastask {
       : super(compiler, wallClock, options);
 
   Future<Null> run() async {
-    await compiler.setupSdk();
+    await setup();
 
-    await compiler.setupPackages(null);
-
-    Kernel kernel = new Kernel(compiler);
-    await kernel.loadLibrary(Uri.parse("dart:core"));
-    kernel.processWorkQueue();
-
-    wallClock.stop();
-    print(
-        "Loading platform libraries took: "
-        "${(wallClock.elapsedMilliseconds).toStringAsFixed(3)}ms");
-    wallClock
-        ..reset()
-        ..start();
-
-    // TODO(ahe): This lists all tests in [testUri] if it is a directory
-    // and generates Kernel IR for them all. If [testUri] is a file, it
-    // reads the file as a sequence of lines with pairs of test inputs and
-    // outputs. However, batch mode should be a server that is controlled
-    // by test.dart.
-
-    // TODO(ahe): Share more code with RunSingle.
+    wallClock.reset();
 
     List<TestDescription> failures = <TestDescription>[];
 
@@ -98,75 +68,52 @@ class RunBatch extends Rastask {
 
     Stream<TestDescription> tests;
 
-    bool batchFromStdin = (options.input == null);
+    bool batchFromStdin = (globalOptions.input == null);
     if (batchFromStdin) {
       tests = readTestsFromStream(stdin);
     } else {
-      Uri testUri = compiler.translateUri(null, options.input);
+      Uri testUri = compiler.translateUri(null, globalOptions.input);
       File inputFile = new File.fromUri(testUri);
       tests = await inputFile.exists()
           ? readTestsFromStream(inputFile.openRead())
-          : listTests(<Uri>[testUri], pattern: options.pattern);
+          : listTests(<Uri>[testUri], pattern: globalOptions.pattern);
     }
 
     await for (TestDescription description in tests) {
       count++;
 
       int failuresBefore = compiler.elementsWithCompileTimeErrors.length;
+      Uri output = description.output;
+      output ??= description.uri.resolve("${description.uri.path}.bart");
+
+      Options options = new Options(
+          description.uri,
+          output,
+          dependenciesFile: null,
+          generateLibrary: globalOptions.generateLibrary,
+          isVerbose: globalOptions.isVerbose || batchFromStdin,
+          isBatch: false,
+          pattern: null);
+
       try {
-        Uri output = description.output;
-        output ??= description.uri.resolve("${description.uri.path}.bart");
-
-        Options options = new Options(
-            description.uri,
-            output,
-            generateLibrary: this.options.generateLibrary,
-            isVerbose: this.options.isVerbose || batchFromStdin);
-
-        ir.Library library = await kernel.loadLibrary(options.input);
-        if (this.options.generateLibrary) {
-          kernel.processWorkQueue(targetLibrary: options.input);
-        } else {
-          kernel.processWorkQueue();
-        }
-
-        if (options.generateLibrary == true) {
-          await openWrite(options.output, (IOSink sink) {
-            BinaryPrinter printer = new BinaryPrinter(sink);
-            printer.writeLibraryFile(library);
-          });
-        } else {
-          Iterable<ir.Procedure> mainMethods = library.procedures.where(
-              (ir.Procedure function) => function.name.name == "main");
-
-          ir.Program program =
-              new ir.Program(kernel.libraryDependencies(options.input))
-                  ..mainMethod = mainMethods.single;
-
-          await openWrite(options.output, (IOSink sink) {
-            BinaryPrinter printer = new BinaryPrinter(sink);
-            printer.writeProgramFile(program);
-          });
-        }
-
-        int failuresAfter = compiler.elementsWithCompileTimeErrors.length;
-        if (failuresAfter == failuresBefore) {
-          if (batchFromStdin) print(">>> TEST OK");
-        } else {
-          if (batchFromStdin) print(">>> TEST FAIL");
-        }
-
+        await runOne(options);
       } catch (e, s) {
         if (options.isVerbose) {
           print("${description.uri} failed: $e\n$s\n\n");
         }
         failures.add(description);
         if (batchFromStdin) print(">>> TEST CRASH");
-      } finally {
-        stderr.writeln(">>> EOF STDERR");
       }
 
-      if (!batchFromStdin) {
+      if (batchFromStdin) {
+        int failuresAfter = compiler.elementsWithCompileTimeErrors.length;
+        if (failuresAfter == failuresBefore) {
+          print(">>> TEST OK");
+        } else {
+          print(">>> TEST FAIL");
+        }
+        stderr.writeln(">>> EOF STDERR");
+      } else {
         String averageTimeMs =
             (wallClock.elapsedMilliseconds / count).toStringAsFixed(3);
         String successes = padTo(count - failures.length, 5);

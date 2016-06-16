@@ -27,9 +27,11 @@ import 'package:rasta/testing.dart' show
     startDart;
 
 import 'package:rasta/src/rastask.dart' show
+    Rastask,
     openWrite;
 
-import '../../bin/rastak.dart' as rastak show main;
+import 'package:rasta/src/options.dart' show
+    Options;
 
 const bool generateExpectations =
     const bool.fromEnvironment("generateExpectations");
@@ -43,6 +45,15 @@ Future<Null> addRegressions(Map<Uri, Uri> tests, Uri temp) async {
 }
 
 Future<Null> main() async {
+  Stopwatch wallClock = new Stopwatch()..start();
+  Rastask task = await Rastask.create(
+      wallClock, <String>["--library", "${Platform.script}"]);
+  await task.measureSubtask("runTests", () => runTests(task));
+}
+
+Future<Null> runTests(Rastask task) async {
+  await task.setup();
+
   // When running via `testa.dart`, [Platform.script] is located in a temporary
   // directory.
   Uri temp = Platform.script;
@@ -59,30 +70,24 @@ Future<Null> main() async {
   Map<Uri, Uri> mismatches = <Uri, Uri>{};
 
   for (Uri source in tests.keys) {
+    bool isRegression = source.path.contains("/regression/");
+
     print("Rastarizing $source");
     Uri bart = tests[source];
     File output = new File.fromUri(bart);
     await output.parent.create(recursive: true);
-    ir.TreeNode node = await rastak.main(<String>["$source", "$bart"], null);
 
-    await checkAgainstExpectations(node, generated, mismatches);
+    Options options = new Options(
+        source, bart, dependenciesFile: null,
+        generateLibrary: isRegression ? isRegression : null,
+        isVerbose: true, isBatch: false, pattern: null);
 
-    Uri textOutput = bart.resolve("${bart.path}.txt");
-    print("Kernelizing $bart to $textOutput");
-    Process process = await startDart(
-        Uri.base.resolve("third_party/kernel/bin/dartk.dart"),
-        <String>["--sdk=${dartSdk.toFilePath()}", "${bart.toFilePath()}"],
-        const <String>[]);
-    process.stdin.close();
-    Future stdoutFuture =
-        process.stdout.pipe(new File.fromUri(textOutput).openWrite());
-    Future stderrFuture =
-        process.stderr.listen((data) => stderr.add(data)).asFuture();
-    int exitCode = await process.exitCode;
-    await stdoutFuture;
-    await stderrFuture;
-    if (exitCode != 0) {
-      throw "non-zero exit code ($exitCode) from rastak";
+    ir.TreeNode node = await task.runOne(options);
+
+    if (isRegression) {
+      await checkAgainstExpectations(node, generated, mismatches);
+    } else {
+      await runDartk(bart);
     }
   }
   if (generated.isNotEmpty) {
@@ -105,9 +110,6 @@ Future<Null> checkAgainstExpectations(
   ir.Library library = (node is ir.Program) ? node.mainMethod.parent : node;
   Uri uri = library.importUri;
 
-  // We only validate output of the small tests fully under our control.
-  if (!uri.path.contains("/regression/")) return;
-
   StringBuffer buffer = new StringBuffer();
   new Printer(buffer).writeLibraryFile(library);
   File expectedFile = new File("${uri.toFilePath()}.txt");
@@ -126,5 +128,25 @@ Future<Null> checkAgainstExpectations(
     throw """
 Please create file ${expectedFile.path} with this content:
 $buffer""";
+  }
+}
+
+Future<Null> runDartk(Uri uri) async {
+  Uri textOutput = uri.resolve("${uri.path}.txt");
+  print("Kernelizing $uri to $textOutput");
+  Process process = await startDart(
+      Uri.base.resolve("third_party/kernel/bin/dartk.dart"),
+      <String>["--sdk=${dartSdk.toFilePath()}", "${uri.toFilePath()}"],
+      const <String>[]);
+  process.stdin.close();
+  Future stdoutFuture =
+      process.stdout.pipe(new File.fromUri(textOutput).openWrite());
+  Future stderrFuture =
+      process.stderr.listen((data) => stderr.add(data)).asFuture();
+  int exitCode = await process.exitCode;
+  await stdoutFuture;
+  await stderrFuture;
+  if (exitCode != 0) {
+    throw "non-zero exit code ($exitCode) from dartk";
   }
 }

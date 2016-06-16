@@ -19,7 +19,7 @@ Future<ir.TreeNode> main(List<String> arguments, isolateArgument) async {
   final ReceivePort port = new ReceivePort();
   try {
     Stopwatch wallClock = new Stopwatch()..start();
-    Rastask task = await Rastask.setup(wallClock, arguments);
+    Rastask task = await Rastask.create(wallClock, arguments);
 
     // Due to an implementation detail (an optimization that may be wrong) in
     // zones, a `then` handler on a future may be run recursively inside a
