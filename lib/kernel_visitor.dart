@@ -424,11 +424,21 @@ class KernelVisitor extends Object
         node, variable, buildStatementInBlock(node.body), isAsync: isAsync);
   }
 
+  Accessor buildStaticAccessor(Element getter, [Element setter]) {
+    if (setter == null && getter != null && getter.isField && !getter.isFinal &&
+        !getter.isConst) {
+      setter = getter;
+    }
+    return new StaticAccessor(
+        (getter == null) ? null : kernel.elementToIr(getter),
+        (setter == null) ? null : kernel.elementToIr(setter));
+  }
+
   Accessor computeAccessor(ForIn node, Element element) {
     if (element == null) {
       Send send = node.declaredIdentifier.asSend();
       if (send == null) {
-        return new StaticAccessor(null, null);
+        return buildStaticAccessor(null);
       }
       // This should be the situation where `node.declaredIdentifier` is
       // unresolved, but in an instance method context. If it is some different
@@ -437,25 +447,21 @@ class KernelVisitor extends Object
       ir.PropertyGet expression = send.accept(this);
       return PropertyAccessor.make(expression.receiver, expression.name);
     } else if (kernel.isSyntheticError(element)) {
-      return new StaticAccessor(null, null);
+      return buildStaticAccessor(null);
     } else if (element.isGetter) {
       if (element.isInstanceMember) {
         return new ThisPropertyAccessor(kernel.irName(element.name, element));
       } else {
         GetterElement getter = element;
         Element setter = getter.setter;
-        return new StaticAccessor(
-            kernel.elementToIr(element),
-            setter == null ? null : kernel.elementToIr(element));
+        return buildStaticAccessor(getter, setter);
       }
     } else if (element.isLocal) {
       return new VariableAccessor(getLocal(element));
     } else if (element.isField) {
-      ir.Member member = kernel.elementToIr(element);
-      return new StaticAccessor(
-          member, (element.isFinal || element.isConst) ? null : member);
+      return buildStaticAccessor(element);
     } else {
-      return new StaticAccessor(null, null);
+      return buildStaticAccessor(null);
     }
   }
 
@@ -1327,10 +1333,17 @@ class KernelVisitor extends Object
     }
   }
 
+  ir.Expression buildStaticFieldSet(FieldElement field, Node rhs) {
+    return buildStaticAccessor(field).buildAssignment(rhs.accept(this));
+  }
+
   @override
-  ir.StaticSet handleFinalStaticFieldSet(
-      SendSet node, FieldElement field, Node rhs, _) {
-    return handleStaticFieldSet(node, field, rhs, _);
+  ir.Expression handleFinalStaticFieldSet(
+      SendSet node,
+      FieldElement field,
+      Node rhs,
+      _) {
+    return buildStaticFieldSet(field, rhs);
   }
 
   @override
@@ -1901,8 +1914,8 @@ class KernelVisitor extends Object
       // we support reflection. At the call-site, we bypass this factory and
       // call its effective target directly. So this factory is only necessary
       // for reflection.
-      body = buildUnsupportedStatement(
-          node, "redirecting factory constructor body.");
+      body = new ir.ExpressionStatement(
+          buildUnsupported(node, "redirecting factory constructor body."));
     }
     IrFunction function =
         buildIrFunction(ir.ProcedureKind.Factory, constructor, null);
@@ -1958,7 +1971,8 @@ class KernelVisitor extends Object
       FieldElement field,
       ConstantExpression constant,
       _) {
-    return buildUnsupported(node, "StaticConstantDeclaration");
+    // Should not normally be called, handled by fieldToIr.
+    return internalError(node, "StaticConstantDeclaration");
   }
 
   @override
@@ -1968,15 +1982,16 @@ class KernelVisitor extends Object
       FieldElement field,
       Node initializer,
       _) {
-    return buildUnsupported(node, "StaticFieldDeclaration");
+    // Should not normally be called, handled by fieldToIr.
+    return internalError(node, "StaticFieldDeclaration");
   }
 
-  ir.StaticGet buildStaticGet(Element element) {
-    return new ir.StaticGet(kernel.elementToIr(element));
+  ir.Expression buildStaticGet(Element element) {
+    return buildStaticAccessor(element).buildSimpleRead();
   }
 
   @override
-  ir.StaticGet handleStaticFieldGet(Send node, FieldElement field, _) {
+  ir.Expression handleStaticFieldGet(Send node, FieldElement field, _) {
     return buildStaticGet(field);
   }
 
@@ -1993,9 +2008,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.StaticSet handleStaticFieldSet(
-      SendSet node, FieldElement field, Node rhs, _) {
-    return new ir.StaticSet(kernel.fieldToIr(field), rhs.accept(this));
+  ir.Expression handleStaticFieldSet(
+      SendSet node,
+      FieldElement field,
+      Node rhs,
+      _) {
+    return buildStaticFieldSet(field, rhs);
   }
 
   @override
@@ -2007,7 +2025,11 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       Node rhs,
       _) {
-    return buildUnsupported(node, "StaticSetIfNulls");
+    if (setterKind == CompoundSetter.INVALID) {
+      setter = null;
+    }
+    return buildStaticAccessor(getter, setter)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   ir.VariableDeclaration getLocal(LocalElement local) {
@@ -2129,7 +2151,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.StaticGet handleStaticFunctionGet(Send node, MethodElement function, _) {
+  ir.Expression handleStaticFunctionGet(Send node, MethodElement function, _) {
     return buildStaticGet(function);
   }
 
@@ -2163,9 +2185,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleStaticFunctionSet(
-      Send node, MethodElement function, Node rhs, _) {
-    return buildUnsupported(node, "StaticFunctionSet");
+  ir.Expression handleStaticFunctionSet(
+      Send node,
+      MethodElement function,
+      Node rhs,
+      _) {
+    return buildStaticAccessor(function).buildAssignment(rhs.accept(this));
   }
 
   @override
@@ -2177,10 +2202,6 @@ class KernelVisitor extends Object
     return buildIrFunction(ir.ProcedureKind.Getter, getter, body);
   }
 
-  ir.StaticGet buildStaticGetterGet(FunctionElement getter) {
-    return new ir.StaticGet(kernel.functionToIr(getter));
-  }
-
   @override
   ir.Expression handleStaticGetterGet(
       Send node,
@@ -2189,7 +2210,7 @@ class KernelVisitor extends Object
     if (getter.isDeferredLoaderGetter) {
       return buildUnsupported(node, "deferred access");
     }
-    return buildStaticGetterGet(getter);
+    return buildStaticGet(getter);
   }
 
   @override
@@ -2203,14 +2224,17 @@ class KernelVisitor extends Object
       return buildUnsupported(node, "deferred access");
     }
     return buildInvokeSelector(
-        buildStaticGetterGet(getter), callStructure.callSelector,
+        buildStaticGet(getter), callStructure.callSelector,
         buildArguments(arguments));
   }
 
   @override
-  ir.Throw handleStaticGetterSet(
-      SendSet node, FunctionElement getter, Node rhs, _) {
-    return buildUnsupported(node, "StaticGetterSet");
+  ir.Expression handleStaticGetterSet(
+      SendSet node,
+      FunctionElement getter,
+      Node rhs,
+      _) {
+    return buildStaticAccessor(getter).buildAssignment(rhs.accept(this));
   }
 
   @override
@@ -2224,26 +2248,27 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleStaticSetterGet(Send node, FunctionElement setter, _) {
-    return buildUnsupported(node, "StaticSetterGet");
+  ir.Expression handleStaticSetterGet(Send node, FunctionElement setter, _) {
+    return buildStaticAccessor(null, setter).buildSimpleRead();
   }
 
   @override
-  ir.Throw handleStaticSetterInvoke(
+  ir.MethodInvocation handleStaticSetterInvoke(
       Send node,
       FunctionElement setter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "StaticSetterInvoke");
+    return buildInvokeSelector(
+        buildStaticAccessor(null, setter).buildSimpleRead(),
+        callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
-  ir.StaticSet handleStaticSetterSet(
+  ir.Expression handleStaticSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
-    return new ir.StaticSet(
-        kernel.functionToIr(setter),
-        rhs.accept(this));
+    return buildStaticAccessor(null, setter).buildAssignment(rhs.accept(this));
   }
 
   @override
@@ -2341,10 +2366,7 @@ class KernelVisitor extends Object
     if (setterKind == CompoundSetter.INVALID) {
       setter = null;
     }
-    return buildCompound(
-        new StaticAccessor(
-            kernel.elementToIr(getter), kernel.elementToIr(setter)),
-        rhs);
+    return buildCompound(buildStaticAccessor(getter, setter), rhs);
   }
 
   @override
@@ -2855,10 +2877,6 @@ class KernelVisitor extends Object
     }
     return new ir.Throw(
         new ir.StringLiteral("Kernel IR not yet implemented for '$name'."));
-  }
-
-  ir.ExpressionStatement buildUnsupportedStatement(Node node, String name) {
-    return new ir.ExpressionStatement(buildUnsupported(node, name));
   }
 
   IrFunction buildFunction() {
