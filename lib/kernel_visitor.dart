@@ -1375,18 +1375,19 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitFinalSuperFieldSet(
+  ir.Expression visitFinalSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
-    return buildUnsupported(node, "FinalSuperFieldSet");
+    return buildSuperPropertyAccessor(field).buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitFinalSuperFieldSetIfNull(
+  ir.Expression visitFinalSuperFieldSetIfNull(
       Send node,
       FieldElement field,
       Node rhs,
       _) {
-    return buildUnsupported(node, "FinalSuperFieldSetIfNull");
+    return buildSuperPropertyAccessor(field)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -1629,6 +1630,13 @@ class KernelVisitor extends Object
     return buildIndexAccessor(receiver, index).buildSimpleRead();
   }
 
+  ir.Expression buildIndexPostfix(
+      Accessor accessor,
+      IncDecOperator operator) {
+    ir.Name name = kernel.irName(operator.selectorName, currentElement);
+    return accessor.buildPostfixIncrement(name);
+  }
+
   @override
   ir.Expression visitIndexPostfix(
       Send node,
@@ -1636,10 +1644,14 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.selectorName, currentElement);
-    return accessor.buildPostfixIncrement(name);
+    return buildIndexPostfix(buildIndexAccessor(receiver, index), operator);
   }
+
+  ir.Expression buildIndexPrefix(Accessor accessor, IncDecOperator operator) {
+    ir.Name name = kernel.irName(operator.selectorName, currentElement);
+    return accessor.buildPrefixIncrement(name);
+  }
+
 
   @override
   ir.Expression visitIndexPrefix(
@@ -1648,9 +1660,7 @@ class KernelVisitor extends Object
       Node index,
       IncDecOperator operator,
       _) {
-    Accessor accessor = buildIndexAccessor(receiver, index);
-    ir.Name name = kernel.irName(operator.selectorName, currentElement);
-    return accessor.buildPrefixIncrement(name);
+    return buildIndexPrefix(buildIndexAccessor(receiver, index), operator);
   }
 
   @override
@@ -2389,9 +2399,9 @@ class KernelVisitor extends Object
         buildArguments(arguments));
   }
 
-  @override
-  ir.StaticInvocation visitSuperEquals(
-      Send node, FunctionElement function, Node argument, _) {
+  ir.StaticInvocation buildSuperEquals(
+      FunctionElement function,
+      Node argument) {
     return new ir.StaticInvocation(
         kernel.functionToIr(function),
         new ir.Arguments(
@@ -2400,7 +2410,13 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleSuperCompounds(
+  ir.StaticInvocation visitSuperEquals(
+      Send node, FunctionElement function, Node argument, _) {
+    return buildSuperEquals(function, argument);
+  }
+
+  @override
+  ir.Expression handleSuperCompounds(
       SendSet node,
       Element getter,
       CompoundGetter getterKind,
@@ -2408,7 +2424,10 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       CompoundRhs rhs,
       _) {
-    return buildUnsupported(node, "SuperCompounds ${rhs.kind}");
+    if (setterKind == CompoundSetter.INVALID) {
+      setter = null;
+    }
+    return buildCompound(buildSuperPropertyAccessor(getter, setter), rhs);
   }
 
   @override
@@ -2420,6 +2439,9 @@ class KernelVisitor extends Object
       CompoundSetter setterKind,
       CompoundRhs rhs,
       _) {
+    if (setterKind == CompoundSetter.INVALID) {
+      setter = null;
+    }
     return buildCompound(
         new StaticAccessor(
             kernel.elementToIr(getter), kernel.elementToIr(setter)),
@@ -2446,13 +2468,15 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperFieldFieldSetIfNull(
+  ir.Expression visitSuperFieldFieldSetIfNull(
       Send node,
       FieldElement readField,
       FieldElement writtenField,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperFieldFieldSetIfNull");
+    // This case isn't supported by dart2js' resolver yet. We end up in
+    // [visitFinalSuperFieldSetIfNull] instead.
+    return internalError(node, "Not implemented.");
   }
 
   @override
@@ -2486,23 +2510,25 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperFieldSetterSetIfNull(
+  ir.Expression visitSuperFieldSetterSetIfNull(
       Send node,
       FieldElement field,
       FunctionElement setter,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperFieldSetterSetIfNull");
+    return buildSuperPropertyAccessor(field, setter)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperGetterFieldSetIfNull(
+  ir.Expression visitSuperGetterFieldSetIfNull(
       Send node,
       FunctionElement getter,
       FieldElement field,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperGetterFieldSetIfNull");
+    return buildSuperPropertyAccessor(getter, field)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
@@ -2538,29 +2564,33 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperGetterInvoke(
+  ir.MethodInvocation visitSuperGetterInvoke(
       Send node,
       FunctionElement getter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperGetterInvoke");
+    return buildInvokeSelector(
+        buildSuperPropertyAccessor(getter).buildSimpleRead(),
+        callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
-  ir.Throw visitSuperGetterSet(
+  ir.Expression visitSuperGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
-    return buildUnsupported(node, "SuperGetterSet");
+    return buildSuperPropertyAccessor(getter).buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperGetterSetterSetIfNull(
+  ir.Expression visitSuperGetterSetterSetIfNull(
       Send node,
       FunctionElement getter,
       FunctionElement setter,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperGetterSetterSetIfNull");
+    return buildSuperPropertyAccessor(getter, setter)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -2570,50 +2600,62 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperIndexPostfix(
+  ir.Expression visitSuperIndexPostfix(
       Send node,
       MethodElement indexFunction,
       MethodElement indexSetFunction,
       Node index,
       IncDecOperator operator,
       _) {
-    return buildUnsupported(node, "SuperIndexPostfix");
+    Accessor accessor =
+        buildSuperIndexAccessor(index, indexFunction, indexSetFunction);
+    return buildIndexPostfix(accessor, operator);
   }
 
   @override
-  ir.Throw visitSuperIndexPrefix(
+  ir.Expression visitSuperIndexPrefix(
       Send node,
       MethodElement indexFunction,
       MethodElement indexSetFunction,
       Node index,
       IncDecOperator operator,
       _) {
-    return buildUnsupported(node, "SuperIndexPrefix");
+    Accessor accessor =
+        buildSuperIndexAccessor(index, indexFunction, indexSetFunction);
+    return buildIndexPrefix(accessor, operator);
   }
 
   @override
-  ir.Throw visitSuperIndexSet(
+  ir.Expression visitSuperIndexSet(
       SendSet node,
       FunctionElement function,
       Node index,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperIndexSet");
+    return buildSuperIndexAccessor(index, null, function)
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperMethodGet(Send node, MethodElement method, _) {
-    return buildUnsupported(node, "SuperMethodGet");
+  ir.Expression visitSuperMethodGet(Send node, MethodElement method, _) {
+    return buildSuperPropertyAccessor(method).buildSimpleRead();
+  }
+
+  ir.SuperMethodInvocation buildSuperMethodInvoke(
+      MethodElement method,
+      NodeList arguments) {
+    return new ir.SuperMethodInvocation(
+        kernel.functionToIr(method), buildArguments(arguments));
   }
 
   @override
-  ir.Throw visitSuperMethodIncompatibleInvoke(
+  ir.SuperMethodInvocation visitSuperMethodIncompatibleInvoke(
       Send node,
       MethodElement method,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperMethodIncompatibleInvoke");
+    return buildSuperMethodInvoke(method, arguments);
   }
 
   @override
@@ -2623,25 +2665,25 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return new ir.SuperMethodInvocation(
-        kernel.functionToIr(method), buildArguments(arguments));
+    return buildSuperMethodInvoke(method, arguments);
   }
 
   @override
-  ir.Throw visitSuperMethodSet(
+  ir.Expression visitSuperMethodSet(
       Send node, MethodElement method, Node rhs, _) {
-    return buildUnsupported(node, "SuperMethodSet");
+    return buildSuperPropertyAccessor(method)
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperMethodSetIfNull(
+  ir.Expression visitSuperMethodSetIfNull(
       Send node,
       FunctionElement method,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperMethodSetIfNull");
+    return buildSuperPropertyAccessor(method)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
-
 
   @override
   ir.Throw visitSuperMethodSetterSetIfNull(
@@ -2650,46 +2692,55 @@ class KernelVisitor extends Object
       FunctionElement setter,
       Node rhs,
       _) {
-    return buildUnsupported(node, "SuperMethodSetterSetIfNull");
+    // TODO(ahe): Not called. Bug in dart2js' resolver?
+    return internalError(node, "Not implemented.");
   }
 
   @override
-  ir.Throw visitSuperNotEquals(
+  ir.Not visitSuperNotEquals(
       Send node,
       FunctionElement function,
       Node argument,
       _) {
-    return buildUnsupported(node, "SuperNotEquals");
+    return new ir.Not(buildSuperEquals(function, argument));
   }
 
   @override
-  ir.Throw visitSuperSetterGet(Send node, FunctionElement setter, _) {
-    return buildUnsupported(node, "SuperSetterGet");
+  ir.Expression visitSuperSetterGet(
+      Send node,
+      FunctionElement setter,
+      _) {
+    return buildSuperPropertyAccessor(null, setter).buildSimpleRead();
   }
 
   @override
-  ir.Throw visitSuperSetterInvoke(
+  ir.MethodInvocation visitSuperSetterInvoke(
       Send node,
       FunctionElement setter,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "SuperSetterInvoke");
+    return buildInvokeSelector(
+        buildSuperPropertyAccessor(null, setter).buildSimpleRead(),
+        callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
-  ir.Throw visitSuperSetterSet(
+  ir.Expression visitSuperSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
-    return buildUnsupported(node, "SuperSetterSet");
+    return buildSuperPropertyAccessor(null, setter)
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitSuperUnary(
+  ir.SuperMethodInvocation visitSuperUnary(
       Send node,
       UnaryOperator operator,
       FunctionElement function,
       _) {
-    return buildUnsupported(node, "SuperUnary");
+    return new ir.SuperMethodInvocation(
+        kernel.functionToIr(function), new ir.Arguments.empty());
   }
 
   @override
@@ -2899,7 +2950,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitTypedefTypeLiteralInvoke(
+  ir.MethodInvocation visitTypedefTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
@@ -2932,7 +2983,9 @@ class KernelVisitor extends Object
 
   @override
   ir.MethodInvocation visitUnary(
-      Send node, UnaryOperator operator, Node expression, _) {
+      Send node,
+      UnaryOperator operator,
+      Node expression, _) {
     return new ir.MethodInvocation(
         expression.accept(this),
         kernel.irName(operator.selectorName, currentElement),
@@ -2963,10 +3016,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitSuperIndexSetIfNull(
-      SendSet node, MethodElement getter, MethodElement setter, Node index,
+  ir.Expression visitSuperIndexSetIfNull(
+      SendSet node,
+      MethodElement getter,
+      MethodElement setter,
+      Node index,
       Node rhs, _) {
-    return buildUnsupported(node, "SuperIndexSetIfNull");
+    return buildSuperIndexAccessor(index, getter, setter)
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override

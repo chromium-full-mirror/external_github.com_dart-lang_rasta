@@ -1,0 +1,257 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+class A extends core::Object {
+  field dynamic a;
+  field dynamic b;
+  field dynamic c;
+  field dynamic d;
+  final field dynamic f;
+  constructor •() → self::A
+    : super core::Object::•();
+  get e() → dynamic
+    return null;
+  set g(dynamic _) → dynamic {}
+  get h() → dynamic
+    return null;
+  set h(dynamic _) → dynamic {}
+  get i() → dynamic
+    return null;
+  index-get [](dynamic _) → dynamic
+    return null;
+  index-set []=(dynamic a, dynamic b) → dynamic {}
+  operator ~() → dynamic
+    return 117;
+  operator unary-() → dynamic
+    return 117;
+  operator ==(dynamic other) → dynamic
+    return true;
+  method m() → void {}
+  method n() → void {}
+  set n(dynamic _) → dynamic {}
+}
+class B extends self::A {
+  final field dynamic d;
+  constructor •() → self::B
+    : super self::A::•();
+  get b() → dynamic
+    return null;
+  set c(dynamic x) → dynamic {}
+  set i(dynamic x) → dynamic {}
+}
+class C extends self::B {
+  constructor •() → self::C
+    : super self::B::•();
+  method test() → dynamic {
+    super.self::A::~();
+    self::use(super.self::A::~());
+    super.self::A::unary-();
+    self::use(super.self::A::unary-());
+    self::A::==(87);
+    self::use(self::A::==(87));
+    !self::A::==(87);
+    self::use(!self::A::==(87));
+    super.self::A::a;
+    self::use(super.self::A::a);
+    super.self::B::b;
+    self::use(super.self::B::b);
+    super.self::A::c;
+    self::use(super.self::A::c);
+    super.self::B::d;
+    self::use(super.self::B::d);
+    super.self::A::e;
+    self::use(super.self::A::e);
+    super.self::A::f;
+    self::use(super.self::A::f);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::h;
+    self::use(super.self::A::h);
+    super.self::A::i;
+    self::use(super.self::A::i);
+    super.self::A::[](87);
+    self::use(super.self::A::[](87));
+    super.self::A::m;
+    self::use(super.self::A::m);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t1 = super.self::A::a in let final #t2 = super.self::A::a = #t1.+(1) in #t1;
+    self::use(let final #t3 = super.self::A::a in let final #t4 = super.self::A::a = #t3.+(1) in #t3);
+    let final #t5 = super.self::B::b in let final #t6 = super.self::A::b = #t5.+(1) in #t5;
+    self::use(let final #t7 = super.self::B::b in let final #t8 = super.self::A::b = #t7.+(1) in #t7);
+    let final #t9 = super.self::A::c in let final #t10 = super.self::B::c = #t9.+(1) in #t9;
+    self::use(let final #t11 = super.self::A::c in let final #t12 = super.self::B::c = #t11.+(1) in #t11);
+    let final #t13 = super.self::B::d in let final #t14 = let final #t15 = #t13.+(1) in invalid-expression in #t13;
+    self::use(let final #t16 = super.self::B::d in let final #t17 = let final #t18 = #t16.+(1) in invalid-expression in #t16);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t19 = super.self::A::f in let final #t20 = let final #t21 = #t19.+(1) in invalid-expression in #t19;
+    self::use(let final #t22 = super.self::A::f in let final #t23 = let final #t24 = #t22.+(1) in invalid-expression in #t22);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t25 = super.self::A::h in let final #t26 = super.self::A::h = #t25.+(1) in #t25;
+    self::use(let final #t27 = super.self::A::h in let final #t28 = super.self::A::h = #t27.+(1) in #t27);
+    let final #t29 = super.self::A::i in let final #t30 = super.self::B::i = #t29.+(1) in #t29;
+    self::use(let final #t31 = super.self::A::i in let final #t32 = super.self::B::i = #t31.+(1) in #t31);
+    let final #t33 = 87 in let final #t34 = super.self::A::[](#t33) in let final #t35 = super.self::A::[]=(#t33, #t34.+(1)) in #t34;
+    self::use(let final #t36 = 87 in let final #t37 = super.self::A::[](#t36) in let final #t38 = super.self::A::[]=(#t36, #t37.+(1)) in #t37);
+    let final #t39 = super.self::A::m in let final #t40 = let final #t41 = #t39.+(1) in invalid-expression in #t39;
+    self::use(let final #t42 = super.self::A::m in let final #t43 = let final #t44 = #t42.+(1) in invalid-expression in #t42);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a = super.self::A::a.+(1);
+    self::use(super.self::A::a = super.self::A::a.+(1));
+    super.self::A::b = super.self::B::b.+(1);
+    self::use(super.self::A::b = super.self::B::b.+(1));
+    super.self::B::c = super.self::A::c.+(1);
+    self::use(super.self::B::c = super.self::A::c.+(1));
+    let final #t45 = super.self::B::d.+(1) in invalid-expression;
+    self::use(let final #t46 = super.self::B::d.+(1) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t47 = super.self::A::f.+(1) in invalid-expression;
+    self::use(let final #t48 = super.self::A::f.+(1) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::h = super.self::A::h.+(1);
+    self::use(super.self::A::h = super.self::A::h.+(1));
+    super.self::B::i = super.self::A::i.+(1);
+    self::use(super.self::B::i = super.self::A::i.+(1));
+    let final #t49 = 87 in super.self::A::[]=(#t49, super.self::A::[](#t49).+(1));
+    self::use(let final #t50 = 87 in super.self::A::[]=(#t50, super.self::A::[](#t50).+(1)));
+    let final #t51 = super.self::A::m.+(1) in invalid-expression;
+    self::use(let final #t52 = super.self::A::m.+(1) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a.call();
+    self::use(super.self::A::a.call());
+    super.self::B::b.call();
+    self::use(super.self::B::b.call());
+    super.self::A::c.call();
+    self::use(super.self::A::c.call());
+    super.self::B::d.call();
+    self::use(super.self::B::d.call());
+    super.self::A::e.call();
+    self::use(super.self::A::e.call());
+    super.self::A::f.call();
+    self::use(super.self::A::f.call());
+    invalid-expression.call();
+    self::use(invalid-expression.call());
+    super.self::A::h.call();
+    self::use(super.self::A::h.call());
+    super.self::A::i.call();
+    self::use(super.self::A::i.call());
+    super.self::A::[](87).call();
+    self::use(super.self::A::[](87).call());
+    super.self::A::m();
+    self::use(super.self::A::m());
+    super.self::A::m(87);
+    self::use(super.self::A::m(87));
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a = 42;
+    self::use(super.self::A::a = 42);
+    super.self::A::b = 42;
+    self::use(super.self::A::b = 42);
+    super.self::B::c = 42;
+    self::use(super.self::B::c = 42);
+    let final #t53 = 42 in invalid-expression;
+    self::use(let final #t54 = 42 in invalid-expression);
+    let final #t55 = 42 in invalid-expression;
+    self::use(let final #t56 = 42 in invalid-expression);
+    let final #t57 = 42 in invalid-expression;
+    self::use(let final #t58 = 42 in invalid-expression);
+    super.self::A::g = 42;
+    self::use(super.self::A::g = 42);
+    super.self::A::h = 42;
+    self::use(super.self::A::h = 42);
+    super.self::B::i = 42;
+    self::use(super.self::B::i = 42);
+    super.self::A::[]=(87, 42);
+    self::use(super.self::A::[]=(87, 42));
+    let final #t59 = 42 in invalid-expression;
+    self::use(let final #t60 = 42 in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a.==(null) ? null : super.self::A::a = 42;
+    self::use(super.self::A::a.==(null) ? null : super.self::A::a = 42);
+    super.self::B::b.==(null) ? null : super.self::A::b = 42;
+    self::use(super.self::B::b.==(null) ? null : super.self::A::b = 42);
+    super.self::A::c.==(null) ? null : super.self::B::c = 42;
+    self::use(super.self::A::c.==(null) ? null : super.self::B::c = 42);
+    super.self::B::d.==(null) ? null : let final #t61 = 42 in invalid-expression;
+    self::use(super.self::B::d.==(null) ? null : let final #t62 = 42 in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::f.==(null) ? null : let final #t63 = 42 in invalid-expression;
+    self::use(super.self::A::f.==(null) ? null : let final #t64 = 42 in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::h.==(null) ? null : super.self::A::h = 42;
+    self::use(super.self::A::h.==(null) ? null : super.self::A::h = 42);
+    super.self::A::i.==(null) ? null : super.self::B::i = 42;
+    self::use(super.self::A::i.==(null) ? null : super.self::B::i = 42);
+    let final #t65 = 87 in super.self::A::[](#t65).==(null) ? null : super.self::A::[]=(#t65, 42);
+    self::use(let final #t66 = 87 in super.self::A::[](#t66).==(null) ? null : super.self::A::[]=(#t66, 42));
+    super.self::A::m.==(null) ? null : let final #t67 = 42 in invalid-expression;
+    self::use(super.self::A::m.==(null) ? null : let final #t68 = 42 in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a = super.self::A::a.+(42);
+    self::use(super.self::A::a = super.self::A::a.+(42));
+    super.self::A::b = super.self::B::b.+(42);
+    self::use(super.self::A::b = super.self::B::b.+(42));
+    super.self::B::c = super.self::A::c.+(42);
+    self::use(super.self::B::c = super.self::A::c.+(42));
+    let final #t69 = super.self::B::d.+(42) in invalid-expression;
+    self::use(let final #t70 = super.self::B::d.+(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t71 = super.self::A::f.+(42) in invalid-expression;
+    self::use(let final #t72 = super.self::A::f.+(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::h = super.self::A::h.+(42);
+    self::use(super.self::A::h = super.self::A::h.+(42));
+    super.self::B::i = super.self::A::i.+(42);
+    self::use(super.self::B::i = super.self::A::i.+(42));
+    let final #t73 = 87 in super.self::A::[]=(#t73, super.self::A::[](#t73).+(42));
+    self::use(let final #t74 = 87 in super.self::A::[]=(#t74, super.self::A::[](#t74).+(42)));
+    let final #t75 = super.self::A::m.+(42) in invalid-expression;
+    self::use(let final #t76 = super.self::A::m.+(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::a = super.self::A::a.-(42);
+    self::use(super.self::A::a = super.self::A::a.-(42));
+    super.self::A::b = super.self::B::b.-(42);
+    self::use(super.self::A::b = super.self::B::b.-(42));
+    super.self::B::c = super.self::A::c.-(42);
+    self::use(super.self::B::c = super.self::A::c.-(42));
+    let final #t77 = super.self::B::d.-(42) in invalid-expression;
+    self::use(let final #t78 = super.self::B::d.-(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    let final #t79 = super.self::A::f.-(42) in invalid-expression;
+    self::use(let final #t80 = super.self::A::f.-(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+    super.self::A::h = super.self::A::h.-(42);
+    self::use(super.self::A::h = super.self::A::h.-(42));
+    super.self::B::i = super.self::A::i.-(42);
+    self::use(super.self::B::i = super.self::A::i.-(42));
+    let final #t81 = 87 in super.self::A::[]=(#t81, super.self::A::[](#t81).-(42));
+    self::use(let final #t82 = 87 in super.self::A::[]=(#t82, super.self::A::[](#t82).-(42)));
+    let final #t83 = super.self::A::m.-(42) in invalid-expression;
+    self::use(let final #t84 = super.self::A::m.-(42) in invalid-expression);
+    invalid-expression;
+    self::use(invalid-expression);
+  }
+}
+static method use(dynamic x) → dynamic {
+  if(x.==(new core::DateTime::now().millisecondsSinceEpoch))
+    throw "Shouldn't happen";
+}
+static method main() → dynamic {
+  new self::C::•().test();
+}
