@@ -314,6 +314,14 @@ class KernelVisitor extends Object
         receiver, kernel.nameToIrName(selector.memberName), arguments);
   }
 
+  ir.MethodInvocation buildCall(
+      ir.Expression receiver,
+      CallStructure callStructure,
+      NodeList arguments) {
+    return buildInvokeSelector(
+        receiver, callStructure.callSelector, buildArguments(arguments));
+  }
+
   @override
   ir.InvalidExpression handleUnresolved(Node node) {
     return new ir.InvalidExpression();
@@ -1106,29 +1114,40 @@ class KernelVisitor extends Object
     return buildConstConstructorInvoke(node);
   }
 
-  @override
-  ir.TypeLiteral visitClassTypeLiteralGet(
-      Send node, ConstantExpression constant, _) {
+  ir.TypeLiteral buildTypeLiteral(TypeConstantExpression constant) {
     return new ir.TypeLiteral(kernel.typeLiteralToIr(constant));
   }
 
   @override
-  ir.Throw visitClassTypeLiteralInvoke(
+  ir.TypeLiteral visitClassTypeLiteralGet(
+      Send node,
+      ConstantExpression constant,
+      _) {
+    return buildTypeLiteral(constant);
+  }
+
+  @override
+  ir.MethodInvocation visitClassTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ClassTypeLiteralInvoke");
+    return buildCall(buildTypeLiteral(constant), callStructure, arguments);
+  }
+
+  ir.Expression buildTypeLiteralSet(TypeConstantExpression constant, Node rhs) {
+    return new ReadOnlyAccessor(buildTypeLiteral(constant))
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitClassTypeLiteralSet(
+  ir.Expression visitClassTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
       _) {
-    return buildUnsupported(node, "ClassTypeLiteralSet");
+    return buildTypeLiteralSet(constant, rhs);
   }
 
   @override ir.FunctionExpression visitClosureDeclaration(
@@ -1249,28 +1268,30 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitDynamicTypeLiteralGet(
-      Send node, ConstantExpression constant, _) {
-    return buildUnsupported(node, "DynamicTypeLiteralGet");
+  ir.TypeLiteral visitDynamicTypeLiteralGet(
+      Send node,
+      ConstantExpression constant,
+      _) {
+    return buildTypeLiteral(constant);
   }
 
   @override
-  ir.Throw visitDynamicTypeLiteralInvoke(
+  ir.MethodInvocation visitDynamicTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "DynamicTypeLiteralInvoke");
+    return buildCall(buildTypeLiteral(constant), callStructure, arguments);
   }
 
   @override
-  ir.Throw visitDynamicTypeLiteralSet(
+  ir.Expression visitDynamicTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
       _) {
-    return buildUnsupported(node, "DynamicTypeLiteralSet");
+    return buildTypeLiteralSet(constant, rhs);
   }
 
   ir.MethodInvocation buildBinaryOperator(
@@ -1293,9 +1314,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
-        expression.accept(this), callStructure.callSelector,
-        buildArguments(arguments));
+    return buildCall(expression.accept(this), callStructure, arguments);
   }
 
   @override
@@ -1875,9 +1894,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
-        buildLocalGet(element), callStructure.callSelector,
-        buildArguments(arguments));
+    return buildCall(buildLocalGet(element), callStructure, arguments);
   }
 
   @override
@@ -2002,9 +2019,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
-        buildStaticGet(field), callStructure.callSelector,
-        buildArguments(arguments));
+    return buildCall(buildStaticGet(field), callStructure, arguments);
   }
 
   @override
@@ -2223,9 +2238,7 @@ class KernelVisitor extends Object
     if (getter.isDeferredLoaderGetter) {
       return buildUnsupported(node, "deferred access");
     }
-    return buildInvokeSelector(
-        buildStaticGet(getter), callStructure.callSelector,
-        buildArguments(arguments));
+    return buildCall(buildStaticGet(getter), callStructure, arguments);
   }
 
   @override
@@ -2259,10 +2272,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
+    return buildCall(
         buildStaticAccessor(null, setter).buildSimpleRead(),
-        callStructure.callSelector,
-        buildArguments(arguments));
+        callStructure, arguments);
   }
 
   @override
@@ -2370,22 +2382,25 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleTypeLiteralConstantCompounds(
+  ir.Expression handleTypeLiteralConstantCompounds(
       SendSet node,
       ConstantExpression constant,
       CompoundRhs rhs,
       _) {
-    return buildUnsupported(node, "TypeLiteralConstantCompounds ${rhs.kind}");
+    return buildCompound(new ReadOnlyAccessor(buildTypeLiteral(constant)), rhs);
+  }
+
+  ir.TypeLiteral buildTypeVariable(TypeVariableElement element) {
+    return new ir.TypeLiteral(kernel.typeToIr(element.type));
   }
 
   @override
-  ir.Throw handleTypeVariableTypeLiteralCompounds(
+  ir.Expression handleTypeVariableTypeLiteralCompounds(
       SendSet node,
-      TypeVariableElement typeVariable,
+      TypeVariableElement element,
       CompoundRhs rhs,
       _) {
-    return buildUnsupported(
-        node, "TypeVariableTypeLiteralCompounds ${rhs.kind}");
+    return buildCompound(new ReadOnlyAccessor(buildTypeVariable(element)), rhs);
   }
 
   @override
@@ -2400,9 +2415,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
+    return buildCall(
         buildSuperPropertyAccessor(field).buildSimpleRead(),
-        callStructure.callSelector, buildArguments(arguments));
+        callStructure, arguments);
   }
 
   @override
@@ -2450,10 +2465,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
+    return buildCall(
         buildSuperPropertyAccessor(getter).buildSimpleRead(),
-        callStructure.callSelector,
-        buildArguments(arguments));
+        callStructure, arguments);
   }
 
   @override
@@ -2584,10 +2598,9 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
+    return buildCall(
         buildSuperPropertyAccessor(null, setter).buildSimpleRead(),
-        callStructure.callSelector,
-        buildArguments(arguments));
+        callStructure, arguments);
   }
 
   @override
@@ -2725,43 +2738,41 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitTypeVariableTypeLiteralGet(
+  ir.TypeLiteral visitTypeVariableTypeLiteralGet(
       Send node,
       TypeVariableElement element,
       _) {
-    return buildUnsupported(node, "TypeVariableTypeLiteralGet");
+    return buildTypeVariable(element);
   }
 
   @override
-  ir.Throw visitTypeVariableTypeLiteralInvoke(
+  ir.MethodInvocation visitTypeVariableTypeLiteralInvoke(
       Send node,
       TypeVariableElement element,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "TypeVariableTypeLiteralInvoke");
+    return buildCall(buildTypeVariable(element), callStructure, arguments);
   }
 
   @override
-  ir.Throw visitTypeVariableTypeLiteralSet(
+  ir.Expression visitTypeVariableTypeLiteralSet(
       SendSet node,
       TypeVariableElement element,
       Node rhs,
       _) {
-    return buildUnsupported(node, "TypeVariableTypeLiteralSet");
+    return new ReadOnlyAccessor(buildTypeVariable(element))
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitTypeVariableTypeLiteralSetIfNull(
+  ir.Expression visitTypeVariableTypeLiteralSetIfNull(
       Send node,
       TypeVariableElement element,
       Node rhs,
       _) {
-    return buildUnsupported(node, "TypeVariableTypeLiteralSetIfNull");
-  }
-
-  ir.TypeLiteral buildTypeLiteral(TypeConstantExpression constant) {
-    return new ir.TypeLiteral(kernel.typeToIr(constant.type));
+    return new ReadOnlyAccessor(buildTypeVariable(element))
+        .buildNullAwareAssignment(rhs.accept(this));
   }
 
   @override
@@ -2779,9 +2790,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildInvokeSelector(
-        buildTypeLiteral(constant), callStructure.callSelector,
-        buildArguments(arguments));
+    return buildCall(buildTypeLiteral(constant), callStructure, arguments);
   }
 
   @override
@@ -2790,8 +2799,7 @@ class KernelVisitor extends Object
       ConstantExpression constant,
       Node rhs,
       _) {
-    return new ReadOnlyAccessor(buildTypeLiteral(constant))
-        .buildAssignment(rhs.accept(this));
+    return buildTypeLiteralSet(constant, rhs);
   }
 
   @override
