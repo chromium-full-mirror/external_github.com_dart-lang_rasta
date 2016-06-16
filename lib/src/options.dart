@@ -140,10 +140,10 @@ class OptionParser {
     Uri input;
     Uri output;
     if (isBatch == true) {
-      if (uris.length == 1) {
+      if (uris.length == 0) {
+        // All set. Read compilation tasks from stdin.
+      } else if (uris.length == 1) {
         input = Uri.base.resolve(uris.single);
-      } else if (uris.length == 0) {
-        throw "Missing required argument: [input].";
       } else {
         assert(uris.length > 1);
         throw "Additional arguments: '${uris.join("' '")}'.";

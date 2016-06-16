@@ -10,7 +10,9 @@ import 'dart:async' show
 
 import 'dart:io' show
     File,
-    IOSink;
+    IOSink,
+    stderr,
+    stdin;
 
 import 'dart:convert' show
     LineSplitter,
@@ -41,10 +43,10 @@ import 'rastask.dart' show
     Rastask,
     openWrite;
 
-// Reads lines of the form '<input> <output>' (space separated) from the given
-// file and generates a test case that compiles each input to the corresponding
-// output file.
-Stream<TestDescription> readTestsFromFile(Stream<List<int>> input) async* {
+// Reads lines of the form '<input> <output>' (space separated) from the
+// given stream and generates a test case that compiles each input to the
+// corresponding output file.
+Stream<TestDescription> readTestsFromStream(Stream<List<int>> input) async* {
   Stream<String> lines = input
       .transform(UTF8.decoder)
       .transform(new LineSplitter());
@@ -81,9 +83,6 @@ class RunBatch extends Rastask {
         ..reset()
         ..start();
 
-
-    Uri testUri = compiler.translateUri(null, options.input);
-
     // TODO(ahe): This lists all tests in [testUri] if it is a directory
     // and generates Kernel IR for them all. If [testUri] is a file, it
     // reads the file as a sequence of lines with pairs of test inputs and
@@ -97,13 +96,23 @@ class RunBatch extends Rastask {
     int count = 0;
     print("\n");
 
-    File inputFile = new File.fromUri(testUri);
-    Stream<TestDescription> tests = await inputFile.exists()
-        ? readTestsFromFile(inputFile.openRead())
-        : listTests(<Uri>[testUri], pattern: options.pattern);
+    Stream<TestDescription> tests;
+
+    bool batchFromStdin = (options.input == null);
+    if (batchFromStdin) {
+      tests = readTestsFromStream(stdin);
+    } else {
+      Uri testUri = compiler.translateUri(null, options.input);
+      File inputFile = new File.fromUri(testUri);
+      tests = await inputFile.exists()
+          ? readTestsFromStream(inputFile.openRead())
+          : listTests(<Uri>[testUri], pattern: options.pattern);
+    }
 
     await for (TestDescription description in tests) {
       count++;
+
+      int failuresBefore = compiler.elementsWithCompileTimeErrors.length;
       try {
         Uri output = description.output;
         output ??= description.uri.resolve("${description.uri.path}.bart");
@@ -111,7 +120,8 @@ class RunBatch extends Rastask {
         Options options = new Options(
             description.uri,
             output,
-            generateLibrary: this.options.generateLibrary);
+            generateLibrary: this.options.generateLibrary,
+            isVerbose: this.options.isVerbose || batchFromStdin);
 
         ir.Library library = await kernel.loadLibrary(options.input);
         if (this.options.generateLibrary) {
@@ -138,25 +148,39 @@ class RunBatch extends Rastask {
             printer.writeProgramFile(program);
           });
         }
+
+        int failuresAfter = compiler.elementsWithCompileTimeErrors.length;
+        if (failuresAfter == failuresBefore) {
+          if (batchFromStdin) print(">>> TEST OK");
+        } else {
+          if (batchFromStdin) print(">>> TEST FAIL");
+        }
+
       } catch (e, s) {
-        if (this.options.isVerbose) {
+        if (options.isVerbose) {
           print("${description.uri} failed: $e\n$s\n\n");
         }
         failures.add(description);
+        if (batchFromStdin) print(">>> TEST CRASH");
+      } finally {
+        stderr.writeln(">>> EOF STDERR");
       }
-      String averageTimeMs =
-          (wallClock.elapsedMilliseconds / count).toStringAsFixed(3);
-      String successes = padTo(count - failures.length, 5);
-      String failuresPadded = padTo(failures.length, 5);
-      print(
-          "\u001b[1A"
-          "\u001b[2K"
-          "\u001b[1A"
-          "\u001b[2K"
-          "Average time per test: ${averageTimeMs}ms\n"
-          "[${wallClock.elapsed} | --% | +$successes | -$failuresPadded ]"
-        );
+
+      if (!batchFromStdin) {
+        String averageTimeMs =
+            (wallClock.elapsedMilliseconds / count).toStringAsFixed(3);
+        String successes = padTo(count - failures.length, 5);
+        String failuresPadded = padTo(failures.length, 5);
+        print(
+            "\u001b[1A"
+            "\u001b[2K"
+            "\u001b[1A"
+            "\u001b[2K"
+            "Average time per test: ${averageTimeMs}ms\n"
+            "[${wallClock.elapsed} | --% | +$successes | -$failuresPadded ]");
+      }
     }
+
     wallClock.stop();
     String averageTimeMs =
         (wallClock.elapsedMilliseconds / count).toStringAsFixed(3);
