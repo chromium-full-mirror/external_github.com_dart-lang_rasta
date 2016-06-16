@@ -223,13 +223,35 @@ class KernelVisitor extends Object
   final Map<CascadeReceiver, ir.VariableGet> cascadeReceivers =
       <CascadeReceiver, ir.VariableGet>{};
 
+  bool isVoidContext = false;
+
   KernelVisitor(this.currentElement, this.elements, this.kernel);
 
   KernelVisitor get sendVisitor => this;
 
   KernelVisitor get declVisitor => this;
 
-  ir.TreeNode visitForValue(Expression node) => node?.accept(this);
+  ir.TreeNode visitForValue(Expression node) {
+    bool wasVoidContext = isVoidContext;
+    isVoidContext = false;
+    try {
+      return node?.accept(this);
+    } finally {
+      isVoidContext = wasVoidContext;
+    }
+  }
+
+  ir.TreeNode visitForEffect(Expression node) {
+    bool wasVoidContext = isVoidContext;
+    isVoidContext = true;
+    try {
+      return node?.accept(this);
+    } finally {
+      isVoidContext = wasVoidContext;
+    }
+  }
+
+  ir.TreeNode visitWithCurrentContext(Expression node) => node?.accept(this);
 
   withCurrentElement(AstElement element, f()) {
     assert(element.library == kernel.compiler.currentElement.library);
@@ -646,6 +668,7 @@ class KernelVisitor extends Object
     for (Cascade cascade in cascades) {
       // When evaluating `cascade.expression`, we stop the recursion at
       // [visitCascadeReceiver] and instead returns an [ir.VariableGet].
+      // TODO(ahe): Use visitForEffect here?
       ir.Expression value = visitForValue(cascade.expression);
       result = new ir.Let(makeOrReuseVariable(value), result);
     }
@@ -680,8 +703,8 @@ class KernelVisitor extends Object
   ir.ConditionalExpression visitConditional(Conditional node) {
     return new ir.ConditionalExpression(
         visitForValue(node.condition),
-        visitForValue(node.thenExpression),
-        visitForValue(node.elseExpression));
+        visitWithCurrentContext(node.thenExpression),
+        visitWithCurrentContext(node.elseExpression));
   }
 
   @override
@@ -726,7 +749,7 @@ class KernelVisitor extends Object
 
   @override
   ir.ExpressionStatement visitExpressionStatement(ExpressionStatement node) {
-    return new ir.ExpressionStatement(visitForValue(node.expression));
+    return new ir.ExpressionStatement(visitForEffect(node.expression));
   }
 
   @override
@@ -747,7 +770,7 @@ class KernelVisitor extends Object
     ir.Expression condition = visitForValue(node.condition);
     List<ir.Expression> updates = <ir.Expression>[];
     for (Expression update in node.update) {
-      updates.add(visitForValue(update));
+      updates.add(visitForEffect(update));
     }
 
     JumpTarget jumpTarget = elements.getTargetDefinition(node);
@@ -899,7 +922,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Expression visitParenthesizedExpression(ParenthesizedExpression node) {
-    return visitForValue(node.expression);
+    return visitWithCurrentContext(node.expression);
   }
 
   @override
@@ -1142,7 +1165,7 @@ class KernelVisitor extends Object
 
   ir.Expression buildTypeLiteralSet(TypeConstantExpression constant, Node rhs) {
     return new ReadOnlyAccessor(buildTypeLiteral(constant))
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -1175,7 +1198,7 @@ class KernelVisitor extends Object
       _) {
     return buildIndexAccessor(receiver, index).buildCompoundAssignment(
         kernel.irName(operator.selectorName, currentElement),
-        visitForValue(rhs));
+        visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -1269,7 +1292,8 @@ class KernelVisitor extends Object
     Accessor accessor = (receiver == null)
         ? new ThisPropertyAccessor(irName)
         : PropertyAccessor.make(visitForValue(receiver), irName);
-    return accessor.buildNullAwareAssignment(visitForValue(rhs));
+    return accessor.buildNullAwareAssignment(
+        visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -1358,7 +1382,8 @@ class KernelVisitor extends Object
   }
 
   ir.Expression buildStaticFieldSet(FieldElement field, Node rhs) {
-    return buildStaticAccessor(field).buildAssignment(visitForValue(rhs));
+    return buildStaticAccessor(field)
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -1374,7 +1399,7 @@ class KernelVisitor extends Object
   ir.Expression visitFinalSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return buildSuperPropertyAccessor(field)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   void addFieldsWithInitializers(
@@ -1557,7 +1582,7 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildNullAwarePropertyAccessor(receiver, name).buildAssignment(
-        visitForValue(rhs));
+        visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -1568,7 +1593,8 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildNullAwarePropertyAccessor(receiver, name)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.LogicalExpression buildLogicalExpression(
@@ -1612,7 +1638,7 @@ class KernelVisitor extends Object
       Accessor accessor,
       IncDecOperator operator) {
     ir.Name name = kernel.irName(operator.selectorName, currentElement);
-    return accessor.buildPostfixIncrement(name);
+    return accessor.buildPostfixIncrement(name, voidContext: isVoidContext);
   }
 
   @override
@@ -1627,7 +1653,7 @@ class KernelVisitor extends Object
 
   ir.Expression buildIndexPrefix(Accessor accessor, IncDecOperator operator) {
     ir.Name name = kernel.irName(operator.selectorName, currentElement);
-    return accessor.buildPrefixIncrement(name);
+    return accessor.buildPrefixIncrement(name, voidContext: isVoidContext);
   }
 
 
@@ -1645,7 +1671,7 @@ class KernelVisitor extends Object
   ir.Expression visitIndexSet(
       SendSet node, Node receiver, Node index, Node rhs, _) {
     return buildIndexAccessor(receiver, index)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.Initializer buildInitializingFormal(InitializingFormalElement parameter) {
@@ -1783,13 +1809,14 @@ class KernelVisitor extends Object
     ir.Name name = kernel.irName(rhs.operator.selectorName, currentElement);
     switch (rhs.kind) {
       case CompoundKind.POSTFIX:
-        return accessor.buildPostfixIncrement(name);
+        return accessor.buildPostfixIncrement(name, voidContext: isVoidContext);
 
       case CompoundKind.PREFIX:
-        return accessor.buildPrefixIncrement(name);
+        return accessor.buildPrefixIncrement(name, voidContext: isVoidContext);
 
       case CompoundKind.ASSIGNMENT:
-        return accessor.buildCompoundAssignment(name, visitForValue(rhs.rhs));
+        return accessor.buildCompoundAssignment(
+            name, visitForValue(rhs.rhs), voidContext: isVoidContext);
     }
   }
 
@@ -1912,7 +1939,8 @@ class KernelVisitor extends Object
       _,
       {bool isSetterValid}) {
     return new VariableAccessor(getLocal(local))
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2051,7 +2079,8 @@ class KernelVisitor extends Object
       setter = null;
     }
     return buildStaticAccessor(getter, setter)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.VariableDeclaration getLocal(LocalElement local) {
@@ -2212,7 +2241,8 @@ class KernelVisitor extends Object
       MethodElement function,
       Node rhs,
       _) {
-    return buildStaticAccessor(function).buildAssignment(visitForValue(rhs));
+    return buildStaticAccessor(function)
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2254,7 +2284,8 @@ class KernelVisitor extends Object
       FunctionElement getter,
       Node rhs,
       _) {
-    return buildStaticAccessor(getter).buildAssignment(visitForValue(rhs));
+    return buildStaticAccessor(getter)
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2288,7 +2319,7 @@ class KernelVisitor extends Object
   ir.Expression handleStaticSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
     return buildStaticAccessor(null, setter)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2323,7 +2354,7 @@ class KernelVisitor extends Object
     return
         buildSuperIndexAccessor(index, getter, setter).buildCompoundAssignment(
             kernel.irName(operator.selectorName, currentElement),
-            visitForValue(rhs));
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2432,7 +2463,7 @@ class KernelVisitor extends Object
   ir.Expression visitSuperFieldSet(
       SendSet node, FieldElement field, Node rhs, _) {
     return buildSuperPropertyAccessor(field)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
@@ -2483,7 +2514,7 @@ class KernelVisitor extends Object
   ir.Expression visitSuperGetterSet(
       SendSet node, FunctionElement getter, Node rhs, _) {
     return buildSuperPropertyAccessor(getter)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2499,7 +2530,8 @@ class KernelVisitor extends Object
       setter = null;
     }
     return buildSuperPropertyAccessor(getter, setter)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2542,7 +2574,7 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return buildSuperIndexAccessor(index, null, function)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2581,7 +2613,7 @@ class KernelVisitor extends Object
   ir.Expression visitSuperMethodSet(
       Send node, MethodElement method, Node rhs, _) {
     return buildSuperPropertyAccessor(method)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2617,7 +2649,7 @@ class KernelVisitor extends Object
   ir.Expression visitSuperSetterSet(
       SendSet node, FunctionElement setter, Node rhs, _) {
     return buildSuperPropertyAccessor(null, setter)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2680,7 +2712,8 @@ class KernelVisitor extends Object
 
   @override
   ir.Expression visitThisPropertySet(SendSet node, Name name, Node rhs, _) {
-    return buildThisPropertyAccessor(name).buildAssignment(visitForValue(rhs));
+    return buildThisPropertyAccessor(name)
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2772,7 +2805,7 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return new ReadOnlyAccessor(buildTypeVariable(element))
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2782,7 +2815,8 @@ class KernelVisitor extends Object
       Node rhs,
       _) {
     return new ReadOnlyAccessor(buildTypeVariable(element))
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2853,7 +2887,8 @@ class KernelVisitor extends Object
   ir.Expression visitIndexSetIfNull(
       SendSet node, Node receiver, Node index, Node rhs, _) {
     return buildIndexAccessor(receiver, index)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override
@@ -2864,7 +2899,8 @@ class KernelVisitor extends Object
       Node index,
       Node rhs, _) {
     return buildSuperIndexAccessor(index, getter, setter)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   @override

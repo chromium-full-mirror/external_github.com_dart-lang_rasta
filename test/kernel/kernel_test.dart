@@ -29,9 +29,6 @@ import 'package:rasta/testing.dart' show
 import 'package:rasta/src/rastask.dart' show
     openWrite;
 
-import 'package:expect/expect.dart' show
-    Expect;
-
 import '../../bin/rastak.dart' as rastak show main;
 
 const bool generateExpectations =
@@ -59,6 +56,7 @@ Future<Null> main() async {
   await addRegressions(tests, temp);
 
   List<Uri> generated = <Uri>[];
+  Map<Uri, Uri> mismatches = <Uri, Uri>{};
 
   for (Uri source in tests.keys) {
     print("Rastarizing $source");
@@ -67,7 +65,7 @@ Future<Null> main() async {
     await output.parent.create(recursive: true);
     ir.TreeNode node = await rastak.main(<String>["$source", "$bart"], null);
 
-    await checkAgainstExpectations(node, generated);
+    await checkAgainstExpectations(node, generated, mismatches);
 
     Uri textOutput = bart.resolve("${bart.path}.txt");
     print("Kernelizing $bart to $textOutput");
@@ -91,9 +89,19 @@ Future<Null> main() async {
     throw "The following files were generated, "
         "please check them and re-run this test: ${generated}";
   }
+  if (mismatches.isNotEmpty) {
+    StringBuffer sb = new StringBuffer();
+    mismatches.forEach((Uri test, Uri expectation) {
+      sb.writeln("Output from '$test' doesn't match '$expectation'.");
+    });
+    throw "$sb";
+  }
 }
 
-Future<Null> checkAgainstExpectations(ir.Node node, List<Uri> generated) async {
+Future<Null> checkAgainstExpectations(
+    ir.Node node,
+    List<Uri> generated,
+    Map<Uri, Uri> mismatches) async {
   ir.Library library = (node is ir.Program) ? node.mainMethod.parent : node;
   Uri uri = library.importUri;
 
@@ -105,7 +113,10 @@ Future<Null> checkAgainstExpectations(ir.Node node, List<Uri> generated) async {
   File expectedFile = new File("${uri.toFilePath()}.txt");
   if (await expectedFile.exists()) {
     String expected = await expectedFile.readAsString();
-    Expect.stringEquals(expected.trim(), "$buffer".trim());
+    if (expected.trim() != "$buffer".trim()) {
+      print("$uri doesn't match ${expectedFile.uri}");
+      mismatches[uri] = expectedFile.uri;
+    }
   } else if (generateExpectations) {
     await openWrite(expectedFile.uri, (IOSink sink) {
       sink.write("$buffer".trim());
