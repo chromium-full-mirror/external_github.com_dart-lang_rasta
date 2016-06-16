@@ -11,6 +11,7 @@ import 'package:kernel/accessors.dart' show
     IndexAccessor,
     NullAwarePropertyAccessor,
     PropertyAccessor,
+    ReadOnlyAccessor,
     StaticAccessor,
     SuperIndexAccessor,
     SuperPropertyAccessor,
@@ -136,7 +137,8 @@ import 'package:compiler/src/constants/expressions.dart' show
     ConstantExpression,
     ConstructedConstantExpression,
     IntFromEnvironmentConstantExpression,
-    StringFromEnvironmentConstantExpression;
+    StringFromEnvironmentConstantExpression,
+    TypeConstantExpression;
 
 import 'package:compiler/src/dart_types.dart' show
     DartType,
@@ -2884,38 +2886,48 @@ class KernelVisitor extends Object
     return buildUnsupported(node, "TypeVariableTypeLiteralSetIfNull");
   }
 
-  @override
-  ir.Throw visitTypedefTypeLiteralGet(
-      Send node, ConstantExpression constant, _) {
-    return buildUnsupported(node, "TypedefTypeLiteralGet");
+  ir.TypeLiteral buildTypeLiteral(TypeConstantExpression constant) {
+    return new ir.TypeLiteral(kernel.typeToIr(constant.type));
   }
 
   @override
-  ir.Throw visitTypedefTypeLiteralInvoke(
+  ir.TypeLiteral visitTypedefTypeLiteralGet(
+      Send node,
+      ConstantExpression constant,
+      _) {
+    return buildTypeLiteral(constant);
+  }
+
+  @override
+  ir.Expression visitTypedefTypeLiteralInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "TypedefTypeLiteralInvoke");
+    return buildInvokeSelector(
+        buildTypeLiteral(constant), callStructure.callSelector,
+        buildArguments(arguments));
   }
 
   @override
-  ir.Throw visitTypedefTypeLiteralSet(
+  ir.Expression visitTypedefTypeLiteralSet(
       SendSet node,
       ConstantExpression constant,
       Node rhs,
       _) {
-    return buildUnsupported(node, "TypedefTypeLiteralSet");
+    return new ReadOnlyAccessor(buildTypeLiteral(constant))
+        .buildAssignment(rhs.accept(this));
   }
 
   @override
-  ir.Throw visitTypedefTypeLiteralSetIfNull(
+  ir.Expression visitTypedefTypeLiteralSetIfNull(
       Send node,
       ConstantExpression constant,
       Node rhs,
       _) {
-    return buildUnsupported(node, "TypedefTypeLiteralSetIfNull");
+    // Degenerate case: ignores [rhs] as a type literal is never null.
+    return buildTypeLiteral(constant);
   }
 
   @override

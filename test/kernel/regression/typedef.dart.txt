@@ -1,0 +1,10 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+static method main() → dynamic {
+  core::print(() → void);
+  invalid-expression;
+  () → void;
+  () → void.call();
+}

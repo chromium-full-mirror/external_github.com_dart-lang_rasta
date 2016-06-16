@@ -20,7 +20,7 @@ class Fisk extends core::Object {
     }
     for(final #t6 in x) {
       let final #t7 = #t6 in invalid-expression;
-      core::print(throw "Kernel IR not yet implemented for 'TypedefTypeLiteralGet'.");
+      core::print(() → void);
     }
     for(final #t8 in x) {
       let final #t9 = #t8 in invalid-expression;
@@ -44,7 +44,7 @@ static method main(dynamic arguments) → dynamic {
   }
   for(final #t16 in arguments) {
     let final #t17 = #t16 in invalid-expression;
-    core::print(throw "Kernel IR not yet implemented for 'TypedefTypeLiteralGet'.");
+    core::print(() → void);
   }
   for(final #t18 in arguments) {
     let final #t19 = #t18 in invalid-expression;
