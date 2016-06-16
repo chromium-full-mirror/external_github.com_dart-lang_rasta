@@ -1028,14 +1028,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitAbstractClassConstructorInvoke(
+  ir.InvalidExpression visitAbstractClassConstructorInvoke(
       NewExpression node,
       ConstructorElement element,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "AbstractClassConstructorInvoke");
+    return new ir.InvalidExpression();
   }
 
   IrFunction buildIrFunction(
