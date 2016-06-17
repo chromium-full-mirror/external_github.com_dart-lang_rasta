@@ -13,6 +13,7 @@ import 'package:compiler/compiler_new.dart' show
     CompilerOutput;
 
 import 'package:compiler/src/compiler.dart' show
+    CompilerDiagnosticReporter,
     MakeBackendFuncion,
     MakeReporterFunction;
 
@@ -27,6 +28,9 @@ import 'package:compiler/src/diagnostics/spannable.dart' show
 
 import 'package:compiler/src/mirrors_used.dart' show
     MirrorUsageAnalyzerTask;
+
+import 'package:compiler/src/source_file_provider.dart' show
+    FormattingDiagnosticHandler;
 
 import 'custom_compiler_options.dart' show
     CustomCompilerOptions;
@@ -114,5 +118,28 @@ class CustomCompiler extends CompilerImpl {
         ' unaccounted ${unaccountedDuration.inMilliseconds}msec'
         ' (${percent.toStringAsFixed(2)}%)');
     log("$timings");
+  }
+
+  void recoverFromCrash() {
+    if (reporter is CompilerDiagnosticReporter) {
+      CompilerDiagnosticReporter reporter = this.reporter;
+      reporter.hasCrashed = false;
+    }
+    if (handler is FormattingDiagnosticHandler) {
+      FormattingDiagnosticHandler handler = this.handler;
+      handler.isAborting = false;
+    }
+  }
+
+  bool get isInternalStateConsistent {
+    if (reporter is CompilerDiagnosticReporter) {
+      CompilerDiagnosticReporter reporter = this.reporter;
+      if (reporter.hasCrashed) return false;
+    }
+    if (handler is FormattingDiagnosticHandler) {
+      FormattingDiagnosticHandler handler = this.handler;
+      if (handler.isAborting) return false;
+    }
+    return true;
   }
 }

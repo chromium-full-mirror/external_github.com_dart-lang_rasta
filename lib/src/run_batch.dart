@@ -80,6 +80,7 @@ class RunBatch extends Rastask {
     }
 
     await for (TestDescription description in tests) {
+      assert(compiler.isInternalStateConsistent);
       count++;
 
       int failuresBefore = compiler.elementsWithCompileTimeErrors.length;
@@ -98,6 +99,7 @@ class RunBatch extends Rastask {
       try {
         await runOne(options);
       } catch (e, s) {
+        compiler.recoverFromCrash();
         if (options.isVerbose) {
           print("${description.uri} failed: $e\n$s\n\n");
         }
