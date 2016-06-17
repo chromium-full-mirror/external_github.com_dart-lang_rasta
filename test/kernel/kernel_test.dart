@@ -11,20 +11,22 @@ import 'dart:async' show
 import 'dart:io' show
     File,
     IOSink,
-    Platform,
-    Process,
-    stderr;
+    Platform;
 
 import 'package:kernel/text/ast_to_text.dart' show
     Printer;
 
 import 'package:kernel/ast.dart' as ir;
 
+import 'package:kernel/repository.dart' show
+    Repository;
+
+import 'package:kernel/binary/loader.dart' show
+    BinaryLoader;
+
 import 'package:rasta/testing.dart' show
     TestDescription,
-    dartSdk,
-    listTests,
-    startDart;
+    listTests;
 
 import 'package:rasta/src/rastask.dart' show
     Rastask,
@@ -86,9 +88,8 @@ Future<Null> runTests(Rastask task) async {
 
     if (isRegression) {
       await checkAgainstExpectations(node, generated, mismatches);
-    } else {
-      await runDartk(bart);
     }
+    checkRoundTrip(bart);
   }
   if (generated.isNotEmpty) {
     throw "The following files were generated, "
@@ -103,6 +104,13 @@ Future<Null> runTests(Rastask task) async {
   }
 }
 
+/// Check that the textual representation of [node] matches expectation file
+/// (golden file). The expectation file is found by appending `.txt` to the
+/// location of the input library.
+///
+/// [node] must be either an [ir.Library] or an [ir.Program]. In the former
+/// case, [node] is the input library. In the latter case, the input library is
+/// the `main` method's library.
 Future<Null> checkAgainstExpectations(
     ir.Node node,
     List<Uri> generated,
@@ -131,22 +139,16 @@ $buffer""";
   }
 }
 
-Future<Null> runDartk(Uri uri) async {
-  Uri textOutput = uri.resolve("${uri.path}.txt");
-  print("Kernelizing $uri to $textOutput");
-  Process process = await startDart(
-      Uri.base.resolve("third_party/kernel/bin/dartk.dart"),
-      <String>["--sdk=${dartSdk.toFilePath()}", "${uri.toFilePath()}"],
-      const <String>[]);
-  process.stdin.close();
-  Future stdoutFuture =
-      process.stdout.pipe(new File.fromUri(textOutput).openWrite());
-  Future stderrFuture =
-      process.stderr.listen((data) => stderr.add(data)).asFuture();
-  int exitCode = await process.exitCode;
-  await stdoutFuture;
-  await stderrFuture;
-  if (exitCode != 0) {
-    throw "non-zero exit code ($exitCode) from dartk";
+/// Check that the serialized Kernel IR in [uri] can be deserialized.
+void checkRoundTrip(Uri uri) {
+  print("Deserializing $uri");
+  Repository repository = new Repository();
+  ir.TreeNode programOrLibrary =
+      new BinaryLoader(repository).loadProgramOrLibrary("$uri");
+  Printer printer = new Printer(new StringBuffer());
+  if (programOrLibrary is ir.Program) {
+    printer.writeProgramFile(programOrLibrary);
+  } else {
+    printer.writeLibraryFile(programOrLibrary);
   }
 }
