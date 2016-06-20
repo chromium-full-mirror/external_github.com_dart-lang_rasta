@@ -1,0 +1,6 @@
+library;
+import self as self;
+
+static method main() → dynamic {
+  let final #t1 = throw "Kernel IR not yet implemented for 'handleError'." in let final #t2 = #t1.toString() in #t1;
+}
