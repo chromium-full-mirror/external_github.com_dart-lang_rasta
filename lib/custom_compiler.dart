@@ -129,16 +129,27 @@ class CustomCompiler extends CompilerImpl {
       FormattingDiagnosticHandler handler = this.handler;
       handler.isAborting = false;
     }
+    enqueuer.resolution.deferredTaskQueue.clear();
   }
 
   bool get isInternalStateConsistent {
     if (reporter is CompilerDiagnosticReporter) {
       CompilerDiagnosticReporter reporter = this.reporter;
-      if (reporter.hasCrashed) return false;
+      if (reporter.hasCrashed) {
+        print("Reporter hasCrashed");
+        return false;
+      }
     }
     if (handler is FormattingDiagnosticHandler) {
       FormattingDiagnosticHandler handler = this.handler;
-      if (handler.isAborting) return false;
+      if (handler.isAborting) {
+        print("Reporter isAborting");
+        return false;
+      }
+    }
+    if (enqueuer.resolution.deferredTaskQueue.isNotEmpty) {
+      print("Resolution deferredTaskQueue isn't empty");
+      return false;
     }
     return true;
   }

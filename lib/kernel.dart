@@ -179,6 +179,7 @@ class Kernel {
     cls = cls.declaration;
     return classes.putIfAbsent(cls, () {
       cls.ensureResolved(compiler.resolution);
+      compiler.enqueuer.resolution.emptyDeferredTaskQueue();
       ir.NormalClass classNode = new ir.NormalClass(
           null, name: cls.name, isAbstract: cls.isAbstract,
           typeParameters: null, implementedClasses: null, constructors: null,
@@ -424,6 +425,7 @@ class Kernel {
     field = field.declaration;
     return fields.putIfAbsent(field, () {
       compiler.analyzeElement(field);
+      compiler.enqueuer.resolution.emptyDeferredTaskQueue();
       field = field.implementation;
       ir.Field fieldNode = new ir.Field(
           nameToIrName(field.memberName), type: typeToIr(field.type),
@@ -552,5 +554,23 @@ class Kernel {
       return true;
     }
     return false;
+  }
+
+  void recoverFromCrash() {
+    workQueue.clear();
+    compiler.recoverFromCrash();
+
+    checkedNodes.addAll(libraries.values);
+    checkedNodes.addAll(classes.values);
+    checkedNodes.addAll(functions.values);
+    checkedNodes.addAll(fields.values);
+  }
+
+  bool get isInternalStateConsistent {
+    if (workQueue.isNotEmpty) {
+      print("Kernel workQueue isn't empty.");
+      return false;
+    }
+    return compiler.isInternalStateConsistent;
   }
 }

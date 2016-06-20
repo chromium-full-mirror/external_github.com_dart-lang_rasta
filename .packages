@@ -17,3 +17,5 @@ dart2js_info:third_party/dart2js_info/lib
 package_config:third_party/package_config/lib
 path:third_party/path/lib
 pub_semver:third_party/pub_semver/lib
+
+test.dart:third_party/dart-sdk/tools/testing/dart

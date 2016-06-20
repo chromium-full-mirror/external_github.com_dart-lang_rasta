@@ -1,0 +1,10 @@
+# Copyright (c) 2016, the Dart project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE.md file.
+
+kernel/regression/issue_000031.dart: Crash
+kernel/regression/issue_000032.dart: Crash
+kernel/regression/issue_000034.dart: Crash
+kernel/regression/issue_000036.dart: Crash
+kernel/regression/issue_000039.dart: Crash
+kernel/regression/issue_000041.dart: Crash

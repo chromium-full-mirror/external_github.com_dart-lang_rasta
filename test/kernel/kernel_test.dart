@@ -11,7 +11,16 @@ import 'dart:async' show
 import 'dart:io' show
     File,
     IOSink,
-    Platform;
+    Platform,
+    exitCode;
+
+import 'package:compiler/src/util/uri_extras.dart' show
+    relativize;
+
+import 'package:test.dart/status_file_parser.dart' show
+    Expectation,
+    ReadTestExpectations,
+    TestExpectations;
 
 import 'package:kernel/text/ast_to_text.dart' show
     Printer;
@@ -68,10 +77,15 @@ Future<Null> runTests(Rastask task) async {
 
   await addRegressions(tests, temp);
 
-  List<Uri> generated = <Uri>[];
-  Map<Uri, Uri> mismatches = <Uri, Uri>{};
+  Uri statusFile = Uri.base.resolve("test/rasta.status");
+  TestExpectations expectations =
+      await ReadTestExpectations(<String>[statusFile.toFilePath()], {});
+
+  List<Uri> fails = <Uri>[];
 
   for (Uri source in tests.keys) {
+    assert(task.kernel.isInternalStateConsistent);
+
     bool isRegression = source.path.contains("/regression/");
 
     print("Rastarizing $source");
@@ -84,23 +98,41 @@ Future<Null> runTests(Rastask task) async {
         generateLibrary: isRegression ? isRegression : null,
         isVerbose: true, isBatch: false, pattern: null);
 
-    ir.TreeNode node = await task.runOne(options);
-
-    if (isRegression) {
-      await checkAgainstExpectations(node, generated, mismatches);
+    ir.TreeNode node;
+    Expectation outcome = Expectation.PASS;
+    var error;
+    StackTrace trace;
+    try {
+      node = await task.runOne(options);
+    } catch (e, t) {
+      outcome = Expectation.CRASH;
+      task.kernel.recoverFromCrash();
+      error = e;
+      trace = t;
     }
-    checkRoundTrip(bart);
+
+    if (isRegression && outcome == Expectation.PASS) {
+      outcome = await checkAgainstExpectations(node);
+    }
+    if (outcome == Expectation.PASS) {
+      outcome = checkRoundTrip(bart);
+    }
+
+    Set<Expectation> expectedOutcomes = isRegression
+        ? expectations.expectations(
+            relativize(statusFile.resolve("."), source, false))
+        : new Set<Expectation>()..add(Expectation.PASS);
+
+    if (!expectedOutcomes.contains(outcome)) {
+      print("$source: '$outcome' isn't one of '$expectedOutcomes'.");
+      if (error != null) print(error);
+      if (trace != null) print(trace);
+      fails.add(source);
+    }
   }
-  if (generated.isNotEmpty) {
-    throw "The following files were generated, "
-        "please check them and re-run this test: ${generated}";
-  }
-  if (mismatches.isNotEmpty) {
-    StringBuffer sb = new StringBuffer();
-    mismatches.forEach((Uri test, Uri expectation) {
-      sb.writeln("Output from '$test' doesn't match '$expectation'.");
-    });
-    throw "$sb";
+  if (fails.isNotEmpty) {
+    exitCode = 1;
+    print("The following tests failed: $fails");
   }
 }
 
@@ -111,10 +143,7 @@ Future<Null> runTests(Rastask task) async {
 /// [node] must be either an [ir.Library] or an [ir.Program]. In the former
 /// case, [node] is the input library. In the latter case, the input library is
 /// the `main` method's library.
-Future<Null> checkAgainstExpectations(
-    ir.Node node,
-    List<Uri> generated,
-    Map<Uri, Uri> mismatches) async {
+Future<Expectation> checkAgainstExpectations(ir.Node node) async {
   ir.Library library = (node is ir.Program) ? node.mainMethod.parent : node;
   Uri uri = library.importUri;
 
@@ -125,22 +154,25 @@ Future<Null> checkAgainstExpectations(
     String expected = await expectedFile.readAsString();
     if (expected.trim() != "$buffer".trim()) {
       print("$uri doesn't match ${expectedFile.uri}");
-      mismatches[uri] = expectedFile.uri;
+      return Expectation.FAIL;
     }
   } else if (generateExpectations) {
     await openWrite(expectedFile.uri, (IOSink sink) {
       sink.write("$buffer".trim());
     });
-    generated.add(expectedFile.uri);
+    print("Generated ${expectedFile.uri}");
+    return Expectation.FAIL;
   } else {
-    throw """
+    print("""
 Please create file ${expectedFile.path} with this content:
-$buffer""";
+$buffer""");
+    return Expectation.FAIL;
   }
+  return Expectation.PASS;
 }
 
 /// Check that the serialized Kernel IR in [uri] can be deserialized.
-void checkRoundTrip(Uri uri) {
+Expectation checkRoundTrip(Uri uri) {
   print("Deserializing $uri");
   Repository repository = new Repository();
   ir.TreeNode programOrLibrary =
@@ -151,4 +183,5 @@ void checkRoundTrip(Uri uri) {
   } else {
     printer.writeLibraryFile(programOrLibrary);
   }
+  return Expectation.PASS;
 }
