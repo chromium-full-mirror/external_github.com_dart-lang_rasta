@@ -40,6 +40,8 @@ class C extends B {
     use(~super);
     -super;
     use(-super);
+    +super;
+    use(+super);
     super == 87;
     use(super == 87);
     super != 87;

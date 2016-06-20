@@ -347,6 +347,17 @@ class KernelVisitor extends Object
   }
 
   @override
+  ir.Expression visitIdentifier(Identifier node) {
+    // TODO(ahe): Shouldn't have to override this method, but
+    // [SemanticSendResolvedMixin.visitIdentifier] may return `null` on errors.
+    if (node.isThis()) {
+      return sendVisitor.visitThisGet(node, null);
+    } else {
+      return new ir.InvalidExpression();
+    }
+  }
+
+  @override
   ir.InvalidExpression handleUnresolved(Node node) {
     return new ir.InvalidExpression();
   }
