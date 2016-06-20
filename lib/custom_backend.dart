@@ -86,8 +86,8 @@ class CustomBackend extends Backend {
   }
 
   @override Future onLibraryScanned(
-      LibraryElement library, LibraryLoader loader) async {
-    await super.onLibraryScanned(library, loader);
+      LibraryElement library, LibraryLoader loader) {
+    // TODO(ahe): We may want to call super to enable @native and JS-interop.
     CustomPatchParserTask custom = compiler.patchParser;
     return custom.onLibraryScanned(library, loader);
   }
