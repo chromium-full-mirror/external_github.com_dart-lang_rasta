@@ -442,6 +442,15 @@ class KernelVisitor extends Object
     }
   }
 
+  ir.Statement buildContinueAndBreakTarget(
+      ir.Statement statement,
+      Node node,
+      JumpTarget jumpTarget) {
+    return buildContinueTarget(
+        buildBreakTarget(statement, node, jumpTarget),
+        node, jumpTarget);
+  }
+
   ir.Statement buildForInCommon(
       ForIn node,
       ir.VariableDeclaration variable,
@@ -462,6 +471,10 @@ class KernelVisitor extends Object
       ForIn node,
       VariableDefinitions declaration,
       {bool isAsync}) {
+    if (declaration.definitions.slowLength() != 1) {
+      // It's not legal to declare more than one variable in a for-in loop.
+      return new ir.InvalidStatement();
+    }
     ir.VariableDeclaration variable = buildStatementInBlock(declaration);
     return buildForInCommon(
         node, variable, buildStatementInBlock(node.body), isAsync: isAsync);
@@ -560,7 +573,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitBlock(Block node) {
-    return buildBreakTarget(
+    return buildContinueAndBreakTarget(
         buildStatementInBlock(node), node, elements.getTargetDefinition(node));
   }
 
@@ -804,7 +817,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitIf(If node) {
-    return buildBreakTarget(
+    return buildContinueAndBreakTarget(
         new ir.IfStatement(
             visitForValue(node.condition),
             buildStatementInBlock(node.thenPart),
@@ -1022,7 +1035,7 @@ class KernelVisitor extends Object
     }
     assert(!casesIterator.moveNext());
 
-    return buildBreakTarget(
+    return buildContinueAndBreakTarget(
         new ir.SwitchStatement(expression, cases),
         node, elements.getTargetDefinition(node));
   }
@@ -1051,9 +1064,8 @@ class KernelVisitor extends Object
       result =
           new ir.TryFinally(result, buildStatementInBlock(node.finallyBlock));
     }
-    JumpTarget jumpTarget = elements.getTargetDefinition(node);
-    return buildContinueTarget(
-        buildBreakTarget(result, node, jumpTarget), node, jumpTarget);
+    return buildContinueAndBreakTarget(
+        result, node, elements.getTargetDefinition(node));
   }
 
   @override

@@ -1,0 +1,23 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+static method main() → dynamic {
+  invalid-statement;
+  {
+    break;
+  }
+  if(true) {
+    break;
+  }
+  switch(1) {
+    case 1:
+      break;
+    case 2:
+      break;
+  }
+  try {
+  }
+  on core::NoSuchMethodError catch(no-exception-var) {
+  }
+}
