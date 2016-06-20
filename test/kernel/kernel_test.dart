@@ -121,7 +121,7 @@ Future<Null> runTests(Rastask task) async {
     Set<Expectation> expectedOutcomes = isRegression
         ? expectations.expectations(
             relativize(statusFile.resolve("."), source, false))
-        : new Set<Expectation>()..add(Expectation.PASS);
+        : <Expectation>[Expectation.PASS].toSet();
 
     if (!expectedOutcomes.contains(outcome)) {
       print("$source: '$outcome' isn't one of '$expectedOutcomes'.");
