@@ -2728,12 +2728,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitThisInvoke(
+  ir.MethodInvocation visitThisInvoke(
       Send node,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ThisInvoke");
+    return buildCall(new ir.ThisExpression(), callStructure, arguments);
   }
 
   Accessor buildThisPropertyAccessor(Name name) {
@@ -2970,16 +2970,6 @@ class KernelVisitor extends Object
     });
     if (variables.length == 1) return variables.single;
     return new VariableDeclarations(variables);
-  }
-
-  ir.Throw buildUnsupported(Node node, String name) {
-    // TODO(ahe): Do this:
-    // throw new Unsupported("Kernel IR not yet implemented for '$name'.");
-    if (const bool.fromEnvironment("verbose")) {
-      print("Kernel IR not yet implemented for '$name'.");
-    }
-    return new ir.Throw(
-        new ir.StringLiteral("Kernel IR not yet implemented for '$name'."));
   }
 
   IrFunction buildFunction() {
