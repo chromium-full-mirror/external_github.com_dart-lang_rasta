@@ -16,7 +16,7 @@ class Fisk extends core::Object {
     }
     for(final #t4 in x) {
       let final #t5 = #t4 in invalid-expression;
-      core::print(throw "Kernel IR not yet implemented for 'handleError'.");
+      core::print(invalid-expression);
     }
     for(final #t6 in x) {
       let final #t7 = #t6 in invalid-expression;
@@ -40,7 +40,7 @@ static method main(dynamic arguments) → dynamic {
   }
   for(final #t14 in arguments) {
     let final #t15 = #t14 in invalid-expression;
-    core::print(throw "Kernel IR not yet implemented for 'handleError'.");
+    core::print(invalid-expression);
   }
   for(final #t16 in arguments) {
     let final #t17 = #t16 in invalid-expression;

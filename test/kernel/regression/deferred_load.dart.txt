@@ -2,6 +2,6 @@ library;
 import self as self;
 
 static method main() → dynamic {
-  throw "Kernel IR not yet implemented for 'deferred access'.";
-  throw "Kernel IR not yet implemented for 'deferred access'.";
+  invalid-expression;
+  invalid-expression;
 }

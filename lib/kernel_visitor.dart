@@ -363,9 +363,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw handleError(Node node) {
-    return buildUnsupported(node, "handleError");
-  }
+  ir.Expression handleError(Node node) => new ir.InvalidExpression();
 
   @override
   void apply(Node node, _) {
@@ -707,8 +705,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitCaseMatch(CaseMatch node) {
-    return buildUnsupported(node, "CaseMatch");
+  visitCaseMatch(CaseMatch node) {
+    // Shouldn't be called. Handled by [visitSwitchCase].
+    return internalError(node, "CaseMatch");
   }
 
   @override
@@ -826,8 +825,10 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitLabel(Label node) {
-    return buildUnsupported(node, "Label");
+  visitLabel(Label node) {
+    // Shouldn't be called. Handled by visitLabeledStatement and
+    // visitSwitchCase.
+    return internalError(node, "Label");
   }
 
   @override
@@ -908,8 +909,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitLiteralMapEntry(LiteralMapEntry node) {
-    return buildUnsupported(node, "LiteralMapEntry");
+  visitLiteralMapEntry(LiteralMapEntry node) {
+    // Shouldn't be called. Handled by [visitLiteralMap].
+    return internalError(node, "LiteralMapEntry");
   }
 
   @override
@@ -929,8 +931,10 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitMetadata(Metadata node) {
-    return buildUnsupported(node, "Metadata");
+  visitMetadata(Metadata node) {
+    // Shouldn't be called. Metadata should already have been analyzed and
+    // converted to a constant expression in the resolver.
+    return internalError(node, "Metadata not handled as constant.");
   }
 
   @override
@@ -940,8 +944,10 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitOperator(Operator node) {
-    return buildUnsupported(node, "Operator");
+  visitOperator(Operator node) {
+    // This is a special subclass of [Identifier], and we should never see that
+    // in the semantic visitor.
+    return internalError(node, "Operator");
   }
 
   @override
@@ -950,8 +956,9 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitRedirectingFactoryBody(RedirectingFactoryBody node) {
-    return buildUnsupported(node, "RedirectingFactoryBody");
+  visitRedirectingFactoryBody(RedirectingFactoryBody node) {
+    // Not implemented yet.
+    return internalError(node, "RedirectingFactoryBody");
   }
 
   @override
@@ -1069,13 +1076,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitTypeAnnotation(TypeAnnotation node) {
-    return buildUnsupported(node, "TypeAnnotation");
+  visitTypeAnnotation(TypeAnnotation node) {
+    // Shouldn't be called, as the resolver have already resolved types and
+    // created [DartType] objects.
+    return internalError(node, "TypeAnnotation");
   }
 
   @override
-  ir.Throw visitTypeVariable(TypeVariable node) {
-    return buildUnsupported(node, "TypeVariable");
+  visitTypeVariable(TypeVariable node) {
+    // Shouldn't be called, as the resolver have already resolved types and
+    // created [DartType] objects.
+    return internalError(node, "TypeVariable");
   }
 
   @override
@@ -1609,7 +1620,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitIfNotNullDynamicPropertySetIfNull(
+  ir.Expression visitIfNotNullDynamicPropertySetIfNull(
       Send node,
       Node receiver,
       Name name,
@@ -1718,13 +1729,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitInstanceFieldDeclaration(
+  visitInstanceFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
       Node initializer,
       _) {
-    return buildUnsupported(node, "InstanceFieldDeclaration");
+    // Shouldn't be called, handled by fieldToIr.
+    return internalError(node, "InstanceFieldDeclaration");
   }
 
   @override
@@ -1893,13 +1905,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitNamedParameterDeclaration(
+  visitNamedParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
       ConstantExpression defaultValue,
       _) {
-    return buildUnsupported(node, "NamedParameterDeclaration");
+    // Shouldn't be called, we handle parameters via [FunctionSignture].
+    return internalError(node, "NamedParameterDeclaration");
   }
 
   @override
@@ -1924,24 +1937,26 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitOptionalParameterDeclaration(
+  visitOptionalParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
       ConstantExpression defaultValue,
       int index,
       _) {
-    return buildUnsupported(node, "OptionalParameterDeclaration");
+    // Shouldn't be called, we handle parameters via [FunctionSignture].
+    return internalError(node, "OptionalParameterDeclaration");
   }
 
   @override
-  ir.Throw visitParameterDeclaration(
+  visitParameterDeclaration(
       VariableDefinitions node,
       Node definition,
       ParameterElement parameter,
       int index,
       _) {
-    return buildUnsupported(node, "ParameterDeclaration");
+    // Shouldn't be called, we handle parameters via [FunctionSignture].
+    return internalError(node, "ParameterDeclaration");
   }
 
   @override
@@ -1989,8 +2004,7 @@ class KernelVisitor extends Object
       // we support reflection. At the call-site, we bypass this factory and
       // call its effective target directly. So this factory is only necessary
       // for reflection.
-      body = new ir.ExpressionStatement(
-          buildUnsupported(node, "redirecting factory constructor body."));
+      body = new ir.InvalidStatement();
     }
     IrFunction function =
         buildIrFunction(ir.ProcedureKind.Factory, constructor, null);
@@ -2040,24 +2054,24 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitStaticConstantDeclaration(
+  visitStaticConstantDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
       ConstantExpression constant,
       _) {
-    // Should not normally be called, handled by fieldToIr.
+    // Shouldn't be called, handled by fieldToIr.
     return internalError(node, "StaticConstantDeclaration");
   }
 
   @override
-  ir.Throw visitStaticFieldDeclaration(
+  visitStaticFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
       Node initializer,
       _) {
-    // Should not normally be called, handled by fieldToIr.
+    // Shouldn't be called, handled by fieldToIr.
     return internalError(node, "StaticFieldDeclaration");
   }
 
@@ -2283,7 +2297,8 @@ class KernelVisitor extends Object
       FunctionElement getter,
       _) {
     if (getter.isDeferredLoaderGetter) {
-      return buildUnsupported(node, "deferred access");
+      // TODO(ahe): Support deferred load.
+      return new ir.InvalidExpression();
     }
     return buildStaticGet(getter);
   }
@@ -2296,7 +2311,8 @@ class KernelVisitor extends Object
       CallStructure callStructure,
       _) {
     if (getter.isDeferredLoaderGetter) {
-      return buildUnsupported(node, "deferred access");
+      // TODO(ahe): Support deferred load.
+      return new ir.InvalidExpression();
     }
     return buildCall(buildStaticGet(getter), callStructure, arguments);
   }
@@ -2740,23 +2756,25 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitTopLevelConstantDeclaration(
+  ir.Expression visitTopLevelConstantDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
       ConstantExpression constant,
       _) {
-    return buildUnsupported(node, "TopLevelConstantDeclaration");
+    // Shouldn't be called, handled by fieldToIr.
+    return internalError(node, "TopLevelFieldDeclaration");
   }
 
   @override
-  ir.Throw visitTopLevelFieldDeclaration(
+  ir.Expression visitTopLevelFieldDeclaration(
       VariableDefinitions node,
       Node definition,
       FieldElement field,
       Node initializer,
       _) {
-    return buildUnsupported(node, "TopLevelFieldDeclaration");
+    // Shouldn't be called, handled by fieldToIr.
+    return internalError(node, "TopLevelFieldDeclaration");
   }
 
   @override
@@ -2891,19 +2909,21 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitConditionalUri(ConditionalUri node) {
-    return buildUnsupported(node, "ConditionalUri");
+  visitConditionalUri(ConditionalUri node) {
+    // Shouldn't be called, handled by library loader.
+    return internalError(node, "ConditionalUri");
   }
 
   @override
-  ir.Throw visitDottedName(DottedName node) {
-    return buildUnsupported(node, "DottedName");
+  visitDottedName(DottedName node) {
+    // Shouldn't be called, handled by library loader.
+    return internalError(node, "DottedName");
   }
 
   @override
-  ir.Throw visitForIn(ForIn node) {
-    return internalError(
-        node, "Should have been caught by visitAsyncForIn or visitSyncForIn");
+  visitForIn(ForIn node) {
+    // Shouldn't be called, handled by [visitAsyncForIn] or [visitSyncForIn].
+    return internalError(node, "ForIn");
   }
 
   @override
