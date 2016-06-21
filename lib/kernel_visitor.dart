@@ -1248,18 +1248,20 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitConstantGet(Send node, ConstantExpression constant, _) {
-    return buildUnsupported(node, "ConstantGet");
+  visitConstantGet(Send node, ConstantExpression constant, _) {
+    // TODO(ahe): This method is never called. Is it a bug in semantic visitor?
+    return internalError(node, "ConstantGet");
   }
 
   @override
-  ir.Throw visitConstantInvoke(
+  visitConstantInvoke(
       Send node,
       ConstantExpression constant,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildUnsupported(node, "ConstantInvoke");
+    // TODO(ahe): This method is never called. Is it a bug in semantic visitor?
+    return internalError(node, "ConstantInvoke");
   }
 
   @override
