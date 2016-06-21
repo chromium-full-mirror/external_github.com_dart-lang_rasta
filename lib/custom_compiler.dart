@@ -130,6 +130,7 @@ class CustomCompiler extends CompilerImpl {
       handler.isAborting = false;
     }
     enqueuer.resolution.deferredTaskQueue.clear();
+    (libraryLoader as dynamic).currentHandler = null;
   }
 
   bool get isInternalStateConsistent {
@@ -149,6 +150,10 @@ class CustomCompiler extends CompilerImpl {
     }
     if (enqueuer.resolution.deferredTaskQueue.isNotEmpty) {
       print("Resolution deferredTaskQueue isn't empty");
+      return false;
+    }
+    if ((libraryLoader as dynamic).currentHandler != null) {
+      print("compiler.libraryLoader.currentHandler isn't null");
       return false;
     }
     return true;
