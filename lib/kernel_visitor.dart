@@ -766,8 +766,12 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Throw visitEnum(Enum node) {
-    return buildUnsupported(node, "Enum");
+  visitEnum(Enum node) {
+    // Not called normally. In dart2js, enums are represented as class
+    // elements, so `classToIr` handles enums.  All the synthetic members of an
+    // enum class have already been installed by dart2js and we don't have to
+    // do anything special.
+    return internalError(node, "Enum");
   }
 
   @override
