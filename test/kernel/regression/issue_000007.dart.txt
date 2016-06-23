@@ -14,9 +14,12 @@ class Mixin extends core::Object {
 }
 class Sub extends self::#class1 {
   constructor •() → self::Sub
+    : super self::#class1::•();
+}
+abstract mixin #class1 = self::Base with self::Mixin implements self::Mixin {
+  constructor •() → self::Base
     : super self::Base::•();
 }
-abstract mixin #class1 = self::Base with self::Mixin implements self::Mixin;
 static method main() → dynamic {
   new self::Sub::•().foo();
 }

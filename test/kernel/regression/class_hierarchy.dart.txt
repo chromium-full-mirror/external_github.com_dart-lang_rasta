@@ -10,7 +10,10 @@ class B extends core::Object {
   constructor •() → self::B
     : invalid-initializer;
 }
-mixin C = core::Object with core::Object;
+mixin C = core::Object with core::Object {
+  constructor •() → dynamic
+    : invalid-initializer;
+}
 class D extends core::Object {
   static factory •() → self::D
     invalid-statement;
@@ -18,6 +21,6 @@ class D extends core::Object {
 static method main() → void {
   new self::A::•();
   new self::B::•();
-  new core::Object::•();
+  new self::C::•();
   self::D::•();
 }

@@ -1459,16 +1459,6 @@ class KernelVisitor extends Object
     });
   }
 
-  // BUG(27): We're not generating constructors for mixin applications so we
-  // need to skip them when seeing 'super' in an initializer list.
-  ConstructorElement skipMixinConstructors(ConstructorElement constructor) {
-    while (constructor.enclosingClass.isMixinApplication) {
-      assert(constructor.isSynthesized);
-      constructor = constructor.definingConstructor;
-    }
-    return constructor;
-  }
-
   IrFunction buildGenerativeConstructor(
       ConstructorElement constructor,
       NodeList parameters,
@@ -1493,15 +1483,13 @@ class KernelVisitor extends Object
           }
         });
       }
-      ConstructorElement superConstructor =
-          skipMixinConstructors(constructor.definingConstructor);
-      if (kernel.isSyntheticError(superConstructor)) {
+      if (kernel.isSyntheticError(constructor.definingConstructor)) {
         constructorInitializers.add(new ir.InvalidInitializer());
       } else {
         addFieldsWithInitializers(constructor, constructorInitializers);
         constructorInitializers.add(
             new ir.SuperInitializer(
-                kernel.functionToIr(superConstructor),
+                kernel.functionToIr(constructor.definingConstructor),
                 new ir.Arguments(
                     arguments, named: named,
                     types: kernel.typeArgumentsNotImplemented())));
@@ -1563,8 +1551,7 @@ class KernelVisitor extends Object
       }
     }
     ir.Arguments argumentsNode = buildArguments(arguments);
-    ir.Constructor target = kernel.functionToIr(
-        skipMixinConstructors(constructor));
+    ir.Constructor target = kernel.functionToIr(constructor);
     return new ir.ConstructorInvocation(
         target, argumentsNode, isConst: isConst);
   }
@@ -1661,7 +1648,7 @@ class KernelVisitor extends Object
       return new ir.InvalidInitializer();
     }
     return new ir.SuperInitializer(
-        kernel.functionToIr(skipMixinConstructors(superConstructor)),
+        kernel.functionToIr(superConstructor),
         new ir.Arguments.empty());
   }
 
@@ -2406,7 +2393,7 @@ class KernelVisitor extends Object
       return new ir.InvalidInitializer();
     }
     return new ir.SuperInitializer(
-        kernel.functionToIr(skipMixinConstructors(superConstructor)),
+        kernel.functionToIr(superConstructor),
         buildArguments(arguments));
   }
 

@@ -246,19 +246,14 @@ class Kernel {
             classNode.implementedTypes.add(interface);
           }
         }
-        // BUG(27): Consider generating the constructors for mixin
-        // applications once the Dart VM is capable of dealing with it.
-        bool skipMixinConstructors = true;
-        if (!skipMixinConstructors) {
-          cls.implementation.forEachMember(
-              (ClassElement enclosingClass, Element member) {
-            if (member.isConstructor) {
-              ir.Constructor constructor = functionToIr(member);
-              classNode.constructors.add(constructor);
-              constructor.parent = classNode;
-            }
-          });
-        }
+        cls.implementation.forEachMember(
+            (ClassElement enclosingClass, Element member) {
+          if (member.isConstructor) {
+            ir.Constructor constructor = functionToIr(member);
+            classNode.constructors.add(constructor);
+            constructor.parent = classNode;
+          }
+        });
       });
       return classNode;
     });
