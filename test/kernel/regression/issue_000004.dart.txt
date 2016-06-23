@@ -13,7 +13,7 @@ static method fact4() → dynamic {
 static method fact5() → dynamic {
   dynamic f = 1;
   dynamic n;
-  for(final #t1 in <dynamic>[1, 2, 3, 4, 5]) {
+  for(final dynamic #t1 in <dynamic>[1, 2, 3, 4, 5]) {
     n = #t1;
     f = f.*(n);
   }
@@ -21,7 +21,7 @@ static method fact5() → dynamic {
 }
 static method fact6() → dynamic {
   dynamic f = 1;
-  for(final #t2 in <dynamic>[1, 2, 3, 4, 5, 6]) {
+  for(final dynamic #t2 in <dynamic>[1, 2, 3, 4, 5, 6]) {
     self::global = #t2;
     f = f.*(self::global);
   }

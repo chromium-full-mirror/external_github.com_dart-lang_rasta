@@ -6,5 +6,5 @@ class C extends core::Object {
   constructor •() → self::C
     : super core::Object::•();
 }
-static method main()
+static method main() → dynamic
   invalid-statement;

@@ -132,7 +132,10 @@ Future<Null> runTests(Rastask task) async {
   }
   if (fails.isNotEmpty) {
     exitCode = 1;
-    print("The following tests failed: $fails");
+    StringBuffer buffer = new StringBuffer();
+    buffer.writeAll(
+        fails.map((Uri uri) => relativize(Uri.base, uri, false)), "\n  ");
+    print("The following tests failed:\n  $buffer");
   }
 }
 

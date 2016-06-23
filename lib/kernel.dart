@@ -186,7 +186,7 @@ class Kernel {
           procedures: null, fields: null);
       addWork(cls, () {
         if (cls.supertype != null) {
-          classNode.superType = interfaceTypeToIr(cls.supertype);
+          classNode.supertype = interfaceTypeToIr(cls.supertype);
         }
         classNode.parent = libraryToIr(cls.library);
         if (cls.isUnnamedMixinApplication) {
@@ -235,10 +235,10 @@ class Kernel {
         if (cls.hasIncompleteHierarchy) {
           ir.InterfaceType objectType =
               interfaceTypeToIr(compiler.coreTypes.objectType);
-          classNode.superType = objectType;
+          classNode.supertype = objectType;
           classNode.mixedInType = objectType;
         } else {
-          classNode.superType = interfaceTypeToIr(cls.supertype);
+          classNode.supertype = interfaceTypeToIr(cls.supertype);
           classNode.mixedInType = interfaceTypeToIr(cls.mixinType);
           classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
           for (ir.InterfaceType interface in

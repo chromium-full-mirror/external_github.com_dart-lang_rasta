@@ -6,48 +6,48 @@ class Fisk extends core::Object {
   constructor •() → self::Fisk
     : super core::Object::•();
   method it1(dynamic x) → dynamic {
-    for(final #t1 in x) {
+    for(final dynamic #t1 in x) {
       this.key = #t1;
       core::print(this.key);
     }
-    for(final #t2 in x) {
-      let final #t3 = #t2 in invalid-expression;
+    for(final dynamic #t2 in x) {
+      let final dynamic #t3 = #t2 in invalid-expression;
       core::print(self::Fisk);
     }
-    for(final #t4 in x) {
-      let final #t5 = #t4 in invalid-expression;
+    for(final dynamic #t4 in x) {
+      let final dynamic #t5 = #t4 in invalid-expression;
       core::print(invalid-expression);
     }
-    for(final #t6 in x) {
-      let final #t7 = #t6 in invalid-expression;
+    for(final dynamic #t6 in x) {
+      let final dynamic #t7 = #t6 in invalid-expression;
       core::print(() → void);
     }
-    for(final #t8 in x) {
-      let final #t9 = #t8 in invalid-expression;
+    for(final dynamic #t8 in x) {
+      let final dynamic #t9 = #t8 in invalid-expression;
       core::print(this.key);
     }
   }
 }
 static method main(dynamic arguments) → dynamic {
   new self::Fisk::•();
-  for(final #t10 in arguments) {
-    let final #t11 = #t10 in invalid-expression;
+  for(final dynamic #t10 in arguments) {
+    let final dynamic #t11 = #t10 in invalid-expression;
     core::print(invalid-expression);
   }
-  for(final #t12 in arguments) {
-    let final #t13 = #t12 in invalid-expression;
+  for(final dynamic #t12 in arguments) {
+    let final dynamic #t13 = #t12 in invalid-expression;
     core::print(self::Fisk);
   }
-  for(final #t14 in arguments) {
-    let final #t15 = #t14 in invalid-expression;
+  for(final dynamic #t14 in arguments) {
+    let final dynamic #t15 = #t14 in invalid-expression;
     core::print(invalid-expression);
   }
-  for(final #t16 in arguments) {
-    let final #t17 = #t16 in invalid-expression;
+  for(final dynamic #t16 in arguments) {
+    let final dynamic #t17 = #t16 in invalid-expression;
     core::print(() → void);
   }
-  for(final #t18 in arguments) {
-    let final #t19 = #t18 in invalid-expression;
+  for(final dynamic #t18 in arguments) {
+    let final dynamic #t19 = #t18 in invalid-expression;
     core::print(invalid-expression);
   }
 }

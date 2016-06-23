@@ -2141,7 +2141,7 @@ class KernelVisitor extends Object
         <ir.VariableDeclaration>[];
     List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
     int requiredParameterCount = 0;
-    ir.DartType returnType = null;
+    ir.DartType returnType = const ir.DynamicType();
     if (function.hasFunctionSignature) {
       FunctionSignature signature = function.functionSignature;
       requiredParameterCount = signature.requiredParameterCount;
@@ -2210,17 +2210,8 @@ class KernelVisitor extends Object
 
   ir.ProcedureKind computeInstanceMethodKind(MethodElement method) {
     assert(method.isFunction);
-    if (method.isOperator) {
-      if (method.name == '[]') {
-        return ir.ProcedureKind.IndexGetter;
-      } else if (method.name == '[]=') {
-        return ir.ProcedureKind.IndexSetter;
-      } else {
-        return ir.ProcedureKind.Operator;
-      }
-    } else {
-      return ir.ProcedureKind.Method;
-    }
+    return method.isOperator ?
+        ir.ProcedureKind.Operator : ir.ProcedureKind.Method;
   }
 
   @override
