@@ -6,6 +6,6 @@ static method main() → dynamic {
     break;
   }
   finally {
-    break;
+    invalid-statement;
   }
 }

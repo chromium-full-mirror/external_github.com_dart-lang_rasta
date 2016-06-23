@@ -414,6 +414,7 @@ class KernelVisitor extends Object
       ir.Statement statement,
       Node node,
       JumpTarget jumpTarget) {
+    assert(node.isValidBreakTarget());
     assert(jumpTarget == elements.getTargetDefinition(node));
     if (jumpTarget != null && jumpTarget.isBreakTarget) {
       ir.LabeledStatement breakTarget = getBreakTarget(jumpTarget);
@@ -429,6 +430,7 @@ class KernelVisitor extends Object
       ir.Statement statement,
       Node node,
       JumpTarget jumpTarget) {
+    assert(node.isValidContinueTarget());
     assert(jumpTarget == elements.getTargetDefinition(node));
     if (jumpTarget != null && jumpTarget.isContinueTarget) {
       ir.LabeledStatement continueTarget = getContinueTarget(jumpTarget);
@@ -438,15 +440,6 @@ class KernelVisitor extends Object
     } else {
       return statement;
     }
-  }
-
-  ir.Statement buildContinueAndBreakTarget(
-      ir.Statement statement,
-      Node node,
-      JumpTarget jumpTarget) {
-    return buildContinueTarget(
-        buildBreakTarget(statement, node, jumpTarget),
-        node, jumpTarget);
   }
 
   ir.Statement buildForInCommon(
@@ -571,7 +564,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitBlock(Block node) {
-    return buildContinueAndBreakTarget(
+    return buildBreakTarget(
         buildStatementInBlock(node), node, elements.getTargetDefinition(node));
   }
 
@@ -607,7 +600,7 @@ class KernelVisitor extends Object
   @override
   ir.Statement visitBreakStatement(BreakStatement node) {
     JumpTarget target = elements.getTargetOf(node);
-    if (target == null) {
+    if (target == null || !target.statement.isValidBreakTarget()) {
       // This is a break in an invalid position.
       return new ir.InvalidStatement();
     }
@@ -733,21 +726,14 @@ class KernelVisitor extends Object
   @override
   ir.Statement visitContinueStatement(ContinueStatement node) {
     JumpTarget target = elements.getTargetOf(node);
-    if (target == null) {
+    if (target == null || !target.statement.isValidContinueTarget()) {
       // This is a continue in an invalid position.
       return new ir.InvalidStatement();
     }
     ir.SwitchCase switchCase = getContinueSwitchTarget(target);
-    ir.Statement result;
-    if (switchCase == null) {
-      result = new ir.BreakStatement(getContinueTarget(target));
-    } else {
-      result = new ir.ContinueSwitchStatement(switchCase);
-    }
-    // A continue target can refer to itself in the degenerate case: `label:
-    // continue label;`.
-    return buildContinueTarget(
-        result, node, elements.getTargetDefinition(node));
+    return (switchCase == null)
+        ? new ir.BreakStatement(getContinueTarget(target))
+        : new ir.ContinueSwitchStatement(switchCase);
   }
 
   @override
@@ -820,7 +806,7 @@ class KernelVisitor extends Object
 
   @override
   ir.Statement visitIf(If node) {
-    return buildContinueAndBreakTarget(
+    return buildBreakTarget(
         new ir.IfStatement(
             visitForValue(node.condition),
             buildStatementInBlock(node.thenPart),
@@ -851,14 +837,14 @@ class KernelVisitor extends Object
     JumpTarget jumpTarget = elements.getTargetDefinition(node.statement);
     if (jumpTarget != null) {
       if (jumpTarget.isBreakTarget) {
-        ir.LabeledStatement target = getBreakTarget(jumpTarget);
-        if (target != result && target.parent == null) {
+        ir.LabeledStatement target = breakTargets[jumpTarget];
+        if (target != null && target != result && target.parent == null) {
           internalError(node, "no parent");
         }
       }
       if (jumpTarget.isContinueTarget) {
-        ir.LabeledStatement target = getContinueTarget(jumpTarget);
-        if (target != result && target.parent == null) {
+        ir.LabeledStatement target = continueTargets[jumpTarget];
+        if (target != null && target != result && target.parent == null) {
           internalError(node, "no parent");
         }
       }
@@ -1048,7 +1034,7 @@ class KernelVisitor extends Object
     }
     assert(!casesIterator.moveNext());
 
-    return buildContinueAndBreakTarget(
+    return buildBreakTarget(
         new ir.SwitchStatement(expression, cases),
         node, elements.getTargetDefinition(node));
   }
@@ -1077,7 +1063,7 @@ class KernelVisitor extends Object
       result =
           new ir.TryFinally(result, buildStatementInBlock(node.finallyBlock));
     }
-    return buildContinueAndBreakTarget(
+    return buildBreakTarget(
         result, node, elements.getTargetDefinition(node));
   }
 
