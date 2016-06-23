@@ -161,7 +161,7 @@ Future<Expectation> checkAgainstExpectations(ir.Node node) async {
     }
   } else if (generateExpectations) {
     await openWrite(expectedFile.uri, (IOSink sink) {
-      sink.write("$buffer".trim());
+      sink.writeln("$buffer".trim());
     });
     print("Generated ${expectedFile.uri}");
     return Expectation.FAIL;
