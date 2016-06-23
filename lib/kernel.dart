@@ -422,13 +422,17 @@ class Kernel {
       compiler.analyzeElement(field);
       compiler.enqueuer.resolution.emptyDeferredTaskQueue();
       field = field.implementation;
+      ir.DartType type = field.isMalformed
+          ? const ir.InvalidType()
+          : typeToIr(field.type);
       ir.Field fieldNode = new ir.Field(
-          nameToIrName(field.memberName), type: typeToIr(field.type),
-          initializer: null, isFinal: field.isFinal,
-          isStatic: field.isStatic || field.isTopLevel, isConst: field.isConst);
+          nameToIrName(field.memberName), type: type, initializer: null,
+          isFinal: field.isFinal, isStatic: field.isStatic || field.isTopLevel,
+          isConst: field.isConst);
       addWork(field, () {
         setParent(fieldNode, field);
-        if (!field.isInstanceMember && field.initializer != null) {
+        if (!field.isMalformed && !field.isInstanceMember &&
+            field.initializer != null) {
           KernelVisitor visitor =
               new KernelVisitor(field, field.treeElements, this);
           fieldNode.initializer = visitor.buildInitializer()

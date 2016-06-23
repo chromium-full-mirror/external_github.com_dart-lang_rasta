@@ -2987,7 +2987,9 @@ class KernelVisitor extends Object
   ir.Expression buildInitializer() {
     return kernel.compiler.reporter.withCurrentElement(currentElement, () {
       FieldElement field = currentElement;
-      return visitForValue(field.initializer);
+      return field.isMalformed
+          ? new ir.InvalidExpression()
+          : visitForValue(field.initializer);
     });
   }
 }
