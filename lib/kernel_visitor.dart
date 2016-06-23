@@ -960,9 +960,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  visitRedirectingFactoryBody(RedirectingFactoryBody node) {
-    // Not implemented yet.
-    return internalError(node, "RedirectingFactoryBody");
+  ir.InvalidStatement visitRedirectingFactoryBody(RedirectingFactoryBody node) {
+    // Not implemented yet, only serves to recover from parser errors as
+    // dart2js is lenient in parsing something that looks like a redirecting
+    // factory method.
+    return new ir.InvalidStatement();
   }
 
   @override

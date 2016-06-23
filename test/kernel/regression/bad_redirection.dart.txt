@@ -4,7 +4,8 @@ import "dart:core" as core;
 
 class Foo extends core::Object {
   constructor •() → dynamic
-    : invalid-initializer;
+    : super core::Object::•()
+    invalid-statement;
 }
 class Bar extends self::Foo {
   static factory •() → self::Bar
