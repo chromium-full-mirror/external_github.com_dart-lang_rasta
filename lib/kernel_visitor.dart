@@ -800,7 +800,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.VariableDeclaration visitFunctionDeclaration(FunctionDeclaration node) {
+  ir.FunctionDeclaration visitFunctionDeclaration(FunctionDeclaration node) {
     return node.function.accept(this);
   }
 
@@ -1786,19 +1786,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.VariableDeclaration visitLocalFunctionDeclaration(
+  ir.FunctionDeclaration visitLocalFunctionDeclaration(
       FunctionExpression node,
       LocalFunctionElement localFunction,
       NodeList parameters,
       Node body,
       _) {
     return withCurrentElement(localFunction, () {
-      ir.VariableDeclaration local = getLocal(localFunction);
-      ir.FunctionExpression expression =
-          new ir.FunctionExpression(buildFunctionNode(localFunction, body));
-      local.initializer = expression;
-      expression.parent = local;
-      return local;
+      ir.VariableDeclaration local = getLocal(localFunction)
+          ..isFinal = true;
+      return new ir.FunctionDeclaration(
+          local, buildFunctionNode(localFunction, body));
     });
   }
 
