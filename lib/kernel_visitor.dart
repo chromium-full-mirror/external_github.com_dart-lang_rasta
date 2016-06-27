@@ -1452,7 +1452,7 @@ class KernelVisitor extends Object
       NodeList parameters,
       Node body) {
     List<ir.Initializer> constructorInitializers = <ir.Initializer>[];
-    if (constructor.enclosingClass.hasIncompleteHierarchy) {
+    if (kernel.hasHierarchyProblem(constructor.enclosingClass)) {
       constructorInitializers.add(new ir.InvalidInitializer());
     } else if (constructor.isSynthesized) {
       List<ir.Expression> arguments = const <ir.Expression>[];

@@ -232,7 +232,7 @@ class Kernel {
         if (cls.isUnnamedMixinApplication) {
           classNode.enclosingLibrary.addClass(classNode);
         }
-        if (cls.hasIncompleteHierarchy) {
+        if (hasHierarchyProblem(cls)) {
           ir.InterfaceType objectType =
               interfaceTypeToIr(compiler.coreTypes.objectType);
           classNode.supertype = objectType;
@@ -257,6 +257,25 @@ class Kernel {
       });
       return classNode;
     });
+  }
+
+  /// Returns true if [cls] has a the same class mixed in more than once in on
+  /// of its superclasses.
+  bool hasDuplicatedMixin(ClassElement cls) {
+    Set<ClassElement> mixins = new Set<ClassElement>();
+    while (cls != null) {
+      ClassElement mixin = (cls is MixinApplicationElement) ? cls.mixin : cls;
+      if (!mixins.add(mixin)) return true;
+      cls = cls.superclass;
+    }
+    return false;
+  }
+
+  bool hasHierarchyProblem(ClassElement cls) {
+    if (cls.hasIncompleteHierarchy) return true;
+    // We currently cannot handle repeated mixins in superclasses.
+    // See issue #66.
+    return cls.isMixinApplication && hasDuplicatedMixin(cls);
   }
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
