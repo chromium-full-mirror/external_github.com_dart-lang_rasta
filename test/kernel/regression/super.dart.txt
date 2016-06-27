@@ -50,10 +50,10 @@ class C extends self::B {
     self::use(super.self::A::unary-());
     invalid-expression;
     self::use(invalid-expression);
-    self::A::==(87);
-    self::use(self::A::==(87));
-    !self::A::==(87);
-    self::use(!self::A::==(87));
+    super.self::A::==(87);
+    self::use(super.self::A::==(87));
+    !super.self::A::==(87);
+    self::use(!super.self::A::==(87));
     super.self::A::a;
     self::use(super.self::A::a);
     super.self::B::b;

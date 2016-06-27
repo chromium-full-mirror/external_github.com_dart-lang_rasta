@@ -2383,18 +2383,18 @@ class KernelVisitor extends Object
         buildArguments(arguments));
   }
 
-  ir.StaticInvocation buildSuperEquals(
+  ir.SuperMethodInvocation buildSuperEquals(
       FunctionElement function,
       Node argument) {
-    return new ir.StaticInvocation(
+    return new ir.SuperMethodInvocation(
         kernel.functionToIr(function),
         new ir.Arguments(
-            <ir.Expression>[visitForValue(argument)], types: null, named: null),
-        isConst: false);
+            <ir.Expression>[visitForValue(argument)],
+            types: null, named: null));
   }
 
   @override
-  ir.StaticInvocation visitSuperEquals(
+  ir.SuperMethodInvocation visitSuperEquals(
       Send node, FunctionElement function, Node argument, _) {
     return buildSuperEquals(function, argument);
   }
