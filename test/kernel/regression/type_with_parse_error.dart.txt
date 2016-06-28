@@ -1,12 +1,13 @@
 library;
 import self as self;
 import "dart:core" as core;
+import "dart:_internal" as _in;
 
 class A extends core::Object {
   constructor •() → self::A
     : super core::Object::•();
   method foo() → dynamic {
-    invalid-expression;
+    _in::_dynamicError(0).call("'B' is not a type.");
   }
 }
 class B extends core::Object {
@@ -14,5 +15,5 @@ class B extends core::Object {
     : super core::Object::•();
 }
 static method main() → dynamic {
-  invalid-expression;
+  _in::_dynamicError(0).call("'B' is not a type.");
 }

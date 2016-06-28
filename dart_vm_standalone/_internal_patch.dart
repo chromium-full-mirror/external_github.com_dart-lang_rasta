@@ -11,3 +11,13 @@ part '../third_party/dart-sdk/runtime/lib/internal_patch.dart';
 part '../third_party/dart-sdk/runtime/lib/print_patch.dart';
 part '../third_party/dart-sdk/runtime/lib/symbol_patch.dart';
 part '_internal/class_id.dart';
+
+_dynamicError(int errorKind) {
+  switch (errorKind) {
+    case 0:
+      return (String message) => new TypeError();
+
+    default:
+      throw "Unknown error";
+  }
+}

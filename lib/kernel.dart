@@ -591,4 +591,12 @@ class Kernel {
     }
     return compiler.isInternalStateConsistent;
   }
+
+  ir.Procedure getDynamicErrorHandler() {
+    LibraryElement internal =
+        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:_internal"));
+    FunctionElement function =
+        internal.implementation.localLookup("_dynamicError");
+    return functionToIr(function);
+  }
 }

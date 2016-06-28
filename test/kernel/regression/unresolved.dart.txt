@@ -1,0 +1,7 @@
+library;
+import self as self;
+import "dart:_internal" as _in;
+
+static method main() → dynamic {
+  _in::_dynamicError(0).call("Cannot resolve 'Missing'.");
+}

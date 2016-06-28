@@ -18,6 +18,7 @@ import "package:compiler/src/universe/call_structure.dart" show
 import "package:compiler/src/elements/elements.dart" show
     ConstructorElement,
     Element,
+    ErroneousElement,
     MethodElement;
 
 import "package:compiler/src/dart_types.dart" show
@@ -33,17 +34,113 @@ import "package:compiler/src/tree/tree.dart" show
 import "package:compiler/src/universe/selector.dart" show
     Selector;
 
+import "kernel.dart" show
+    Kernel;
+
+enum ErrorKind {
+  /// See [SemanticSendVisitor.visitUnresolvedClassConstructorInvoke].
+  ///
+  /// A "dynamic error occurs".
+  ///
+  /// Arguments are `(String message)`.
+  unresolvedClassConstructorInvoke,
+
+  unresolvedCompound,
+  unresolvedConstructorInvoke,
+  unresolvedGet,
+  unresolvedInvoke,
+  unresolvedPostfix,
+  unresolvedPrefix,
+  unresolvedRedirectingFactoryConstructorInvoke,
+  unresolvedSet,
+  unresolvedSetIfNull,
+  unresolvedStaticGetterCompound,
+  unresolvedStaticGetterPostfix,
+  unresolvedStaticGetterPrefix,
+  unresolvedStaticGetterSetIfNull,
+  unresolvedStaticSetterCompound,
+  unresolvedStaticSetterPostfix,
+  unresolvedStaticSetterPrefix,
+  unresolvedStaticSetterSetIfNull,
+  unresolvedSuperBinary,
+  unresolvedSuperCompound,
+  unresolvedSuperCompoundIndexSet,
+  unresolvedSuperGet,
+  unresolvedSuperGetterCompound,
+  unresolvedSuperGetterCompoundIndexSet,
+  unresolvedSuperGetterIndexPostfix,
+  unresolvedSuperGetterIndexPrefix,
+  unresolvedSuperGetterPostfix,
+  unresolvedSuperGetterPrefix,
+  unresolvedSuperGetterSetIfNull,
+  unresolvedSuperIndex,
+  unresolvedSuperIndexPostfix,
+  unresolvedSuperIndexPrefix,
+  unresolvedSuperIndexSet,
+  unresolvedSuperInvoke,
+  unresolvedSuperPostfix,
+  unresolvedSuperPrefix,
+  unresolvedSuperSetIfNull,
+  unresolvedSuperSetterCompound,
+  unresolvedSuperSetterCompoundIndexSet,
+  unresolvedSuperSetterIndexPostfix,
+  unresolvedSuperSetterIndexPrefix,
+  unresolvedSuperSetterPostfix,
+  unresolvedSuperSetterPrefix,
+  unresolvedSuperSetterSetIfNull,
+  unresolvedSuperUnary,
+  unresolvedTopLevelGetterCompound,
+  unresolvedTopLevelGetterPostfix,
+  unresolvedTopLevelGetterPrefix,
+  unresolvedTopLevelGetterSetIfNull,
+  unresolvedTopLevelSetterCompound,
+  unresolvedTopLevelSetterPostfix,
+  unresolvedTopLevelSetterPrefix,
+  unresolvedTopLevelSetterSetIfNull,
+  unresolvedSuperGetterIndexSetIfNull,
+  unresolvedSuperSetterIndexSetIfNull,
+  unresolvedSuperIndexSetIfNull,
+  unresolvedSuperSet,
+}
+
+ir.Arguments buildStringArgument(String argument) {
+  return new ir.Arguments(<ir.Expression>[new ir.StringLiteral(argument)]);
+}
+
+ir.Arguments buildIntArgument(int argument) {
+  return new ir.Arguments(<ir.Expression>[new ir.IntLiteral(argument)]);
+}
+
+class ErrorExpression extends ir.InvalidExpression {
+  final ErrorKind kind;
+  final ir.Arguments arguments;
+
+  ErrorExpression(this.kind, this.arguments);
+
+  ir.Expression toDynamicError(Kernel kernel) {
+    return new ir.MethodInvocation(
+        new ir.StaticInvocation(
+            kernel.getDynamicErrorHandler(), buildIntArgument(kind.index)),
+        new ir.Name("call"), arguments);
+  }
+}
+
 abstract class RastaUnresolved {
+  Kernel get kernel;
+
+  // TODO(ahe): Delete this method.
   ir.InvalidExpression handleUnresolved(Node node);
 
-  ir.InvalidExpression visitUnresolvedClassConstructorInvoke(
+  ir.Expression visitUnresolvedClassConstructorInvoke(
       NewExpression node,
-      Element element,
+      ErroneousElement element,
       DartType type,
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnresolved(node);
+    return new ErrorExpression(
+        ErrorKind.unresolvedClassConstructorInvoke,
+        buildStringArgument(element.message)).toDynamicError(kernel);
   }
 
   ir.InvalidExpression visitUnresolvedCompound(
