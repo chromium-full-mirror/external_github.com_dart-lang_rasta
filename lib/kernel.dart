@@ -218,8 +218,8 @@ class Kernel {
     cls = cls.declaration;
     return classes.putIfAbsent(cls, () {
       cls.ensureResolved(compiler.resolution);
-      InterfaceType supertype = null; // Computed and set below.
-      InterfaceType mixedInType = null; // Computed and set below.
+      ir.InterfaceType supertype = null; // Computed and set below.
+      ir.InterfaceType mixedInType = null; // Computed and set below.
       String name = cls.isUnnamedMixinApplication ? null : cls.name;
       ir.MixinClass classNode = new ir.MixinClass(
           supertype, mixedInType, name: name,

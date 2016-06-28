@@ -1,0 +1,10 @@
+analyzer:
+  exclude:
+    - 'third_party/charcode/**'
+    - 'third_party/collection/**'
+    - 'third_party/dart-sdk/**'
+    - 'third_party/dart2js_info/**'
+    - 'third_party/package_config/**'
+    - 'third_party/path/**'
+    - 'third_party/pub_semver/**'
+    - 'dart_vm_standalone/**'
