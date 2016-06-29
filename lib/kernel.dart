@@ -17,6 +17,7 @@ import 'package:kernel/checks.dart' show
 
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
+    ConstructorElement,
     Element,
     ExportElement,
     FieldElement,
@@ -76,6 +77,9 @@ class Kernel {
   final Map<FieldElement, ir.Field> fields = <FieldElement, ir.Field>{};
 
   final Map<TypeVariableElement, ir.TypeParameter> typeParameters =
+      <TypeVariableElement, ir.TypeParameter>{};
+
+  final Map<TypeVariableElement, ir.TypeParameter> factoryTypeParameters =
       <TypeVariableElement, ir.TypeParameter>{};
 
   final Set<ir.TreeNode> checkedNodes = new Set<ir.TreeNode>();
@@ -288,11 +292,6 @@ class Kernel {
   }
 
   // TODO(ahe): Remove this method when dart2js support generic type arguments.
-  List<ir.DartType> typeArgumentsNotImplemented() {
-    return const <ir.DartType>[];
-  }
-
-  // TODO(ahe): Remove this method when dart2js support generic type arguments.
   List<ir.TypeParameter> typeParametersNotImplemented() {
     return const <ir.TypeParameter>[];
   }
@@ -407,6 +406,7 @@ class Kernel {
         setParent(member, function);
         KernelVisitor visitor =
             new KernelVisitor(function, function.treeElements, this);
+        beginFactoryScope(function);
         IrFunction irFunction = visitor.buildFunction();
         // TODO(ahe): Add addFunction/set function to [ir.Procedure].
         irFunction.node.parent = member;
@@ -423,6 +423,7 @@ class Kernel {
           procedure.function = irFunction.node;
           procedure.kind = irFunction.kind;
         }
+        endFactoryScope(function);
         assert(() {
           visitor.locals.forEach(checkMember);
           return true;
@@ -430,6 +431,38 @@ class Kernel {
       });
       return member;
     });
+  }
+
+  /// Adds the type parameters of the enclosing class of [function] to
+  /// [factoryTypeParameters]. This serves as a local scope for type variables
+  /// resolved inside the factory.
+  ///
+  /// This method solves the problem that a factory method really is a generic
+  /// method that has its own type parameters, one for each type parameter in
+  /// the enclosing class.
+  void beginFactoryScope(FunctionElement function) {
+    assert(factoryTypeParameters.isEmpty);
+    if (!function.isFactoryConstructor) return;
+    ClassElement cls = function.enclosingClass;
+    for (DartType type in cls.typeVariables) {
+      if (type.isTypeVariable) {
+        TypeVariableElement variable = type.element;
+        factoryTypeParameters[variable] =
+            new ir.TypeParameter(variable.name, null);
+      }
+    }
+    for (DartType type in cls.typeVariables) {
+      if (type.isTypeVariable) {
+        TypeVariableElement variable = type.element;
+        factoryTypeParameters[variable].bound =
+            typeToIr(variable.bound);
+      }
+    }
+  }
+
+  /// Ends the local scope started by [beginFactoryScope].
+  void endFactoryScope(FunctionElement function) {
+    factoryTypeParameters.clear();
   }
 
   ir.Field fieldToIr(FieldElement field) {
@@ -464,6 +497,8 @@ class Kernel {
 
   ir.TypeParameter typeVariableToIr(TypeVariableElement variable) {
     variable = variable.declaration;
+    ir.TypeParameter parameter = factoryTypeParameters[variable];
+    if (parameter != null) return parameter;
     return typeParameters.putIfAbsent(variable, () {
       ir.TypeParameter parameter = new ir.TypeParameter(variable.name, null);
       addWork(variable, () {
@@ -508,6 +543,22 @@ class Kernel {
 
   forEachLibraryElement(f(LibraryElement library)) {
     return compiler.libraryLoader.libraries.forEach(f);
+  }
+
+  ConstructorTarget computeEffectiveTarget(
+      ConstructorElement constructor,
+      DartType type) {
+    Set<ConstructorElement> seen = new Set<ConstructorElement>();
+    functionToIr(constructor);
+    while (constructor != constructor.effectiveTarget) {
+      type = constructor.computeEffectiveTargetType(type);
+      if (constructor.isGenerativeConstructor) break;
+      if (!seen.add(constructor)) break;
+      constructor = constructor.effectiveTarget;
+      if (isSyntheticError(constructor)) break;
+      functionToIr(constructor);
+    }
+    return new ConstructorTarget(constructor, type);
   }
 
   /// Compute all the dependencies on the library with [uri] (including the
@@ -599,4 +650,13 @@ class Kernel {
         internal.implementation.localLookup("_dynamicError");
     return functionToIr(function);
   }
+}
+
+class ConstructorTarget {
+  final ConstructorElement element;
+  final DartType type;
+
+  ConstructorTarget(this.element, this.type);
+
+  String toString() => "ConstructorTarget($element, $type)";
 }

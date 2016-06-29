@@ -173,6 +173,7 @@ import 'error.dart' show
     RastaError;
 
 import 'kernel.dart' show
+    ConstructorTarget,
     Kernel;
 
 /// Translates dart2js AST nodes [Node] into Kernel IR [ir.TreeNode].
@@ -1144,27 +1145,37 @@ class KernelVisitor extends Object
     return buildBinaryOperator(left, operator.selectorName, right);
   }
 
-  ir.Expression buildConstConstructorInvoke(NewExpression node) {
-    // TODO(ahe): Should SemanticVisitor provide target and effectiveTarget?
-    ConstructorElement target = elements[node.send];
-    ConstructorElement effectiveTarget = target.effectiveTarget;
+  ir.Expression buildConstructorInvoke(
+      NewExpression node,
+      {bool isConst}) {
+    ConstructorElement constructor = elements[node.send];
+    ConstructorTarget target =
+        kernel.computeEffectiveTarget(constructor, elements.getType(node));
     NodeList arguments = node.send.argumentsNode;
-    if (kernel.isSyntheticError(effectiveTarget)) {
-      return new ir.InvalidExpression();
-    } else if (effectiveTarget.isGenerativeConstructor) {
-      return buildGenerativeConstructorInvoke(
-          effectiveTarget, arguments, isConst: true);
-    } else {
-      return buildStaticInvoke(effectiveTarget, arguments, isConst: true);
+    if (kernel.isSyntheticError(target.element)) {
+      return new ir.MethodInvocation(
+          new ir.InvalidExpression(), kernel.irName("call", currentElement),
+          buildArguments(arguments));
     }
+    ir.InvocationExpression invoke = target.element.isGenerativeConstructor
+        ? buildGenerativeConstructorInvoke(
+            target.element, arguments, isConst: isConst)
+        : buildStaticInvoke(target.element, arguments, isConst: isConst);
+    if (target.type.isInterfaceType) {
+      InterfaceType type = target.type;
+      if (type.isGeneric) {
+        invoke.arguments.types.addAll(kernel.typesToIr(type.typeArguments));
+      }
+    }
+    return invoke;
   }
 
   @override
-  ir.Expression visitBoolFromEnvironmentConstructorInvoke(
+  ir.InvocationExpression visitBoolFromEnvironmentConstructorInvoke(
       NewExpression node,
       BoolFromEnvironmentConstantExpression constant,
       _) {
-    return buildConstConstructorInvoke(node);
+    return buildConstructorInvoke(node, isConst: true);
   }
 
   ir.TypeLiteral buildTypeLiteral(TypeConstantExpression constant) {
@@ -1228,11 +1239,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitConstConstructorInvoke(
+  ir.InvocationExpression visitConstConstructorInvoke(
       NewExpression node,
       ConstructedConstantExpression constant,
       _) {
-    return buildConstConstructorInvoke(node);
+    return buildConstructorInvoke(node, isConst: true);
   }
 
   @override
@@ -1385,14 +1396,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.StaticInvocation visitFactoryConstructorInvoke(
+  ir.InvocationExpression visitFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildStaticInvoke(constructor, arguments, isConst: false);
+    return buildConstructorInvoke(node, isConst: false);
   }
 
   @override
@@ -1479,8 +1490,7 @@ class KernelVisitor extends Object
             new ir.SuperInitializer(
                 kernel.functionToIr(constructor.definingConstructor),
                 new ir.Arguments(
-                    arguments, named: named,
-                    types: kernel.typeArgumentsNotImplemented())));
+                    arguments, named: named, types: null)));
       }
     } else {
       addFieldsWithInitializers(constructor, constructorInitializers);
@@ -1545,15 +1555,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ConstructorInvocation visitGenerativeConstructorInvoke(
+  ir.InvocationExpression visitGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildGenerativeConstructorInvoke(
-        constructor, arguments, isConst: false);
+    return buildConstructorInvoke(node, isConst: false);
   }
 
   Accessor buildNullAwarePropertyAccessor(Node receiver, Name name) {
@@ -1740,11 +1749,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitIntFromEnvironmentConstructorInvoke(
+  ir.InvocationExpression visitIntFromEnvironmentConstructorInvoke(
       NewExpression node,
       IntFromEnvironmentConstantExpression constant,
       _) {
-    return buildConstConstructorInvoke(node);
+    return buildConstructorInvoke(node, isConst: true);
   }
 
   ir.IsExpression buildIs(Node expression, DartType type) {
@@ -1992,7 +2001,7 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitRedirectingFactoryConstructorInvoke(
+  ir.InvocationExpression visitRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
@@ -2001,12 +2010,7 @@ class KernelVisitor extends Object
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    if (effectiveTarget.isGenerativeConstructor) {
-      return buildGenerativeConstructorInvoke(
-          effectiveTarget, arguments, isConst: false);
-    } else {
-      return buildStaticInvoke(effectiveTarget, arguments, isConst: false);
-    }
+    return buildConstructorInvoke(node, isConst: false);
   }
 
   @override
@@ -2021,15 +2025,14 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.ConstructorInvocation visitRedirectingGenerativeConstructorInvoke(
+  ir.InvocationExpression visitRedirectingGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return buildGenerativeConstructorInvoke(
-        constructor, arguments, isConst: false);
+    return buildConstructorInvoke(node, isConst: false);
   }
 
   @override
@@ -2108,8 +2111,8 @@ class KernelVisitor extends Object
   }
 
   ir.FunctionNode buildFunctionNode(FunctionElement function, Node bodyNode) {
-    ir.Statement body = (bodyNode == null)
-        ? null : buildStatementInBlock(bodyNode);
+    List<ir.TypeParameter> typeParameters =
+        kernel.typeParametersNotImplemented();
     List<ir.VariableDeclaration> positionalParameters =
         <ir.VariableDeclaration>[];
     List<ir.VariableDeclaration> namedParameters = <ir.VariableDeclaration>[];
@@ -2136,6 +2139,15 @@ class KernelVisitor extends Object
         }
       });
       returnType = typeToIrHack(signature.type.returnType);
+      if (function.isFactoryConstructor) {
+        InterfaceType type = function.enclosingClass.thisType;
+        if (type.isGeneric) {
+          typeParameters = new List<ir.TypeParameter>();
+          for (DartType parameter in type.typeArguments) {
+            typeParameters.add(kernel.typeVariableToIr(parameter.element));
+          }
+        }
+      }
     }
     ir.AsyncMarker asyncMarker = ir.AsyncMarker.Sync;
     if (!kernel.isSyntheticError(function)) {
@@ -2162,10 +2174,11 @@ class KernelVisitor extends Object
           break;
       }
     }
+    ir.Statement body = (bodyNode == null)
+        ? null : buildStatementInBlock(bodyNode);
     return new ir.FunctionNode(
         body, asyncMarker: asyncMarker,
-        returnType: returnType,
-        typeParameters: kernel.typeParametersNotImplemented(),
+        returnType: returnType, typeParameters: typeParameters,
         positionalParameters: positionalParameters,
         namedParameters: namedParameters,
         requiredParameterCount: requiredParameterCount);
@@ -2332,11 +2345,11 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.Expression visitStringFromEnvironmentConstructorInvoke(
+  ir.InvocationExpression visitStringFromEnvironmentConstructorInvoke(
       NewExpression node,
       StringFromEnvironmentConstantExpression constant,
       _) {
-    return buildConstConstructorInvoke(node);
+    return buildConstructorInvoke(node, isConst: true);
   }
 
   @override
@@ -2769,7 +2782,7 @@ class KernelVisitor extends Object
       }
     }
     return new ir.Arguments(
-        positional, named: named, types: kernel.typeArgumentsNotImplemented());
+        positional, named: named, types: null);
   }
 
   @override

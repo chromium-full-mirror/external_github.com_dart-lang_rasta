@@ -93,5 +93,5 @@ static method use(dynamic x) → dynamic {
     throw "Shouldn't happen";
 }
 static method main() → dynamic {
-  new self::C::•().test();
+  new self::C::•<dynamic>().test();
 }
