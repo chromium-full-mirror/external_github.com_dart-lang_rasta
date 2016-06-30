@@ -7,9 +7,6 @@ library rasta.rastask;
 import 'dart:async' show
     Future;
 
-import 'dart:isolate' show
-    Isolate;
-
 import 'dart:io' show
     File,
     IOSink;
@@ -150,15 +147,11 @@ abstract class Rastask extends CompilerTask {
   static Future<Rastask> create(
       Stopwatch wallClock,
       List<String> arguments) async {
-    Options options = new OptionParser(arguments, Uri.base).parse();
+    Options options = await new OptionParser(arguments, Uri.base).parse();
     List<String> compilerOptions =
         options.isVerbose ? <String>['--verbose'] : <String>[];
-    Uri script = await Isolate.resolvePackageUri(
-        Uri.parse("package:rasta/src/rastak.dart"));
-    Uri targetSpecification = Uri.base.resolveUri(script)
-        .resolve("../../dart_vm_standalone.json");
     IoCompilerFactory factory = new IoCompilerFactory(
-        targetSpecification, compilerOptions, <String, dynamic>{});
+        options.targetSpecification, compilerOptions, <String, dynamic>{});
     (await factory.diagnostics)
         ..verbose = options.isVerbose
         ..showWarnings = true

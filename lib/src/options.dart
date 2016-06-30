@@ -4,6 +4,12 @@
 
 library rasta.options;
 
+import 'dart:async' show
+    Future;
+
+import 'dart:isolate' show
+    Isolate;
+
 const Map<String, OptionDescription> descriptions =
     const <String, OptionDescription>{
     "--library": const OptionDescription(Option.library),
@@ -18,11 +24,14 @@ const Map<String, OptionDescription> descriptions =
     "--batch": const OptionDescription(Option.batch),
 
     "--pattern": const OptionDescription(Option.pattern, hasArgument: true),
+
+    "--target": const OptionDescription(Option.target, hasArgument: true),
 };
 
 const List<Option> supportedBatchOptions = const <Option>[
     Option.batch,
     Option.verbose,
+    Option.target,
 
     // TODO(ahe): These options shouldn't be supported in batch server
     // mode. See run_batch.dart.
@@ -51,6 +60,9 @@ enum Option {
   /// `--pattern`.
   pattern,
 
+  /// `--target`.
+  target,
+
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
 
@@ -76,14 +88,15 @@ class Options {
   final Uri input;
   final Uri output;
   final Uri dependenciesFile;
+  final Uri targetSpecification;
   final bool generateLibrary;
   final bool isVerbose;
   final bool isBatch;
   final Pattern pattern;
 
   Options(this.input, this.output,
-          {this.dependenciesFile, this.generateLibrary, this.isVerbose,
-           this.isBatch, this.pattern});
+          {this.dependenciesFile, this.targetSpecification,
+           this.generateLibrary, this.isVerbose, this.isBatch, this.pattern});
 }
 
 class OptionParser {
@@ -93,7 +106,7 @@ class OptionParser {
   OptionParser(Iterable<String> arguments, this.base)
       : arguments = arguments.iterator;
 
-  Options parse() {
+  Future<Options> parse() async {
     List<OptionValue> values = parseValues();
 
     // Null means not specified.
@@ -101,6 +114,7 @@ class OptionParser {
     bool isVerbose;
     bool isBatch;
     Uri dependenciesFile;
+    Uri targetSpecification;
     List<String> uris = <String>[];
     Pattern pattern;
     for (OptionValue value in values) {
@@ -121,6 +135,11 @@ class OptionParser {
           dependenciesFile = Uri.base.resolveUri(new Uri.file(value.argument));
           break;
 
+        case Option.target:
+          targetSpecification =
+              Uri.base.resolveUri(new Uri.file(value.argument));
+          break;
+
         case Option.batch:
           isBatch = true;
           break;
@@ -136,6 +155,12 @@ class OptionParser {
         case Option.argument:
           uris.add(value.argument);
       }
+    }
+    if (targetSpecification == null) {
+      Uri script = await Isolate.resolvePackageUri(
+          Uri.parse("package:rasta/src/options.dart"));
+      targetSpecification =
+          Uri.base.resolveUri(script).resolve("../../dart_vm_standalone.json");
     }
     Uri input;
     Uri output;
@@ -182,6 +207,7 @@ class OptionParser {
     }
     return new Options(
         input, output, dependenciesFile: dependenciesFile,
+        targetSpecification: targetSpecification,
         generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
         isBatch: isBatch ?? false, pattern: pattern);
   }

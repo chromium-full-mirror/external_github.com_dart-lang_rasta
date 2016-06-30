@@ -568,36 +568,41 @@ class Kernel {
     Queue<LibraryElement> notProcessed = new Queue<LibraryElement>();
     Set<LibraryElement> seen = new Set<LibraryElement>();
     LibraryElement library = compiler.libraryLoader.lookupLibrary(uri);
-    notProcessed.addLast(library);
+    void processLater(LibraryElement library) {
+      if (library != null) {
+        notProcessed.addLast(library);
+      }
+    }
+    processLater(library);
     seen.add(library);
     LibraryElement core =
         compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
     if (seen.add(core)) {
       // `dart:core` is implicitly imported by most libraries, and for some
       // reason not included in `library.imports` below.
-      notProcessed.addLast(core);
+      processLater(core);
     }
     while (notProcessed.isNotEmpty) {
       LibraryElement library = notProcessed.removeFirst();
       ir.Library irLibrary = libraries[library];
       for (ImportElement import in library.imports) {
         if (seen.add(import.importedLibrary)) {
-          notProcessed.addLast(import.importedLibrary);
+          processLater(import.importedLibrary);
         }
       }
       for (ExportElement export in library.exports) {
         if (seen.add(export.exportedLibrary)) {
-          notProcessed.addLast(export.exportedLibrary);
+          processLater(export.exportedLibrary);
         }
       }
       for (ImportElement import in library.implementation.imports) {
         if (seen.add(import.importedLibrary)) {
-          notProcessed.addLast(import.importedLibrary);
+          processLater(import.importedLibrary);
         }
       }
       for (ExportElement export in library.implementation.exports) {
         if (seen.add(export.exportedLibrary)) {
-          notProcessed.addLast(export.exportedLibrary);
+          processLater(export.exportedLibrary);
         }
       }
       if (irLibrary != null) {
