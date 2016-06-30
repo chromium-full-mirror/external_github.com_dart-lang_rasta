@@ -16,9 +16,11 @@ import "package:compiler/src/universe/call_structure.dart" show
     CallStructure;
 
 import "package:compiler/src/elements/elements.dart" show
+    AstElement,
     ConstructorElement,
     Element,
     ErroneousElement,
+    FunctionElement,
     MethodElement;
 
 import "package:compiler/src/dart_types.dart" show
@@ -37,72 +39,6 @@ import "package:compiler/src/universe/selector.dart" show
 import "kernel.dart" show
     Kernel;
 
-enum ErrorKind {
-  /// See [SemanticSendVisitor.visitUnresolvedClassConstructorInvoke].
-  ///
-  /// A "dynamic error occurs".
-  ///
-  /// Arguments are `(String message)`.
-  unresolvedClassConstructorInvoke,
-
-  unresolvedCompound,
-  unresolvedConstructorInvoke,
-  unresolvedGet,
-  unresolvedInvoke,
-  unresolvedPostfix,
-  unresolvedPrefix,
-  unresolvedRedirectingFactoryConstructorInvoke,
-  unresolvedSet,
-  unresolvedSetIfNull,
-  unresolvedStaticGetterCompound,
-  unresolvedStaticGetterPostfix,
-  unresolvedStaticGetterPrefix,
-  unresolvedStaticGetterSetIfNull,
-  unresolvedStaticSetterCompound,
-  unresolvedStaticSetterPostfix,
-  unresolvedStaticSetterPrefix,
-  unresolvedStaticSetterSetIfNull,
-  unresolvedSuperBinary,
-  unresolvedSuperCompound,
-  unresolvedSuperCompoundIndexSet,
-  unresolvedSuperGet,
-  unresolvedSuperGetterCompound,
-  unresolvedSuperGetterCompoundIndexSet,
-  unresolvedSuperGetterIndexPostfix,
-  unresolvedSuperGetterIndexPrefix,
-  unresolvedSuperGetterPostfix,
-  unresolvedSuperGetterPrefix,
-  unresolvedSuperGetterSetIfNull,
-  unresolvedSuperIndex,
-  unresolvedSuperIndexPostfix,
-  unresolvedSuperIndexPrefix,
-  unresolvedSuperIndexSet,
-  unresolvedSuperInvoke,
-  unresolvedSuperPostfix,
-  unresolvedSuperPrefix,
-  unresolvedSuperSetIfNull,
-  unresolvedSuperSetterCompound,
-  unresolvedSuperSetterCompoundIndexSet,
-  unresolvedSuperSetterIndexPostfix,
-  unresolvedSuperSetterIndexPrefix,
-  unresolvedSuperSetterPostfix,
-  unresolvedSuperSetterPrefix,
-  unresolvedSuperSetterSetIfNull,
-  unresolvedSuperUnary,
-  unresolvedTopLevelGetterCompound,
-  unresolvedTopLevelGetterPostfix,
-  unresolvedTopLevelGetterPrefix,
-  unresolvedTopLevelGetterSetIfNull,
-  unresolvedTopLevelSetterCompound,
-  unresolvedTopLevelSetterPostfix,
-  unresolvedTopLevelSetterPrefix,
-  unresolvedTopLevelSetterSetIfNull,
-  unresolvedSuperGetterIndexSetIfNull,
-  unresolvedSuperSetterIndexSetIfNull,
-  unresolvedSuperIndexSetIfNull,
-  unresolvedSuperSet,
-}
-
 ir.Arguments buildStringArgument(String argument) {
   return new ir.Arguments(<ir.Expression>[new ir.StringLiteral(argument)]);
 }
@@ -111,25 +47,66 @@ ir.Arguments buildIntArgument(int argument) {
   return new ir.Arguments(<ir.Expression>[new ir.IntLiteral(argument)]);
 }
 
-class ErrorExpression extends ir.InvalidExpression {
-  final ErrorKind kind;
-  final ir.Arguments arguments;
-
-  ErrorExpression(this.kind, this.arguments);
-
-  ir.Expression toDynamicError(Kernel kernel) {
-    return new ir.MethodInvocation(
-        new ir.StaticInvocation(
-            kernel.getDynamicErrorHandler(), buildIntArgument(kind.index)),
-        new ir.Name("call"), arguments);
-  }
-}
-
 abstract class RastaUnresolved {
   Kernel get kernel;
 
+  // Implemented in KernelVisitor
+  AstElement get currentElement;
+  ir.Arguments buildArguments(NodeList arguments);
+
   // TODO(ahe): Delete this method.
   ir.InvalidExpression handleUnresolved(Node node);
+
+  /// Throws a [NoSuchMethodError] corresponding to a call to
+  /// [receiver].[memberName] with the arguments [callArguments].
+  ///
+  /// The exception object is built by calling [exceptionBuilder]. This should
+  /// take the same arguments as the default constructor to [NoSuchMethodError],
+  /// but the method itself may encode additional details about the call than
+  /// is possible through the public interface of NoSuchMethodError.
+  ///
+  /// Note that [callArguments] are the arguments as they occur in the attempted
+  /// call in user code -- they are not the arguments to [exceptionBuilder].
+  ///
+  /// If [candidateTarget] is given, it will provide the expected parameter
+  /// names.
+  ir.Expression buildThrowNoSuchMethodError(
+      ir.Procedure exceptionBuilder,
+      ir.Expression receiver,
+      String memberName,
+      ir.Arguments callArguments,
+      [Element candidateTarget]) {
+    ir.Expression memberNameArg = new ir.SymbolLiteral(memberName);
+    ir.Expression positional = new ir.ListLiteral(callArguments.positional);
+    ir.Expression named = new ir.MapLiteral(callArguments.named.map((e) {
+      return new ir.MapEntry(new ir.SymbolLiteral(e.name), e.value);
+    }).toList());
+    ir.Expression existingArguments;
+    if (candidateTarget is FunctionElement && !candidateTarget.isError) {
+      List<ir.Expression> existingArgumentsList = <ir.Expression>[];
+      candidateTarget.functionSignature.forEachParameter((param) {
+        existingArgumentsList.add(new ir.StringLiteral(param.name));
+      });
+      existingArguments = new ir.ListLiteral(existingArgumentsList);
+    } else {
+      existingArguments = new ir.NullLiteral();
+    }
+    return new ir.Throw(new ir.StaticInvocation(
+        exceptionBuilder,
+        new ir.Arguments(<ir.Expression>[
+          receiver,
+          memberNameArg,
+          positional,
+          named,
+          existingArguments
+        ])));
+  }
+
+  ir.Expression buildThrowSingleArgumentError(
+      ir.Procedure exceptionBuilder, String errorMessage) {
+    return new ir.Throw(new ir.StaticInvocation(exceptionBuilder,
+        new ir.Arguments(<ir.Expression>[new ir.StringLiteral(errorMessage)])));
+  }
 
   ir.Expression visitUnresolvedClassConstructorInvoke(
       NewExpression node,
@@ -138,9 +115,29 @@ abstract class RastaUnresolved {
       NodeList arguments,
       Selector selector,
       _) {
-    return new ErrorExpression(
-        ErrorKind.unresolvedClassConstructorInvoke,
-        buildStringArgument(element.message)).toDynamicError(kernel);
+    // TODO(asgerf): The VM includes source information as part of the error
+    //   message.  We could do the same when we add source maps.
+    return buildThrowSingleArgumentError(kernel.getMalformedTypeErrorBuilder(),
+        element.message);
+  }
+
+  ir.Expression visitUnresolvedConstructorInvoke(
+      NewExpression node,
+      Element constructor,
+      DartType type,
+      NodeList arguments,
+      Selector selector,
+      _) {
+    ir.Expression receiver = new ir.TypeLiteral(kernel.interfaceTypeToIr(type));
+    String methodName = node.send.selector != null
+        ? '${node.send.selector}'
+        : type.name;
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedConstructorBuilder(),
+        receiver,
+        methodName,
+        buildArguments(arguments),
+        constructor);
   }
 
   ir.InvalidExpression visitUnresolvedCompound(
@@ -148,16 +145,6 @@ abstract class RastaUnresolved {
       Element element,
       AssignmentOperator operator,
       Node rhs,
-      _) {
-    return handleUnresolved(node);
-  }
-
-  ir.InvalidExpression visitUnresolvedConstructorInvoke(
-      NewExpression node,
-      Element constructor,
-      DartType type,
-      NodeList arguments,
-      Selector selector,
       _) {
     return handleUnresolved(node);
   }

@@ -1,7 +1,7 @@
 library;
 import self as self;
-import "dart:_internal" as _in;
+import "dart:core" as core;
 
 static method main() → dynamic {
-  _in::_dynamicError(0).call("Cannot resolve 'Missing'.");
+  throw core::_malformedTypeError("Cannot resolve 'Missing'.");
 }

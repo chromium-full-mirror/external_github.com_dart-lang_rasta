@@ -643,11 +643,19 @@ class Kernel {
     return compiler.isInternalStateConsistent;
   }
 
-  ir.Procedure getDynamicErrorHandler() {
+  ir.Procedure getUnresolvedConstructorBuilder() {
     LibraryElement internal =
-        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:_internal"));
+        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
     FunctionElement function =
-        internal.implementation.localLookup("_dynamicError");
+        internal.implementation.localLookup("_unresolvedConstructorError");
+    return functionToIr(function);
+  }
+
+  ir.Procedure getMalformedTypeErrorBuilder() {
+    LibraryElement internal =
+        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
+    FunctionElement function =
+        internal.implementation.localLookup("_malformedTypeError");
     return functionToIr(function);
   }
 }

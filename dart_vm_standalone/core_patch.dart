@@ -50,3 +50,4 @@ part "../third_party/dart-sdk/runtime/lib/integers.dart";
 part "../third_party/dart-sdk/runtime/lib/lib_prefix.dart";
 part "../third_party/dart-sdk/runtime/lib/stacktrace.dart";
 part "../third_party/dart-sdk/runtime/lib/weak_property.dart";
+part "rasta_errors.dart";
