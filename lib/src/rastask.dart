@@ -155,8 +155,8 @@ abstract class Rastask extends CompilerTask {
     (await factory.diagnostics)
         ..verbose = options.isVerbose
         ..showWarnings = true
-        ..throwOnError = false
-        ..throwOnErrorCount = 1;
+        ..throwOnError = options.throwOnError
+        ..throwOnErrorCount = options.throwOnErrorCount;
 
     CustomCompiler compiler = await factory.compiler;
     Rastask task;

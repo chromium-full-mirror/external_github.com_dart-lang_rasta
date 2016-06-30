@@ -26,12 +26,16 @@ const Map<String, OptionDescription> descriptions =
     "--pattern": const OptionDescription(Option.pattern, hasArgument: true),
 
     "--target": const OptionDescription(Option.target, hasArgument: true),
+
+    "--throw-on-error": const OptionDescription(
+        Option.throwOnError, hasOptionalArgument: true),
 };
 
 const List<Option> supportedBatchOptions = const <Option>[
     Option.batch,
     Option.verbose,
     Option.target,
+    Option.throwOnError,
 
     // TODO(ahe): These options shouldn't be supported in batch server
     // mode. See run_batch.dart.
@@ -63,6 +67,9 @@ enum Option {
   /// `--target`.
   target,
 
+  /// `--throw-on-error`.
+  throwOnError,
+
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
 
@@ -73,8 +80,10 @@ enum Option {
 class OptionDescription {
   final Option option;
   final bool hasArgument;
+  final bool hasOptionalArgument;
 
-  const OptionDescription(this.option, {this.hasArgument: false});
+  const OptionDescription(
+      this.option, {this.hasArgument: false, this.hasOptionalArgument: false});
 }
 
 class OptionValue {
@@ -93,10 +102,13 @@ class Options {
   final bool isVerbose;
   final bool isBatch;
   final Pattern pattern;
+  final bool throwOnError;
+  final int throwOnErrorCount;
 
   Options(this.input, this.output,
           {this.dependenciesFile, this.targetSpecification,
-           this.generateLibrary, this.isVerbose, this.isBatch, this.pattern});
+           this.generateLibrary, this.isVerbose, this.isBatch, this.pattern,
+           this.throwOnError, this.throwOnErrorCount});
 }
 
 class OptionParser {
@@ -113,6 +125,8 @@ class OptionParser {
     bool generateLibrary;
     bool isVerbose;
     bool isBatch;
+    bool throwOnError;
+    int throwOnErrorCount = 1;
     Uri dependenciesFile;
     Uri targetSpecification;
     List<String> uris = <String>[];
@@ -147,6 +161,13 @@ class OptionParser {
         case Option.pattern:
           pattern = (value.argument.contains(new RegExp(r'[*$^]')))
               ? new RegExp(value.argument) : value.argument;
+          break;
+
+        case Option.throwOnError:
+          throwOnError = true;
+          if (value.argument != null) {
+            throwOnErrorCount = int.parse(value.argument);
+          }
           break;
 
         case Option.skip:
@@ -209,7 +230,9 @@ class OptionParser {
         input, output, dependenciesFile: dependenciesFile,
         targetSpecification: targetSpecification,
         generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
-        isBatch: isBatch ?? false, pattern: pattern);
+        isBatch: isBatch ?? false, pattern: pattern,
+        throwOnError: throwOnError ?? false,
+        throwOnErrorCount: throwOnErrorCount);
   }
 
   List<OptionValue> parseValues() {
@@ -243,7 +266,10 @@ class OptionParser {
     if (description == null) {
       throw "Unknown option: '$name'.";
     }
-    if (description.hasArgument) {
+    if (description.hasOptionalArgument) {
+      // If an argument is optional, we require this form `--option=argument`,
+      // not `--option argument`.
+    } else if (description.hasArgument) {
       argument ??= getArgument(name);
     } else if (argument != null) {
       throw "Extra argument to option '$name'.";
