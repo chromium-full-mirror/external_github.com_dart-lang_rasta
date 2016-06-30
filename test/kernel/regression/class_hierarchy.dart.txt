@@ -10,7 +10,7 @@ class B extends core::Object {
   constructor •() → self::B
     : invalid-initializer;
 }
-mixin C = core::Object with core::Object {
+class C extends core::Object {
   constructor •() → dynamic
     : invalid-initializer;
 }

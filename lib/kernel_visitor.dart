@@ -274,7 +274,8 @@ class KernelVisitor extends Object
   // TODO(ahe): Fix the bug in dart2js and remove this function.
   ir.DartType typeToIrHack(DartType type) {
     if (currentElement.isSynthesized &&
-        currentElement.enclosingClass.isMixinApplication) {
+        currentElement.enclosingClass.isMixinApplication &&
+        !kernel.hasHierarchyProblem(currentElement.enclosingClass)) {
       // Dart2js doesn't compute the correct functionSignature for synthetic
       // constructors in mixin applications. So we compute the correct type:
       // First, find the first superclass that isn't a mixin.

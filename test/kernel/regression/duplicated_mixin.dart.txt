@@ -7,11 +7,17 @@ class Mixin extends core::Object {
   constructor •() → self::Mixin
     : super core::Object::•();
 }
-class A extends self::#class1 {
+class A extends self::Object+Mixin+Mixin#0 {
   constructor •() → self::A
-    : super self::#class1::•();
+    : super self::Object+Mixin+Mixin#0::•();
 }
-abstract mixin #class1 = core::Object with core::Object {
+abstract class Object+Mixin+Mixin#0 extends self::Object+Mixin#0 implements self::Mixin {
+  field dynamic field;
   constructor •() → dynamic
-    : invalid-initializer;
+    : super self::Object+Mixin#0::•();
+}
+abstract class Object+Mixin#0 extends core::Object implements self::Mixin {
+  field dynamic field;
+  constructor •() → dynamic
+    : super core::Object::•();
 }

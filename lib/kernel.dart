@@ -24,7 +24,6 @@ import 'package:compiler/src/elements/elements.dart' show
     FunctionElement,
     ImportElement,
     LibraryElement,
-    MixinApplicationElement,
     Name,
     TypeVariableElement;
 
@@ -83,6 +82,8 @@ class Kernel {
       <TypeVariableElement, ir.TypeParameter>{};
 
   final Set<ir.TreeNode> checkedNodes = new Set<ir.TreeNode>();
+
+  final Map<String, int> mixinApplicationNames = <String, int>{};
 
   /// FIFO queue of work that needs to be completed before the returned AST
   /// nodes are correct.
@@ -178,14 +179,25 @@ class Kernel {
     });
   }
 
+  /// Compute a name for [cls]. We want to have unique names in a library, but
+  /// mixin applications can lead to multiple classes with the same name. So
+  /// for those we append `#` and a number.
+  String computeName(ClassElement cls) {
+    String name = cls.name;
+    if (!cls.isUnnamedMixinApplication) return name;
+    mixinApplicationNames.putIfAbsent(name, () => 0);
+    int count = mixinApplicationNames[name]++;
+    return "$name#$count";
+  }
+
   ir.Class classToIr(ClassElement cls) {
-    if (cls.isMixinApplication) return mixinApplicationToIr(cls);
     cls = cls.declaration;
     return classes.putIfAbsent(cls, () {
       cls.ensureResolved(compiler.resolution);
       compiler.enqueuer.resolution.emptyDeferredTaskQueue();
+      String name = computeName(cls);
       ir.NormalClass classNode = new ir.NormalClass(
-          null, name: cls.name, isAbstract: cls.isAbstract,
+          null, name: name, isAbstract: cls.isAbstract,
           typeParameters: null, implementedClasses: null, constructors: null,
           procedures: null, fields: null);
       addWork(cls, () {
@@ -218,69 +230,7 @@ class Kernel {
     });
   }
 
-  ir.MixinClass mixinApplicationToIr(MixinApplicationElement cls) {
-    cls = cls.declaration;
-    return classes.putIfAbsent(cls, () {
-      cls.ensureResolved(compiler.resolution);
-      ir.InterfaceType supertype = null; // Computed and set below.
-      ir.InterfaceType mixedInType = null; // Computed and set below.
-      String name = cls.isUnnamedMixinApplication ? null : cls.name;
-      ir.MixinClass classNode = new ir.MixinClass(
-          supertype, mixedInType, name: name,
-          isAbstract: cls.isAbstract,
-          typeParameters: null,
-          implementedClasses: null,
-          constructors: null);
-      addWork(cls, () {
-        classNode.parent = libraryToIr(cls.library);
-        if (cls.isUnnamedMixinApplication) {
-          classNode.enclosingLibrary.addClass(classNode);
-        }
-        if (hasHierarchyProblem(cls)) {
-          ir.InterfaceType objectType =
-              interfaceTypeToIr(compiler.coreTypes.objectType);
-          classNode.supertype = objectType;
-          classNode.mixedInType = objectType;
-        } else {
-          classNode.supertype = interfaceTypeToIr(cls.supertype);
-          classNode.mixedInType = interfaceTypeToIr(cls.mixinType);
-          classNode.typeParameters.addAll(typeVariablesToIr(cls.typeVariables));
-          for (ir.InterfaceType interface in
-                   typesToIr(cls.interfaces.toList())) {
-            classNode.implementedTypes.add(interface);
-          }
-        }
-        cls.implementation.forEachMember(
-            (ClassElement enclosingClass, Element member) {
-          if (member.isConstructor) {
-            ir.Constructor constructor = functionToIr(member);
-            classNode.constructors.add(constructor);
-            constructor.parent = classNode;
-          }
-        });
-      });
-      return classNode;
-    });
-  }
-
-  /// Returns true if [cls] has a the same class mixed in more than once in on
-  /// of its superclasses.
-  bool hasDuplicatedMixin(ClassElement cls) {
-    Set<ClassElement> mixins = new Set<ClassElement>();
-    while (cls != null) {
-      ClassElement mixin = (cls is MixinApplicationElement) ? cls.mixin : cls;
-      if (!mixins.add(mixin)) return true;
-      cls = cls.superclass;
-    }
-    return false;
-  }
-
-  bool hasHierarchyProblem(ClassElement cls) {
-    if (cls.hasIncompleteHierarchy) return true;
-    // We currently cannot handle repeated mixins in superclasses.
-    // See issue #66.
-    return cls.isMixinApplication && hasDuplicatedMixin(cls);
-  }
+  bool hasHierarchyProblem(ClassElement cls) => cls.hasIncompleteHierarchy;
 
   ir.InterfaceType interfaceTypeToIr(InterfaceType type) {
     ir.Class cls = classToIr(type.element);
