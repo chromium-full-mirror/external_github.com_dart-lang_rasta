@@ -83,7 +83,8 @@ class Kernel {
 
   final Set<ir.TreeNode> checkedNodes = new Set<ir.TreeNode>();
 
-  final Map<String, int> mixinApplicationNames = <String, int>{};
+  final Map<LibraryElement, Map<String, int>> mixinApplicationNamesByLibrary =
+      <LibraryElement, Map<String, int>>{};
 
   /// FIFO queue of work that needs to be completed before the returned AST
   /// nodes are correct.
@@ -185,8 +186,11 @@ class Kernel {
   String computeName(ClassElement cls) {
     String name = cls.name;
     if (!cls.isUnnamedMixinApplication) return name;
-    mixinApplicationNames.putIfAbsent(name, () => 0);
-    int count = mixinApplicationNames[name]++;
+    Map<String, int> mixinApplicationNames =
+        mixinApplicationNamesByLibrary.putIfAbsent(
+            cls.library.implementation, () => <String, int>{});
+    int count = mixinApplicationNames.putIfAbsent(name, () => 0);
+    mixinApplicationNames[name] = count + 1;
     return "$name#$count";
   }
 
