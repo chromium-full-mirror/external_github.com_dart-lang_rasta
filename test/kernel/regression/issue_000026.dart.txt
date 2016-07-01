@@ -21,4 +21,3 @@ static method main() → dynamic {
   new self::C::•();
   new self::D::•();
 }
-

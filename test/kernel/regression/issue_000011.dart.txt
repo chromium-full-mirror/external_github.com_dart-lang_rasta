@@ -10,4 +10,3 @@ static method main() → dynamic {
     core::print(87);
   }
 }
-

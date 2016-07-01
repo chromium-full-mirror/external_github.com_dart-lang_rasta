@@ -9,4 +9,3 @@ static method main() → dynamic {
   core::print(self::x);
   core::print(self::x = 87);
 }
-

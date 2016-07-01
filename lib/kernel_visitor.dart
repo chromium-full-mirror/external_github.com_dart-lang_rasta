@@ -6,7 +6,7 @@ library rasta.kernel_visitor;
 
 import 'package:kernel/ast.dart' as ir;
 
-import 'package:kernel/accessors.dart' show
+import 'package:kernel/frontend/accessors.dart' show
     Accessor,
     IndexAccessor,
     NullAwarePropertyAccessor,

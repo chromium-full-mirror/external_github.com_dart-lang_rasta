@@ -598,20 +598,59 @@ class Kernel {
     return compiler.isInternalStateConsistent;
   }
 
-  ir.Procedure getUnresolvedConstructorBuilder() {
-    LibraryElement internal =
+  ir.Procedure getDartCoreMethod(String name) {
+    LibraryElement library =
         compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
-    FunctionElement function =
-        internal.implementation.localLookup("_unresolvedConstructorError");
+    Element function = library.implementation.localLookup(name);
     return functionToIr(function);
   }
 
   ir.Procedure getMalformedTypeErrorBuilder() {
-    LibraryElement internal =
-        compiler.libraryLoader.lookupLibrary(Uri.parse("dart:core"));
-    FunctionElement function =
-        internal.implementation.localLookup("_malformedTypeError");
-    return functionToIr(function);
+    return getDartCoreMethod('_malformedTypeError');
+  }
+
+  ir.Procedure getUnresolvedConstructorBuilder() {
+    return getDartCoreMethod('_unresolvedConstructorError');
+  }
+
+  ir.Procedure getUnresolvedStaticGetterBuilder() {
+    return getDartCoreMethod('_unresolvedStaticGetterError');
+  }
+
+  ir.Procedure getUnresolvedStaticSetterBuilder() {
+    return getDartCoreMethod('_unresolvedStaticSetterError');
+  }
+
+  ir.Procedure getUnresolvedStaticMethodBuilder() {
+    return getDartCoreMethod('_unresolvedStaticMethodError');
+  }
+
+  ir.Procedure getUnresolvedTopLevelGetterBuilder() {
+    return getDartCoreMethod('_unresolvedTopLevelGetterError');
+  }
+
+  ir.Procedure getUnresolvedTopLevelSetterBuilder() {
+    return getDartCoreMethod('_unresolvedTopLevelSetterError');
+  }
+
+  ir.Procedure getUnresolvedTopLevelMethodBuilder() {
+    return getDartCoreMethod('_unresolvedTopLevelMethodError');
+  }
+
+  ir.Procedure getUnresolvedSuperGetterBuilder() {
+    return getDartCoreMethod('_unresolvedSuperGetterError');
+  }
+
+  ir.Procedure getUnresolvedSuperSetterBuilder() {
+    return getDartCoreMethod('_unresolvedSuperSetterError');
+  }
+
+  ir.Procedure getUnresolvedSuperMethodBuilder() {
+    return getDartCoreMethod('_unresolvedSuperMethodError');
+  }
+
+  ir.Procedure getGenericNoSuchMethodBuilder() {
+    return getDartCoreMethod('_genericNoSuchMethod');
   }
 }
 

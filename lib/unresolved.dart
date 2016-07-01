@@ -6,6 +6,8 @@ library rasta.unresolved;
 
 import 'package:kernel/ast.dart' as ir;
 
+import 'accessors.dart';
+
 import "package:compiler/src/resolution/operators.dart" show
     AssignmentOperator,
     BinaryOperator,
@@ -28,6 +30,7 @@ import "package:compiler/src/dart_types.dart" show
     InterfaceType;
 
 import "package:compiler/src/tree/tree.dart" show
+    Expression,
     NewExpression,
     Node,
     NodeList,
@@ -39,20 +42,14 @@ import "package:compiler/src/universe/selector.dart" show
 import "kernel.dart" show
     Kernel;
 
-ir.Arguments buildStringArgument(String argument) {
-  return new ir.Arguments(<ir.Expression>[new ir.StringLiteral(argument)]);
-}
-
-ir.Arguments buildIntArgument(int argument) {
-  return new ir.Arguments(<ir.Expression>[new ir.IntLiteral(argument)]);
-}
-
 abstract class RastaUnresolved {
   Kernel get kernel;
 
   // Implemented in KernelVisitor
   AstElement get currentElement;
+  bool get isVoidContext;
   ir.Arguments buildArguments(NodeList arguments);
+  ir.TreeNode visitForValue(Expression node);
 
   // TODO(ahe): Delete this method.
   ir.InvalidExpression handleUnresolved(Node node);
@@ -102,8 +99,57 @@ abstract class RastaUnresolved {
         ])));
   }
 
+  /// Throws a NoSuchMethodError for an unresolved getter named [name].
+  ir.Expression buildThrowUnresolvedGetter(
+      String name,
+      [ir.Procedure exceptionBuilder]) {
+    // TODO(asgerf): We should remove this fallback, but in some cases we do
+    //   not get sufficient information to determine exactly what kind of
+    //   getter it is.
+    exceptionBuilder ??= kernel.getGenericNoSuchMethodBuilder();
+    return buildThrowNoSuchMethodError(
+        exceptionBuilder,
+        new ir.NullLiteral(),
+        name,
+        new ir.Arguments.empty());
+  }
+
+  ir.Expression buildThrowUnresolvedSetter(
+      String name,
+      ir.Expression argument,
+      [ir.Procedure exceptionBuilder]) {
+    // TODO(asgerf): We should remove this fallback, but in some cases we do
+    //   not get sufficient information to determine exactly what kind of
+    //   setter it is.
+    exceptionBuilder ??= kernel.getGenericNoSuchMethodBuilder();
+    return buildThrowNoSuchMethodError(
+        exceptionBuilder,
+        new ir.NullLiteral(),
+        name,
+        new ir.Arguments(<ir.Expression>[argument]));
+  }
+
+  ir.Expression buildThrowUnresolvedSuperGetter(String name) {
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedSuperGetterBuilder(),
+        new ir.ThisExpression(),
+        name,
+        new ir.Arguments.empty());
+  }
+
+  ir.Expression buildThrowUnresolvedSuperSetter(
+      String name,
+      ir.Expression argument) {
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedSuperSetterBuilder(),
+        new ir.ThisExpression(),
+        name,
+        new ir.Arguments(<ir.Expression>[argument]));
+  }
+
   ir.Expression buildThrowSingleArgumentError(
-      ir.Procedure exceptionBuilder, String errorMessage) {
+      ir.Procedure exceptionBuilder,
+      String errorMessage) {
     return new ir.Throw(new ir.StaticInvocation(exceptionBuilder,
         new ir.Arguments(<ir.Expression>[new ir.StringLiteral(errorMessage)])));
   }
@@ -140,193 +186,226 @@ abstract class RastaUnresolved {
         constructor);
   }
 
-  ir.InvalidExpression visitUnresolvedCompound(
+  ir.Expression visitUnresolvedCompound(
       Send node,
       Element element,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedGet(
+  ir.Expression visitUnresolvedGet(
       Send node,
       Element element,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedInvoke(
+  ir.Expression visitUnresolvedInvoke(
       Send node,
       Element element,
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnresolved(node);
+    // TODO(asgerf): Should we use a type literal as receiver for unresolved
+    //   static invocations?
+    return buildThrowNoSuchMethodError(
+        kernel.getGenericNoSuchMethodBuilder(),
+        new ir.NullLiteral(),
+        element.name,
+        buildArguments(arguments),
+        element);
   }
 
-  ir.InvalidExpression visitUnresolvedPostfix(
+  ir.Expression visitUnresolvedPostfix(
       Send node,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedPrefix(
+  ir.Expression visitUnresolvedPrefix(
       Send node,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedRedirectingFactoryConstructorInvoke(
+  ir.Expression visitUnresolvedRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
       InterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
-    return handleUnresolved(node);
+    // The body of the factory will throw an error.
+    return new ir.StaticInvocation(kernel.functionToIr(constructor),
+        buildArguments(arguments));
   }
 
-  ir.InvalidExpression visitUnresolvedSet(
+  ir.Expression visitUnresolvedSet(
       Send node,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSetter('${node.selector}', visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSetIfNull(
+  ir.Expression visitUnresolvedSetIfNull(
       Send node,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedStaticGetterCompound(
+  ir.Expression visitUnresolvedStaticGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedStaticGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedStaticGetterPostfix(
+  ir.Expression visitUnresolvedStaticGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedStaticGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedStaticGetterPrefix(
+  ir.Expression visitUnresolvedStaticGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedStaticGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedStaticGetterSetIfNull(
+  ir.Expression visitUnresolvedStaticGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedStaticGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedStaticSetterCompound(
+  ir.Expression visitUnresolvedStaticSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSetter('${node.selector}',
+        visitForValue(rhs),
+        kernel.getUnresolvedStaticSetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedStaticSetterPostfix(
+  ir.Expression visitUnresolvedStaticSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new ClassStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildPostfixIncrement(
+        new ir.Name(operator.selectorName),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedStaticSetterPrefix(
+  ir.Expression visitUnresolvedStaticSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new ClassStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildPrefixIncrement(
+        new ir.Name(operator.selectorName),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedStaticSetterSetIfNull(
+  ir.Expression visitUnresolvedStaticSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new ClassStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildNullAwareAssignment(
+        visitForValue(rhs), voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedSuperBinary(
+  ir.Expression visitUnresolvedSuperBinary(
       Send node,
       Element element,
       BinaryOperator operator,
       Node argument,
       _) {
-    return handleUnresolved(node);
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedSuperMethodBuilder(),
+        new ir.ThisExpression(),
+        operator.selectorName,
+        new ir.Arguments(<ir.Expression>[visitForValue(argument)]));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperCompound(
+  ir.Expression visitUnresolvedSuperCompound(
       Send node,
       Element element,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperCompoundIndexSet(
       Send node,
       Element element,
       Node index,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        kernel.functionToIr(element), null);
+    return accessor.buildCompoundAssignment(new ir.Name(operator.selectorName),
+        visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGet(
+  ir.Expression visitUnresolvedSuperGet(
       Send node,
       Element element,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterCompound(
+  ir.Expression visitUnresolvedSuperGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperGetterCompoundIndexSet(
       Send node,
       Element element,
       MethodElement setter,
@@ -334,135 +413,148 @@ abstract class RastaUnresolved {
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterIndexPostfix(
+  ir.Expression visitUnresolvedSuperGetterIndexPostfix(
       Send node,
       Element element,
       MethodElement setter,
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterIndexPrefix(
+  ir.Expression visitUnresolvedSuperGetterIndexPrefix(
       Send node,
       Element element,
       MethodElement setter,
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterPostfix(
+  ir.Expression visitUnresolvedSuperGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterPrefix(
+  ir.Expression visitUnresolvedSuperGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterSetIfNull(
+  ir.Expression visitUnresolvedSuperGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperIndex(
+  ir.Expression visitUnresolvedSuperIndex(
       Send node,
       Element element,
       Node index,
       _) {
-    return handleUnresolved(node);
+    return new SuperIndexAccessor(this, visitForValue(index), null, null)
+        .buildSimpleRead();
   }
 
-  ir.InvalidExpression visitUnresolvedSuperIndexPostfix(
-      Send node,
-      Element element,
-      Node index,
-      IncDecOperator operator,
-      _) {
-    return handleUnresolved(node);
-  }
-
-  ir.InvalidExpression visitUnresolvedSuperIndexPrefix(
+  ir.Expression visitUnresolvedSuperIndexPostfix(
       Send node,
       Element element,
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return new SuperIndexAccessor(this, visitForValue(index), null, null)
+        .buildSimpleRead();
   }
 
-  ir.InvalidExpression visitUnresolvedSuperIndexSet(
+  ir.Expression visitUnresolvedSuperIndexPrefix(
+      Send node,
+      Element element,
+      Node index,
+      IncDecOperator operator,
+      _) {
+    return new SuperIndexAccessor(this, visitForValue(index), null, null)
+        .buildSimpleRead();
+  }
+
+  ir.Expression visitUnresolvedSuperIndexSet(
       Send node,
       Element element,
       Node index,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return new SuperIndexAccessor(this, visitForValue(index), null, null)
+        .buildAssignment(visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperInvoke(
+  ir.Expression visitUnresolvedSuperInvoke(
       Send node,
       Element element,
       NodeList arguments,
       Selector selector,
       _) {
-    return handleUnresolved(node);
+    // TODO(asgerf): Should really invoke 'super.noSuchMethod'.
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedSuperMethodBuilder(),
+        new ir.ThisExpression(),
+        '${node.selector}',
+        buildArguments(arguments));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperPostfix(
+  ir.Expression visitUnresolvedSuperPostfix(
       Send node,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperPrefix(
+  ir.Expression visitUnresolvedSuperPrefix(
       Send node,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetIfNull(
+  ir.Expression visitUnresolvedSuperSetIfNull(
       Send node,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperGetter('${node.selector}');
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterCompound(
+  ir.Expression visitUnresolvedSuperSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperPropertyAccessor(this, '${node.selector}',
+        kernel.functionToIr(getter), null);
+    return accessor.buildCompoundAssignment(
+        new ir.Name(operator.selectorName),
+        visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterCompoundIndexSet(
+  ir.Expression visitUnresolvedSuperSetterCompoundIndexSet(
       Send node,
       MethodElement getter,
       Element element,
@@ -470,172 +562,219 @@ abstract class RastaUnresolved {
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        kernel.functionToIr(getter), null);
+    return accessor.buildCompoundAssignment(
+        new ir.Name(operator.selectorName),
+        visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterIndexPostfix(
+  ir.Expression visitUnresolvedSuperSetterIndexPostfix(
       Send node,
       MethodElement indexFunction,
       Element element,
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        kernel.functionToIr(indexFunction), null);
+    return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterIndexPrefix(
+  ir.Expression visitUnresolvedSuperSetterIndexPrefix(
       Send node,
       MethodElement indexFunction,
       Element element,
       Node index,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        kernel.functionToIr(indexFunction), null);
+    return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterPostfix(
+  ir.Expression visitUnresolvedSuperSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperPropertyAccessor(this, '${node.selector}',
+        kernel.functionToIr(getter), null);
+    return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterPrefix(
+  ir.Expression visitUnresolvedSuperSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperPropertyAccessor(this, '${node.selector}',
+        kernel.functionToIr(getter), null);
+    return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterSetIfNull(
+  ir.Expression visitUnresolvedSuperSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperPropertyAccessor(this, '${node.selector}',
+        kernel.functionToIr(getter), null);
+    return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperUnary(
+  ir.Expression visitUnresolvedSuperUnary(
       Send node,
       UnaryOperator operator,
       Element element,
       _) {
-    return handleUnresolved(node);
+    // TODO(asgerf): Should really call 'super.noSuchMethod'.
+    return buildThrowNoSuchMethodError(
+        kernel.getUnresolvedSuperMethodBuilder(),
+        new ir.ThisExpression(),
+        operator.selectorName,
+        new ir.Arguments.empty());
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelGetterCompound(
+  ir.Expression visitUnresolvedTopLevelGetterCompound(
       Send node,
       Element element,
       MethodElement setter,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedTopLevelGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelGetterPostfix(
+  ir.Expression visitUnresolvedTopLevelGetterPostfix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedTopLevelGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelGetterPrefix(
+  ir.Expression visitUnresolvedTopLevelGetterPrefix(
       Send node,
       Element element,
       MethodElement setter,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedTopLevelGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelGetterSetIfNull(
+  ir.Expression visitUnresolvedTopLevelGetterSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedGetter('${node.selector}',
+        kernel.getUnresolvedTopLevelGetterBuilder());
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelSetterCompound(
+  ir.Expression visitUnresolvedTopLevelSetterCompound(
       Send node,
       MethodElement getter,
       Element element,
       AssignmentOperator operator,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new TopLevelStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildCompoundAssignment(
+        new ir.Name(operator.selectorName),
+        visitForValue(rhs),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelSetterPostfix(
+  ir.Expression visitUnresolvedTopLevelSetterPostfix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new TopLevelStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildPostfixIncrement(
+        new ir.Name(operator.selectorName),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelSetterPrefix(
+  ir.Expression visitUnresolvedTopLevelSetterPrefix(
       Send node,
       MethodElement getter,
       Element element,
       IncDecOperator operator,
       _) {
-    return handleUnresolved(node);
+    var accessor = new TopLevelStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildPrefixIncrement(
+        new ir.Name(operator.selectorName),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedTopLevelSetterSetIfNull(
+  ir.Expression visitUnresolvedTopLevelSetterSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new TopLevelStaticAccessor(this, getter.name,
+        kernel.functionToIr(getter), null);
+    return accessor.buildNullAwareAssignment(
+        visitForValue(rhs),
+        voidContext: isVoidContext);
   }
 
-  ir.InvalidExpression visitUnresolvedSuperGetterIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperGetterIndexSetIfNull(
       Send node,
       Element element,
       MethodElement setter,
       Node index,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        null, kernel.functionToIr(setter));
+    return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSetterIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperSetterIndexSetIfNull(
       Send node,
       MethodElement getter,
       Element element,
       Node index,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor = new SuperIndexAccessor(this, visitForValue(index),
+        kernel.functionToIr(getter), null);
+    return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperIndexSetIfNull(
+  ir.Expression visitUnresolvedSuperIndexSetIfNull(
       Send node,
       Element element,
       Node index,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    var accessor =
+        new SuperIndexAccessor(this, visitForValue(index), null, null);
+    return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
-  ir.InvalidExpression visitUnresolvedSuperSet(
+  ir.Expression visitUnresolvedSuperSet(
       Send node,
       Element element,
       Node rhs,
       _) {
-    return handleUnresolved(node);
+    return buildThrowUnresolvedSuperSetter('${node.selector}',
+        visitForValue(rhs));
   }
 }
