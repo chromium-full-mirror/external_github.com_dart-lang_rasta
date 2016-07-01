@@ -67,14 +67,14 @@ static method main() → dynamic {
   self::use(let final dynamic #t22 = 87 in invalid-expression);
   self::Foo::staticSetter = 87;
   self::use(self::Foo::staticSetter = 87);
-  self::Foo::staticConstant.==(null) ? null : let final dynamic #t23 = 87 in invalid-expression;
-  self::use(self::Foo::staticConstant.==(null) ? null : let final dynamic #t24 = 87 in invalid-expression);
-  self::Foo::staticField.==(null) ? null : self::Foo::staticField = 87;
-  self::use(self::Foo::staticField.==(null) ? null : self::Foo::staticField = 87);
-  self::Foo::staticFunction.==(null) ? null : let final dynamic #t25 = 87 in invalid-expression;
-  self::use(self::Foo::staticFunction.==(null) ? null : let final dynamic #t26 = 87 in invalid-expression);
-  self::Foo::staticGetter.==(null) ? null : throw core::_unresolvedStaticSetterError(null, #staticGetter, <dynamic>[87], <dynamic, dynamic>{}, null);
-  self::use(self::Foo::staticGetter.==(null) ? null : throw core::_unresolvedStaticSetterError(null, #staticGetter, <dynamic>[87], <dynamic, dynamic>{}, null));
+  self::Foo::staticConstant.==(null) ? let final dynamic #t23 = 87 in invalid-expression : null;
+  self::use(let final dynamic #t24 = self::Foo::staticConstant in #t24.==(null) ? let final dynamic #t25 = 87 in invalid-expression : #t24);
+  self::Foo::staticField.==(null) ? self::Foo::staticField = 87 : null;
+  self::use(let final dynamic #t26 = self::Foo::staticField in #t26.==(null) ? self::Foo::staticField = 87 : #t26);
+  self::Foo::staticFunction.==(null) ? let final dynamic #t27 = 87 in invalid-expression : null;
+  self::use(let final dynamic #t28 = self::Foo::staticFunction in #t28.==(null) ? let final dynamic #t29 = 87 in invalid-expression : #t28);
+  self::Foo::staticGetter.==(null) ? throw core::_unresolvedStaticSetterError(null, #staticGetter, <dynamic>[87], <dynamic, dynamic>{}, null) : null;
+  self::use(let final dynamic #t30 = self::Foo::staticGetter in #t30.==(null) ? throw core::_unresolvedStaticSetterError(null, #staticGetter, <dynamic>[87], <dynamic, dynamic>{}, null) : #t30);
   throw core::_unresolvedStaticGetterError(null, #staticSetter, <dynamic>[], <dynamic, dynamic>{}, null);
   self::use(throw core::_unresolvedStaticGetterError(null, #staticSetter, <dynamic>[], <dynamic, dynamic>{}, null));
 }

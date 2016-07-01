@@ -66,26 +66,26 @@ class C<T  extends  core::Object> extends core::Object {
     self::use(self::C<dynamic>);
     dynamic;
     self::use(dynamic);
-    let final dynamic #t89 = self::C::T in #t89.==(null) ? null : let final dynamic #t90 = 42 in invalid-expression;
-    self::use(let final dynamic #t91 = self::C::T in #t91.==(null) ? null : let final dynamic #t92 = 42 in invalid-expression);
+    let final dynamic #t89 = self::C::T in #t89.==(null) ? let final dynamic #t90 = 42 in invalid-expression : null;
+    self::use(let final dynamic #t91 = self::C::T in let final dynamic #t92 = #t91 in #t92.==(null) ? let final dynamic #t93 = 42 in invalid-expression : #t92);
     () → void;
     self::use(() → void);
-    let final dynamic #t93 = self::C<dynamic> in let final dynamic #t94 = #t93.+(42) in invalid-expression;
-    self::use(let final dynamic #t95 = self::C<dynamic> in let final dynamic #t96 = #t95.+(42) in invalid-expression);
-    let final dynamic #t97 = dynamic in let final dynamic #t98 = #t97.+(42) in invalid-expression;
-    self::use(let final dynamic #t99 = dynamic in let final dynamic #t100 = #t99.+(42) in invalid-expression);
-    let final dynamic #t101 = self::C::T in let final dynamic #t102 = #t101.+(42) in invalid-expression;
-    self::use(let final dynamic #t103 = self::C::T in let final dynamic #t104 = #t103.+(42) in invalid-expression);
-    let final dynamic #t105 = () → void in let final dynamic #t106 = #t105.+(42) in invalid-expression;
-    self::use(let final dynamic #t107 = () → void in let final dynamic #t108 = #t107.+(42) in invalid-expression);
-    let final dynamic #t109 = self::C<dynamic> in let final dynamic #t110 = #t109.-(42) in invalid-expression;
-    self::use(let final dynamic #t111 = self::C<dynamic> in let final dynamic #t112 = #t111.-(42) in invalid-expression);
-    let final dynamic #t113 = dynamic in let final dynamic #t114 = #t113.-(42) in invalid-expression;
-    self::use(let final dynamic #t115 = dynamic in let final dynamic #t116 = #t115.-(42) in invalid-expression);
-    let final dynamic #t117 = self::C::T in let final dynamic #t118 = #t117.-(42) in invalid-expression;
-    self::use(let final dynamic #t119 = self::C::T in let final dynamic #t120 = #t119.-(42) in invalid-expression);
-    let final dynamic #t121 = () → void in let final dynamic #t122 = #t121.-(42) in invalid-expression;
-    self::use(let final dynamic #t123 = () → void in let final dynamic #t124 = #t123.-(42) in invalid-expression);
+    let final dynamic #t94 = self::C<dynamic> in let final dynamic #t95 = #t94.+(42) in invalid-expression;
+    self::use(let final dynamic #t96 = self::C<dynamic> in let final dynamic #t97 = #t96.+(42) in invalid-expression);
+    let final dynamic #t98 = dynamic in let final dynamic #t99 = #t98.+(42) in invalid-expression;
+    self::use(let final dynamic #t100 = dynamic in let final dynamic #t101 = #t100.+(42) in invalid-expression);
+    let final dynamic #t102 = self::C::T in let final dynamic #t103 = #t102.+(42) in invalid-expression;
+    self::use(let final dynamic #t104 = self::C::T in let final dynamic #t105 = #t104.+(42) in invalid-expression);
+    let final dynamic #t106 = () → void in let final dynamic #t107 = #t106.+(42) in invalid-expression;
+    self::use(let final dynamic #t108 = () → void in let final dynamic #t109 = #t108.+(42) in invalid-expression);
+    let final dynamic #t110 = self::C<dynamic> in let final dynamic #t111 = #t110.-(42) in invalid-expression;
+    self::use(let final dynamic #t112 = self::C<dynamic> in let final dynamic #t113 = #t112.-(42) in invalid-expression);
+    let final dynamic #t114 = dynamic in let final dynamic #t115 = #t114.-(42) in invalid-expression;
+    self::use(let final dynamic #t116 = dynamic in let final dynamic #t117 = #t116.-(42) in invalid-expression);
+    let final dynamic #t118 = self::C::T in let final dynamic #t119 = #t118.-(42) in invalid-expression;
+    self::use(let final dynamic #t120 = self::C::T in let final dynamic #t121 = #t120.-(42) in invalid-expression);
+    let final dynamic #t122 = () → void in let final dynamic #t123 = #t122.-(42) in invalid-expression;
+    self::use(let final dynamic #t124 = () → void in let final dynamic #t125 = #t124.-(42) in invalid-expression);
   }
 }
 static method use(dynamic x) → dynamic {
