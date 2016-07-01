@@ -29,6 +29,8 @@ const Map<String, OptionDescription> descriptions =
 
     "--throw-on-error": const OptionDescription(
         Option.throwOnError, hasOptionalArgument: true),
+
+    "--analyze": const OptionDescription(Option.analyze),
 };
 
 const List<Option> supportedBatchOptions = const <Option>[
@@ -36,6 +38,7 @@ const List<Option> supportedBatchOptions = const <Option>[
     Option.verbose,
     Option.target,
     Option.throwOnError,
+    Option.analyze,
 
     // TODO(ahe): These options shouldn't be supported in batch server
     // mode. See run_batch.dart.
@@ -69,6 +72,9 @@ enum Option {
 
   /// `--throw-on-error`.
   throwOnError,
+
+  /// `--analyze`.
+  analyze,
 
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
@@ -104,11 +110,12 @@ class Options {
   final Pattern pattern;
   final bool throwOnError;
   final int throwOnErrorCount;
+  final bool analyze;
 
   Options(this.input, this.output,
           {this.dependenciesFile, this.targetSpecification,
            this.generateLibrary, this.isVerbose, this.isBatch, this.pattern,
-           this.throwOnError, this.throwOnErrorCount});
+           this.throwOnError, this.throwOnErrorCount, this.analyze});
 }
 
 class OptionParser {
@@ -127,6 +134,7 @@ class OptionParser {
     bool isBatch;
     bool throwOnError;
     int throwOnErrorCount = 1;
+    bool analyze;
     Uri dependenciesFile;
     Uri targetSpecification;
     List<String> uris = <String>[];
@@ -168,6 +176,10 @@ class OptionParser {
           if (value.argument != null) {
             throwOnErrorCount = int.parse(value.argument);
           }
+          break;
+
+        case Option.analyze:
+          analyze = true;
           break;
 
         case Option.skip:
@@ -232,7 +244,7 @@ class OptionParser {
         generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
         isBatch: isBatch ?? false, pattern: pattern,
         throwOnError: throwOnError ?? false,
-        throwOnErrorCount: throwOnErrorCount);
+        throwOnErrorCount: throwOnErrorCount, analyze: analyze ?? false);
   }
 
   List<OptionValue> parseValues() {

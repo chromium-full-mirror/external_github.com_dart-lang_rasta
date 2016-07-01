@@ -159,6 +159,9 @@ abstract class Rastask extends CompilerTask {
         ..throwOnErrorCount = options.throwOnErrorCount;
 
     CustomCompiler compiler = await factory.compiler;
+    if (options.analyze) {
+      compiler.checker.enabled = true;
+    }
     Rastask task;
     if (options.isBatch) {
       task = new RunBatch(compiler, wallClock, options);
