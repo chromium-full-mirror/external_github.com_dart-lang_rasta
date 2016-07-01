@@ -468,7 +468,7 @@ class KernelVisitor extends Object
       // It's not legal to declare more than one variable in a for-in loop.
       return new ir.InvalidStatement();
     }
-    ir.VariableDeclaration variable = buildStatementInBlock(declaration);
+    ir.VariableDeclaration variable = declaration.accept(this);
     return buildForInCommon(
         node, variable, buildStatementInBlock(node.body), isAsync: isAsync);
   }
@@ -570,13 +570,19 @@ class KernelVisitor extends Object
         buildStatementInBlock(node), node, elements.getTargetDefinition(node));
   }
 
-  void buildStatement(Statement statement, List<ir.Statement> statements) {
+  bool buildStatement(Statement statement, List<ir.Statement> statements) {
     ir.Node irNode = statement.accept(this);
+    bool hasVariableDeclaration = false;
     if (irNode is VariableDeclarations) {
       statements.addAll(irNode.variables);
+      hasVariableDeclaration = true;
     } else {
       statements.add(irNode);
+      if (irNode is ir.VariableDeclaration) {
+        hasVariableDeclaration = true;
+      }
     }
+    return hasVariableDeclaration;
   }
 
   ir.Statement buildStatementInBlock(
@@ -589,7 +595,7 @@ class KernelVisitor extends Object
         buildStatement(statement, statements);
       }
     } else {
-      buildStatement(node, statements);
+      if (buildStatement(node, statements)) forceBlock = true;
       if (!forceBlock && statements.length == 1) {
         return statements.single;
       }
@@ -1022,11 +1028,14 @@ class KernelVisitor extends Object
       }
       ir.SwitchCase irCase = casesIterator.current;
       List<ir.Statement> statements = <ir.Statement>[];
+      bool hasVariableDeclaration = false;
       for (Statement statement in caseNode.statements.nodes) {
-        buildStatement(statement, statements);
+        if (buildStatement(statement, statements)) {
+          hasVariableDeclaration = true;
+        }
       }
       ir.Statement body;
-      if (statements.length == 1) {
+      if (!hasVariableDeclaration && statements.length == 1) {
         body = statements.single;
       } else {
         body = new ir.Block(statements);
