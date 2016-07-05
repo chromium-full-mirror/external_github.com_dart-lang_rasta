@@ -15,6 +15,9 @@ import 'package:kernel/ast.dart' as ir;
 import 'package:kernel/checks.dart' show
     CheckParentPointers;
 
+import 'package:kernel/frontend/super_calls.dart' show
+    moveSuperCallLast;
+
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     ConstructorElement,
@@ -43,15 +46,15 @@ import 'package:compiler/src/diagnostics/spannable.dart' show
 import 'package:compiler/src/diagnostics/messages.dart' show
     MessageKind;
 
+import 'package:compiler/src/constants/expressions.dart' show
+    TypeConstantExpression;
+
 import 'custom_compiler.dart' show
     CustomCompiler;
 
 import 'kernel_visitor.dart' show
     IrFunction,
     KernelVisitor;
-
-import 'package:compiler/src/constants/expressions.dart' show
-    TypeConstantExpression;
 
 typedef void WorkAction();
 
@@ -372,6 +375,7 @@ class Kernel {
           for (ir.Initializer initializer in irFunction.initializers) {
             initializer.parent = constructor;
           }
+          moveSuperCallLast(constructor);
         } else {
           assert(irFunction.kind != null);
           procedure.function = irFunction.node;
