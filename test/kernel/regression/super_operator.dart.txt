@@ -25,5 +25,5 @@ class Autobianchi extends core::Object {
   constructor •() → self::Autobianchi
     : super core::Object::•();
   method g() → dynamic
-    return let final dynamic #t4 = 0 in throw core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t4], <dynamic, dynamic>{}, null);
+    return let final dynamic #t4 = 0 in throw core::dart.core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t4], <dynamic, dynamic>{}, null);
 }

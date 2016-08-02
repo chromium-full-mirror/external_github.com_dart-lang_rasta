@@ -3,5 +3,5 @@ import self as self;
 import "dart:core" as core;
 
 static method main() → dynamic {
-  throw core::_malformedTypeError("Cannot resolve 'Missing'.");
+  throw core::dart.core::_malformedTypeError("Cannot resolve 'Missing'.");
 }

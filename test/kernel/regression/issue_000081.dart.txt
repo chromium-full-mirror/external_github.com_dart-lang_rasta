@@ -8,13 +8,13 @@ class Base extends core::Object {
     : self::Base::hashCode = 42, super core::Object::•();
 }
 class Sub extends self::Base {
-  field core::int _hashCode;
+  field core::int issue_000081.dart::_hashCode;
   constructor •() → self::Sub
-    : self::Sub::_hashCode = null, super self::Base::•();
+    : self::Sub::issue_000081.dart::_hashCode = null, super self::Base::•();
   get hashCode() → dynamic
-    return let final dynamic #t1 = this._hashCode in #t1.==(null) ? this._hashCode = super.self::Base::hashCode : #t1;
+    return let final dynamic #t1 = this.issue_000081.dart::_hashCode in #t1.==(null) ? this.issue_000081.dart::_hashCode = super.self::Base::hashCode : #t1;
   method foo() → dynamic {
-    this._hashCode.==(null) ? this._hashCode = super.self::Base::hashCode : null;
+    this.issue_000081.dart::_hashCode.==(null) ? this.issue_000081.dart::_hashCode = super.self::Base::hashCode : null;
   }
 }
 static method main() → dynamic {

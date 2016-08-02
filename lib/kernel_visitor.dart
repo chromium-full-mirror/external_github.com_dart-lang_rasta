@@ -307,6 +307,14 @@ class KernelVisitor extends Object
     return kernel.typeToIr(type);
   }
 
+  // TODO(ahe): Hack. Fix dart2js instead.
+  ir.Name nameToIrName(Name name) {
+    assert(
+        !name.isPrivate ||
+        name.library.implementation == currentElement.library.implementation);
+    return kernel.irName(name.text, currentElement);
+  }
+
   List<ir.DartType> computeTypesFromTypes(NodeList nodes, {int expected}) {
     if (expected == null) {
       throw "[expected] is null";
@@ -337,7 +345,7 @@ class KernelVisitor extends Object
       Selector selector,
       ir.Arguments arguments) {
     return new ir.MethodInvocation(
-        receiver, kernel.nameToIrName(selector.memberName), arguments);
+        receiver, nameToIrName(selector.memberName), arguments);
   }
 
   ir.MethodInvocation buildCall(
@@ -1291,7 +1299,7 @@ class KernelVisitor extends Object
       Name name,
       _) {
     return new ir.PropertyGet(
-        visitForValue(receiver), kernel.nameToIrName(name));
+        visitForValue(receiver), nameToIrName(name));
   }
 
   @override
@@ -1315,7 +1323,7 @@ class KernelVisitor extends Object
     ir.Expression receiverNode = receiver == null
         ? new ir.ThisExpression() : visitForValue(receiver);
     return buildCompound(
-        PropertyAccessor.make(receiverNode, kernel.nameToIrName(name)), rhs);
+        PropertyAccessor.make(receiverNode, nameToIrName(name)), rhs);
   }
 
   @override
@@ -1327,7 +1335,7 @@ class KernelVisitor extends Object
       _) {
     ir.Expression value = visitForValue(rhs);
     return new ir.PropertySet(
-        visitForValue(receiver), kernel.nameToIrName(name), value);
+        visitForValue(receiver), nameToIrName(name), value);
   }
 
   @override
@@ -1337,7 +1345,7 @@ class KernelVisitor extends Object
       Name name,
       Node rhs,
       _) {
-    ir.Name irName = kernel.nameToIrName(name);
+    ir.Name irName = nameToIrName(name);
     Accessor accessor = (receiver == null)
         ? new ThisPropertyAccessor(irName)
         : PropertyAccessor.make(visitForValue(receiver), irName);
@@ -1577,7 +1585,7 @@ class KernelVisitor extends Object
 
   Accessor buildNullAwarePropertyAccessor(Node receiver, Name name) {
     return new NullAwarePropertyAccessor(
-        visitForValue(receiver), kernel.nameToIrName(name));
+        visitForValue(receiver), nameToIrName(name));
   }
 
   @override
@@ -2724,7 +2732,7 @@ class KernelVisitor extends Object
   }
 
   Accessor buildThisPropertyAccessor(Name name) {
-    return new ThisPropertyAccessor(kernel.nameToIrName(name));
+    return new ThisPropertyAccessor(nameToIrName(name));
   }
 
   @override

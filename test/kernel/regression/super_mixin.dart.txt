@@ -34,8 +34,12 @@ abstract class Super+Mixin#0<T  extends  core::Object> extends self::Super<dynam
   field dynamic x;
   constructor •() → self::Super<dynamic>
     : self::Super+Mixin#0::x = mix::f(), super self::Super::•();
+  method publicMethod() → dynamic
+    return this.test.mixin_library::_privateMethod();
+  method test.mixin_library::_privateMethod() → dynamic
+    return 49;
   method l() → dynamic
-    return mix::_private();
+    return mix::test.mixin_library::_private();
   method h() → dynamic
     return mix::V();
   method g(self::Super+Mixin#0::T a) → self::Super+Mixin#0::T
@@ -50,8 +54,12 @@ abstract class Super+Mixin#1<T  extends  core::Object, V  extends  core::Object>
   field dynamic x;
   constructor •() → self::Super<self::Super+Mixin#1::V>
     : self::Super+Mixin#1::x = mix::f(), super self::Super::•();
+  method publicMethod() → dynamic
+    return this.test.mixin_library::_privateMethod();
+  method test.mixin_library::_privateMethod() → dynamic
+    return 49;
   method l() → dynamic
-    return mix::_private();
+    return mix::test.mixin_library::_private();
   method h() → dynamic
     return mix::V();
   method g(self::Super+Mixin#1::T a) → self::Super+Mixin#1::T
@@ -66,8 +74,12 @@ abstract class Super+Mixin#2<T  extends  core::Object> extends self::Super<dynam
   field dynamic x;
   constructor •() → self::Super<dynamic>
     : self::Super+Mixin#2::x = mix::f(), super self::Super::•();
+  method publicMethod() → dynamic
+    return this.test.mixin_library::_privateMethod();
+  method test.mixin_library::_privateMethod() → dynamic
+    return 49;
   method l() → dynamic
-    return mix::_private();
+    return mix::test.mixin_library::_private();
   method h() → dynamic
     return mix::V();
   method g(self::Super+Mixin#2::T a) → self::Super+Mixin#2::T
@@ -82,8 +94,12 @@ abstract class Super+Mixin#3<T  extends  core::Object, V  extends  core::Object>
   field dynamic x;
   constructor •() → self::Super<self::Super+Mixin#3::V>
     : self::Super+Mixin#3::x = mix::f(), super self::Super::•();
+  method publicMethod() → dynamic
+    return this.test.mixin_library::_privateMethod();
+  method test.mixin_library::_privateMethod() → dynamic
+    return 49;
   method l() → dynamic
-    return mix::_private();
+    return mix::test.mixin_library::_private();
   method h() → dynamic
     return mix::V();
   method g(self::Super+Mixin#3::T a) → self::Super+Mixin#3::T

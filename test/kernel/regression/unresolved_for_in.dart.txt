@@ -32,7 +32,7 @@ static method main(dynamic arguments) → dynamic {
   new self::Fisk::•();
   for(final dynamic #t10 in arguments) {
     let final dynamic #t11 = #t10 in invalid-expression;
-    core::print(throw core::_genericNoSuchMethod(null, #key, <dynamic>[], <dynamic, dynamic>{}, null));
+    core::print(throw core::dart.core::_genericNoSuchMethod(null, #key, <dynamic>[], <dynamic, dynamic>{}, null));
   }
   for(final dynamic #t12 in arguments) {
     let final dynamic #t13 = #t12 in invalid-expression;
@@ -48,6 +48,6 @@ static method main(dynamic arguments) → dynamic {
   }
   for(final dynamic #t18 in arguments) {
     let final dynamic #t19 = #t18 in invalid-expression;
-    core::print(throw core::_genericNoSuchMethod(null, #key, <dynamic>[], <dynamic, dynamic>{}, null));
+    core::print(throw core::dart.core::_genericNoSuchMethod(null, #key, <dynamic>[], <dynamic, dynamic>{}, null));
   }
 }

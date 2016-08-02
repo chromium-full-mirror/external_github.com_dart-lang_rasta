@@ -17,4 +17,8 @@ class Mixin<T> {
   T g(T a) => null;
   h() => V();
   l() => _private();
+  _privateMethod() => 49;
+  publicMethod() => _privateMethod();
 }
+
+foo(m) => m._privateMethod();

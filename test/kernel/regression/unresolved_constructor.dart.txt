@@ -9,5 +9,5 @@ class Foo extends core::Object {
 }
 static method main() → dynamic {
   invalid-expression;
-  throw core::_unresolvedConstructorError(self::Foo, #Foo.notHere, <dynamic>[], <dynamic, dynamic>{}, null);
+  throw core::dart.core::_unresolvedConstructorError(self::Foo, #Foo.notHere, <dynamic>[], <dynamic, dynamic>{}, null);
 }

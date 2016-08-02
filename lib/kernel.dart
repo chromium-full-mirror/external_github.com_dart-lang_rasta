@@ -27,7 +27,7 @@ import 'package:compiler/src/elements/elements.dart' show
     FunctionElement,
     ImportElement,
     LibraryElement,
-    Name,
+    MixinApplicationElement,
     TypeVariableElement;
 
 import 'package:compiler/src/elements/modelx.dart' show
@@ -136,15 +136,17 @@ class Kernel {
   }
 
   ir.Name irName(String name, Element element) {
-    return new ir.Name(name, libraryToIr(element.library));
-  }
-
-  ir.Name nameToIrName(Name name) {
-    ir.Library library;
-    if (name.isPrivate) {
-      library = libraryToIr(name.library);
+    ir.Library irLibrary = null;
+    if (name.startsWith("_")) {
+      ClassElement cls = element.enclosingClass;
+      if (cls != null && cls.isMixinApplication) {
+        MixinApplicationElement mixinApplication = cls;
+        element = mixinApplication.mixin;
+      }
+      name = "${element.library.libraryOrScriptName}::$name";
+      irLibrary = libraryToIr(element.library);
     }
-    return new ir.Name(name.text, library);
+    return new ir.Name(name, irLibrary);
   }
 
   Future<ir.Library> loadLibrary(Uri uri) async {
@@ -436,7 +438,7 @@ class Kernel {
           ? const ir.InvalidType()
           : typeToIr(field.type);
       ir.Field fieldNode = new ir.Field(
-          nameToIrName(field.memberName), type: type, initializer: null,
+          irName(field.memberName.text, field), type: type, initializer: null,
           isFinal: field.isFinal, isStatic: field.isStatic || field.isTopLevel,
           isConst: field.isConst);
       addWork(field, () {

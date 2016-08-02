@@ -10,17 +10,23 @@ class Mixin<T  extends  core::Object> extends core::Object {
   constructor •() → self::Mixin<self::Mixin::T>
     : self::Mixin::x = self::f(), super core::Object::•();
   method foo() → dynamic
-    return(throw core::_unresolvedSuperMethodError(this, #foo, <dynamic>[], <dynamic, dynamic>{}, null)).+(self::f());
+    return(throw core::dart.core::_unresolvedSuperMethodError(this, #foo, <dynamic>[], <dynamic, dynamic>{}, null)).+(self::f());
   method g(self::Mixin::T a) → self::Mixin::T
     return null;
   method h() → dynamic
     return self::V();
   method l() → dynamic
-    return self::_private();
+    return self::test.mixin_library::_private();
+  method test.mixin_library::_privateMethod() → dynamic
+    return 49;
+  method publicMethod() → dynamic
+    return this.test.mixin_library::_privateMethod();
 }
 static method f() → dynamic
   return 2;
 static method V() → dynamic
   return 87;
-static method _private() → dynamic
+static method test.mixin_library::_private() → dynamic
   return 117;
+static method foo(dynamic m) → dynamic
+  return m.test.mixin_library::_privateMethod();
