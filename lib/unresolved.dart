@@ -54,6 +54,13 @@ abstract class RastaUnresolved {
   // TODO(ahe): Delete this method.
   ir.InvalidExpression handleUnresolved(Node node);
 
+  /// Similar to [Kernel.functionToIr] but returns null if [function] is a
+  /// synthetic function created for error recovery.
+  ir.Member possiblyErroneousFunctionToIr(FunctionElement function) {
+    return kernel.isSyntheticError(function)
+        ? null : kernel.functionToIr(function);
+  }
+
   /// Throws a [NoSuchMethodError] corresponding to a call to
   /// [receiver].[memberName] with the arguments [callArguments].
   ///
@@ -78,8 +85,14 @@ abstract class RastaUnresolved {
     ir.Expression named = new ir.MapLiteral(callArguments.named.map((e) {
       return new ir.MapEntry(new ir.SymbolLiteral(e.name), e.value);
     }).toList());
+    if (candidateTarget is FunctionElement) {
+      // Ensure [candidateTarget] has been resolved.
+      possiblyErroneousFunctionToIr(candidateTarget);
+    }
     ir.Expression existingArguments;
-    if (candidateTarget is FunctionElement && !candidateTarget.isError) {
+    if (candidateTarget is FunctionElement &&
+        !kernel.isSyntheticError(candidateTarget) &&
+        candidateTarget.hasFunctionSignature) {
       List<ir.Expression> existingArgumentsList = <ir.Expression>[];
       candidateTarget.functionSignature.forEachParameter((param) {
         existingArgumentsList.add(new ir.StringLiteral(param.name));
@@ -242,7 +255,7 @@ abstract class RastaUnresolved {
       CallStructure callStructure,
       _) {
     // The body of the factory will throw an error.
-    return new ir.StaticInvocation(kernel.functionToIr(constructor),
+    return new ir.StaticInvocation(possiblyErroneousFunctionToIr(constructor),
         buildArguments(arguments));
   }
 
@@ -322,7 +335,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new ClassStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPostfixIncrement(
         new ir.Name(operator.selectorName),
         voidContext: isVoidContext);
@@ -335,7 +348,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new ClassStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPrefixIncrement(
         new ir.Name(operator.selectorName),
         voidContext: isVoidContext);
@@ -348,7 +361,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new ClassStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildNullAwareAssignment(
         visitForValue(rhs), voidContext: isVoidContext);
   }
@@ -383,7 +396,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        kernel.functionToIr(element), null);
+        possiblyErroneousFunctionToIr(element), null);
     return accessor.buildCompoundAssignment(new ir.Name(operator.selectorName),
         visitForValue(rhs));
   }
@@ -548,7 +561,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperPropertyAccessor(this, '${node.selector}',
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildCompoundAssignment(
         new ir.Name(operator.selectorName),
         visitForValue(rhs));
@@ -563,7 +576,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildCompoundAssignment(
         new ir.Name(operator.selectorName),
         visitForValue(rhs));
@@ -577,7 +590,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        kernel.functionToIr(indexFunction), null);
+        possiblyErroneousFunctionToIr(indexFunction), null);
     return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
@@ -589,7 +602,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        kernel.functionToIr(indexFunction), null);
+        possiblyErroneousFunctionToIr(indexFunction), null);
     return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
@@ -600,7 +613,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new SuperPropertyAccessor(this, '${node.selector}',
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
@@ -611,7 +624,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new SuperPropertyAccessor(this, '${node.selector}',
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
@@ -622,7 +635,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperPropertyAccessor(this, '${node.selector}',
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
@@ -688,7 +701,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new TopLevelStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildCompoundAssignment(
         new ir.Name(operator.selectorName),
         visitForValue(rhs),
@@ -702,7 +715,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new TopLevelStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPostfixIncrement(
         new ir.Name(operator.selectorName),
         voidContext: isVoidContext);
@@ -715,7 +728,7 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     var accessor = new TopLevelStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildPrefixIncrement(
         new ir.Name(operator.selectorName),
         voidContext: isVoidContext);
@@ -728,7 +741,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new TopLevelStaticAccessor(this, getter.name,
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildNullAwareAssignment(
         visitForValue(rhs),
         voidContext: isVoidContext);
@@ -742,7 +755,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        null, kernel.functionToIr(setter));
+        null, possiblyErroneousFunctionToIr(setter));
     return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 
@@ -754,7 +767,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     var accessor = new SuperIndexAccessor(this, visitForValue(index),
-        kernel.functionToIr(getter), null);
+        possiblyErroneousFunctionToIr(getter), null);
     return accessor.buildNullAwareAssignment(visitForValue(rhs));
   }
 

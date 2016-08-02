@@ -574,7 +574,7 @@ class Kernel {
 
   /// Returns true if [element] is synthesized to recover or represent a
   /// semantic error, for example, missing, duplicated, or ambiguous elements.
-  /// However, returns true for elements that have an unrecoverable syntax
+  /// However, returns false for elements that have an unrecoverable syntax
   /// error. Both kinds of element will return true from [Element.isMalformed],
   /// but they must be handled differently. For example, a static call to
   /// synthetic error element should be compiled to [ir.InvalidExpression],
