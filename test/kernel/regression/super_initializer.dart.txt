@@ -1,4 +1,3 @@
-Loading platform libraries took: 3070.000ms
 library;
 import self as self;
 import "dart:core" as core;
@@ -26,4 +25,3 @@ class Sub extends self::Super {
     : final dynamic #t2 = a, final dynamic #t3 = b, self::Sub::field = 42, super self::Super::arg2(#t2, #t3)
     ;
 }
-
