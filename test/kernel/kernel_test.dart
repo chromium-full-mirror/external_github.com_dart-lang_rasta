@@ -47,11 +47,16 @@ import 'package:rasta/src/options.dart' show
 const bool generateExpectations =
     const bool.fromEnvironment("generateExpectations");
 
+const String dartExtension = ".dart";
+const String kernelExtension = ".dill";
+
 Future<Null> addRegressions(Map<Uri, Uri> tests, Uri temp) async {
   Stream<TestDescription> regressions = listTests(
-      <Uri>[Uri.base.resolve("test/kernel/regression/")], pattern: ".dart");
+      <Uri>[Uri.base.resolve("test/kernel/regression/")],
+      pattern: dartExtension);
   await for (TestDescription regression in regressions) {
-    tests[regression.uri] = temp.resolve("${regression.shortName}.bart");
+    tests[regression.uri] =
+        temp.resolve("${regression.shortName}$kernelExtension");
   }
 }
 
@@ -69,10 +74,10 @@ Future<Null> runTests(Rastask task) async {
   // directory.
   Uri temp = Platform.script;
   Map<Uri, Uri> tests = <Uri, Uri>{
-    Uri.parse("dart:core"): temp.resolve("core.bart"),
+    Uri.parse("dart:core"): temp.resolve("core$kernelExtension"),
 
-    Uri.parse("package:compiler/src/dart2js.dart"):
-    temp.resolve("dart2js.bart"),
+    Uri.parse("package:compiler/src/dart2js$dartExtension"):
+    temp.resolve("dart2js$kernelExtension"),
   };
 
   await addRegressions(tests, temp);
@@ -89,12 +94,12 @@ Future<Null> runTests(Rastask task) async {
     bool isRegression = source.path.contains("/regression/");
 
     print("Rastarizing $source");
-    Uri bart = tests[source];
-    File output = new File.fromUri(bart);
+    Uri dill = tests[source];
+    File output = new File.fromUri(dill);
     await output.parent.create(recursive: true);
 
     Options options = new Options(
-        source, bart, dependenciesFile: null,
+        source, dill, dependenciesFile: null,
         generateLibrary: isRegression ? isRegression : null,
         isVerbose: true, isBatch: false, pattern: null);
 
@@ -115,7 +120,7 @@ Future<Null> runTests(Rastask task) async {
       outcome = await checkAgainstExpectations(node);
     }
     if (outcome == Expectation.PASS) {
-      outcome = checkRoundTrip(bart);
+      outcome = checkRoundTrip(dill);
     }
 
     Set<Expectation> expectedOutcomes = isRegression

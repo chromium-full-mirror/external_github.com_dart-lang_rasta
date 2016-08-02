@@ -85,7 +85,7 @@ class RunBatch extends Rastask {
 
       int failuresBefore = compiler.elementsWithCompileTimeErrors.length;
       Uri output = description.output;
-      output ??= description.uri.resolve("${description.uri.path}.bart");
+      output ??= description.uri.resolve("${description.uri.path}.dill");
 
       Options options = new Options(
           description.uri,
