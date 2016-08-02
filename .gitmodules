@@ -1,6 +1,6 @@
 [submodule "dart-sdk"]
 	path = third_party/dart-sdk
-	url = sso://user/ahe/dart-sdk
+	url = https://github.com/dart-lang/kernel_sdk.git
 [submodule "package_config"]
 	path = third_party/package_config
 	url = https://chromium.googlesource.com/external/github.com/dart-lang/package_config.git
