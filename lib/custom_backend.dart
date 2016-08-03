@@ -126,4 +126,15 @@ class CustomBackend extends Backend {
   @override MethodElement resolveExternalFunction(MethodElement element) {
     return patchResolver.resolveExternalFunction(element);
   }
+
+  @override bool canLibraryUseNative(LibraryElement library) {
+    return library.isPlatformLibrary || isNativeTest(library);
+  }
+
+  /// Returns true if [library] is a test of native keyword.
+  bool isNativeTest(LibraryElement library) {
+    Uri uri = library.canonicalUri;
+    return uri.scheme == "file" &&
+        uri.path.contains("/test/kernel/regression/native/");
+  }
 }

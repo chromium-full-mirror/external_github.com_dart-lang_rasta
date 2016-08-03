@@ -49,6 +49,10 @@ import 'package:compiler/src/diagnostics/messages.dart' show
 import 'package:compiler/src/constants/expressions.dart' show
     TypeConstantExpression;
 
+import 'package:compiler/src/tree/tree.dart' show
+    FunctionExpression,
+    Node;
+
 import 'custom_compiler.dart' show
     CustomCompiler;
 
@@ -330,6 +334,21 @@ class Kernel {
     }
   }
 
+  bool isNativeMethod(FunctionElement element) {
+    // This method is a (modified) copy of the same method in
+    // `pkg/compiler/lib/src/native/enqueue.dart`.
+    if (!compiler.backend.canLibraryUseNative(element.library)) return false;
+    return compiler.reporter.withCurrentElement(element, () {
+      FunctionExpression functionExpression =
+          element.node?.asFunctionExpression();
+      if (functionExpression == null) return false;
+      Node body = functionExpression.body;
+      if (body == null) return false;
+      if (identical(body.getBeginToken().stringValue, 'native')) return true;
+      return false;
+    });
+  }
+
   ir.Member functionToIr(FunctionElement function) {
     if (function.isDeferredLoaderGetter) {
       internalError(function, "Deferred loader.");
@@ -349,16 +368,17 @@ class Kernel {
       ir.Constructor constructor;
       ir.Procedure procedure;
       ir.Name name = irName(function.name, function);
+      bool isNative = isNativeMethod(function);
       if (function.isGenerativeConstructor) {
         member = constructor = new ir.Constructor(
             null, name: name, isConst: function.isConst,
-            isExternal: function.isExternal, initializers: null);
+            isExternal: isNative || function.isExternal, initializers: null);
       } else {
         member = procedure = new ir.Procedure(
             name, null, null, isAbstract: function.isAbstract,
             isStatic: function.isStatic || function.isTopLevel
                 || function.isFactoryConstructor,
-            isExternal: function.isExternal,
+            isExternal: isNative || function.isExternal,
             isConst: false); // TODO(ahe): When is this true?
       }
       addWork(function, () {

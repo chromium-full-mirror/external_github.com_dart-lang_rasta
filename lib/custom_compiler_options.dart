@@ -64,7 +64,7 @@ class CustomCompilerOptions implements CompilerOptions {
 
   @override bool get allowMockCompilation => false;
 
-  @override bool get allowNativeExtensions => true;
+  @override bool get allowNativeExtensions => false;
 
   @override Uri get deferredMapUri => null;
 

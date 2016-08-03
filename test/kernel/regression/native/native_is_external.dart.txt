@@ -1,0 +1,16 @@
+library;
+import self as self;
+import "dart:core" as core;
+
+class Bar extends core::Object {
+  external get x() → self::Bar
+    return "Bar_get_x";
+  external set x(self::Bar value) → dynamic
+    return "Bar_set_x";
+  external method f() → dynamic
+    return "Bar_f";
+  external static factory •() → self::Bar
+    return "Bar_constructor";
+}
+external static method foo() → dynamic
+  return "foo";
