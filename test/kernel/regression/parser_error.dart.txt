@@ -6,5 +6,5 @@ import "dart:core" as core;
 static method test() → dynamic
   invalid-statement;
 static method main() → dynamic {
-  exp::Expect::equals(6, throw core::dart.core::_genericNoSuchMethod(null, #test, <dynamic>[1], <dynamic, dynamic>{#b: 2, #c: 3}, <dynamic>[]));
+  exp::Expect::equals(6, throw core::_genericNoSuchMethod(null, #test, <dynamic>[1], <dynamic, dynamic>{#b: 2, #c: 3}, <dynamic>[]));
 }

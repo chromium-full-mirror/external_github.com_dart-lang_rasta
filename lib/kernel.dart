@@ -147,7 +147,6 @@ class Kernel {
         MixinApplicationElement mixinApplication = cls;
         element = mixinApplication.mixin;
       }
-      name = "${element.library.libraryOrScriptName}::$name";
       irLibrary = libraryToIr(element.library);
     }
     return new ir.Name(name, irLibrary);

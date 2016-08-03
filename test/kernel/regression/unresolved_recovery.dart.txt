@@ -6,13 +6,13 @@ class E extends core::Object {
   constructor •() → self::E
     : super core::Object::•();
   method foo() → dynamic {
-    let final dynamic #t1 = 4 in throw core::dart.core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t1, 42], <dynamic, dynamic>{}, null);
-    let final dynamic #t2 = 4 in throw core::dart.core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t2, (throw core::dart.core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t2], <dynamic, dynamic>{}, null)).+(5)], <dynamic, dynamic>{}, null);
-    return let final dynamic #t3 = 2 in throw core::dart.core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t3], <dynamic, dynamic>{}, null);
+    let final dynamic #t1 = 4 in throw core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t1, 42], <dynamic, dynamic>{}, null);
+    let final dynamic #t2 = 4 in throw core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t2, (throw core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t2], <dynamic, dynamic>{}, null)).+(5)], <dynamic, dynamic>{}, null);
+    return let final dynamic #t3 = 2 in throw core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t3], <dynamic, dynamic>{}, null);
   }
 }
 static method beforeTestMissingTry() → dynamic {
-  throw core::dart.core::_genericNoSuchMethod(null, #testMissingTry, <dynamic>[], <dynamic, dynamic>{}, null);
+  throw core::_genericNoSuchMethod(null, #testMissingTry, <dynamic>[], <dynamic, dynamic>{}, null);
 }
 static method testMissingTry() → dynamic
   invalid-statement;

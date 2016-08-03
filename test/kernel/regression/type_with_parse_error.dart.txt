@@ -6,7 +6,7 @@ class A extends core::Object {
   constructor •() → self::A
     : super core::Object::•();
   method foo() → dynamic {
-    throw core::dart.core::_malformedTypeError("'B' is not a type.");
+    throw core::_malformedTypeError("'B' is not a type.");
   }
 }
 class B extends core::Object {
@@ -14,5 +14,5 @@ class B extends core::Object {
     : super core::Object::•();
 }
 static method main() → dynamic {
-  throw core::dart.core::_malformedTypeError("'B' is not a type.");
+  throw core::_malformedTypeError("'B' is not a type.");
 }
