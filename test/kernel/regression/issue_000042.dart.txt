@@ -10,11 +10,14 @@ static method main() → dynamic {
   if(true) {
     invalid-statement;
   }
+  #L1:
   switch(1) {
+    #L2:
     case 1:
       invalid-statement;
+    #L3:
     case 2:
-      break;
+      break #L1;
   }
   try {
   }
