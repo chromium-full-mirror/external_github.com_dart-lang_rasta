@@ -45,8 +45,8 @@ Stream<TestDescription> readTestsFromStream(Stream<List<int>> input) async* {
     if (splitPoint < 0) {
       print("Skipping garbage in input file: $line");
     } else {
-      Uri input = Uri.parse(line.substring(0, splitPoint));
-      Uri output = Uri.parse(line.substring(splitPoint + 1));
+      Uri input = Uri.base.resolve(line.substring(0, splitPoint));
+      Uri output = Uri.base.resolve(line.substring(splitPoint + 1));
       yield new TestDescription(new File.fromUri(input), output: output);
     }
   }
@@ -83,7 +83,6 @@ class RunBatch extends Rastask {
       assert(kernel.isInternalStateConsistent);
       count++;
 
-      int failuresBefore = compiler.elementsWithCompileTimeErrors.length;
       Uri output = description.output;
       output ??= description.uri.resolve("${description.uri.path}.dill");
 
@@ -108,8 +107,7 @@ class RunBatch extends Rastask {
       }
 
       if (batchFromStdin) {
-        int failuresAfter = compiler.elementsWithCompileTimeErrors.length;
-        if (failuresAfter == failuresBefore) {
+        if (!hasCompileTimeErrors) {
           print(">>> TEST OK");
         } else {
           print(">>> TEST FAIL");

@@ -11,11 +11,18 @@ import 'dart:io' show
     File,
     IOSink;
 
+import 'package:compiler/compiler_new.dart' show
+    Diagnostic;
+
+import 'package:compiler/src/diagnostics/diagnostic_listener.dart' show
+    DiagnosticMessage;
+
 import 'package:compiler/src/common/tasks.dart' show
     CompilerTask;
 
 import 'package:compiler/src/elements/elements.dart' show
     CompilationUnitElement,
+    Element,
     LibraryElement;
 
 import 'package:kernel/ast.dart' as ir;
@@ -61,6 +68,7 @@ abstract class Rastask extends CompilerTask {
   Duration setupDuration;
   Kernel kernel;
   ir.Library coreLibrary;
+  bool hasCompileTimeErrors = false;
 
   Rastask(CustomCompiler compiler, this.wallClock, this.globalOptions)
       : super(compiler);
@@ -93,6 +101,7 @@ abstract class Rastask extends CompilerTask {
   }
 
   Future<ir.TreeNode> runOne(Options options) async {
+    hasCompileTimeErrors = false;
     ir.Library library = await loadLibrary(options.input);
 
     bool generateLibrary = options.generateLibrary;
@@ -141,6 +150,19 @@ abstract class Rastask extends CompilerTask {
         });
       });
     }
+    Set<ir.Library> libraries = new Set<ir.Library>.from(
+        generateLibrary ? <ir.Library>[library] : program.libraries);
+    compiler.elementsWithCompileTimeErrors.forEach(
+        (Element element, List<DiagnosticMessage> messages) {
+          ir.Library library = kernel.libraries[element.library];
+          if (libraries.contains(library)) {
+            for (DiagnosticMessage diagnostic in messages) {
+              hasCompileTimeErrors = true;
+              compiler.reportDiagnostic(
+                  diagnostic, const <DiagnosticMessage>[], Diagnostic.ERROR);
+            }
+          }
+        });
     return generateLibrary ? library : program;
   }
 
