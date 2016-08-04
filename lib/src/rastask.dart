@@ -156,8 +156,11 @@ abstract class Rastask extends CompilerTask {
         (Element element, List<DiagnosticMessage> messages) {
           ir.Library library = kernel.libraries[element.library];
           if (libraries.contains(library)) {
+            hasCompileTimeErrors = true;
+            if (messages.isEmpty) {
+              kernel.internalError(element, "No message for element");
+            }
             for (DiagnosticMessage diagnostic in messages) {
-              hasCompileTimeErrors = true;
               compiler.reportDiagnostic(
                   diagnostic, const <DiagnosticMessage>[], Diagnostic.ERROR);
             }
