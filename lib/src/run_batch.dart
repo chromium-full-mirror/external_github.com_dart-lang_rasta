@@ -43,7 +43,7 @@ Stream<TestDescription> readTestsFromStream(Stream<List<int>> input) async* {
   await for (String line in lines) {
     int splitPoint = line.indexOf(' ');
     if (splitPoint < 0) {
-      print("Skipping garbage in input file: $line");
+      throw "Got garbage in input file: $line";
     } else {
       Uri input = Uri.base.resolve(line.substring(0, splitPoint));
       Uri output = Uri.base.resolve(line.substring(splitPoint + 1));
@@ -95,6 +95,7 @@ class RunBatch extends Rastask {
           isBatch: false,
           pattern: null);
 
+      bool hasCrashed = false;
       try {
         await runOne(options);
       } catch (e, s) {
@@ -103,16 +104,18 @@ class RunBatch extends Rastask {
           print("${description.uri} failed: $e\n$s\n\n");
         }
         failures.add(description);
-        if (batchFromStdin) print(">>> TEST CRASH");
+        hasCrashed = true;
       }
 
       if (batchFromStdin) {
-        if (!hasCompileTimeErrors) {
+        if (hasCrashed) {
+          print(">>> TEST CRASH");
+        } else if (!hasCompileTimeErrors) {
           print(">>> TEST OK");
         } else {
           print(">>> TEST FAIL");
         }
-        stderr.writeln(">>> EOF STDERR");
+        stderr.write(">>> EOF STDERR\n");
       } else {
         String averageTimeMs =
             (wallClock.elapsedMilliseconds / count).toStringAsFixed(3);
