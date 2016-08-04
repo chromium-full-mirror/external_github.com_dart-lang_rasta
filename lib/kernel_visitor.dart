@@ -176,6 +176,9 @@ import 'kernel.dart' show
     ConstructorTarget,
     Kernel;
 
+import 'kernel/fall_through_visitor.dart' show
+    fallsThrough;
+
 /// Translates dart2js AST nodes [Node] into Kernel IR [ir.TreeNode].
 ///
 /// Most methods in this class have a prefix that follows these conventions:
@@ -1041,6 +1044,14 @@ class KernelVisitor extends Object
         if (buildStatement(statement, statements)) {
           hasVariableDeclaration = true;
         }
+      }
+      if (statements.isEmpty || fallsThrough(statements.last)) {
+        statements.add(
+            new ir.ExpressionStatement(
+                new ir.Throw(
+                    new ir.StaticInvocation(
+                        kernel.getFallThroughErrorBuilder(),
+                        new ir.Arguments.empty()))));
       }
       ir.Statement body;
       if (!hasVariableDeclaration && statements.length == 1) {

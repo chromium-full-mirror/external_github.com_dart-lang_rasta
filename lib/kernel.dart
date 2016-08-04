@@ -682,6 +682,10 @@ class Kernel {
   ir.Procedure getGenericNoSuchMethodBuilder() {
     return getDartCoreMethod('_genericNoSuchMethod');
   }
+
+  ir.Procedure getFallThroughErrorBuilder() {
+    return getDartCoreMethod('_fallThroughError');
+  }
 }
 
 class ConstructorTarget {

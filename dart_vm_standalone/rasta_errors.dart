@@ -184,3 +184,7 @@ _genericNoSuchMethod(
 _malformedTypeError(String errorMessage) {
   return new _TypeError._create(null, null, null, errorMessage);
 }
+
+_fallThroughError() {
+  return new FallThroughError();
+}
