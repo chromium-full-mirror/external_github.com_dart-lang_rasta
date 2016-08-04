@@ -563,7 +563,7 @@ class Kernel {
     }
     while (notProcessed.isNotEmpty) {
       LibraryElement library = notProcessed.removeFirst();
-      ir.Library irLibrary = libraries[library];
+      ir.Library irLibrary = libraryToIr(library);
       for (ImportElement import in library.imports) {
         if (seen.add(import.importedLibrary)) {
           processLater(import.importedLibrary);
@@ -588,6 +588,7 @@ class Kernel {
         result.add(irLibrary);
       }
     }
+    processWorkQueue();
     return result;
   }
 
