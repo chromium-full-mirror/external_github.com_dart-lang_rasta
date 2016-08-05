@@ -22,6 +22,9 @@ import 'package:kernel/frontend/accessors.dart' show
     makeLet,
     makeOrReuseVariable;
 
+import 'package:compiler/src/util/util.dart' show
+    Link;
+
 import 'package:compiler/src/resolution/semantic_visitor.dart' show
     BaseImplementationOfCompoundsMixin,
     BaseImplementationOfLocalsMixin,
@@ -1033,7 +1036,11 @@ class KernelVisitor extends Object
     }
 
     Iterator<ir.SwitchCase> casesIterator = cases.iterator;
-    for (SwitchCase caseNode in node.cases.nodes) {
+    for (Link<Node> link = node.cases.nodes;
+         link.isNotEmpty;
+         link = link.tail) {
+      SwitchCase caseNode = link.head;
+      bool isLastCase = link.tail.isEmpty;
       if (!casesIterator.moveNext()) {
         internalError(caseNode, "case node mismatch");
       }
@@ -1045,7 +1052,8 @@ class KernelVisitor extends Object
           hasVariableDeclaration = true;
         }
       }
-      if (statements.isEmpty || fallsThrough(statements.last)) {
+      if (!isLastCase &&
+          (statements.isEmpty || fallsThrough(statements.last))) {
         statements.add(
             new ir.ExpressionStatement(
                 new ir.Throw(

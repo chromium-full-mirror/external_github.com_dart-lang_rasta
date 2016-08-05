@@ -47,7 +47,10 @@ class FallThroughVisitor implements StatementVisitor<bool> {
   }
 
   bool visitBlock(Block node) {
-    return node.statements.isEmpty || node.statements.last.accept(this);
+    for (Statement statement in node.statements) {
+      if (!statement.accept(this)) return false;
+    }
+    return true;
   }
 
   bool visitEmptyStatement(EmptyStatement node) => true;
@@ -86,7 +89,7 @@ class FallThroughVisitor implements StatementVisitor<bool> {
   }
 
   bool visitTryFinally(TryFinally node) {
-    return node.body.accept(this) || node.finalizer.accept(this);
+    return node.body.accept(this) && node.finalizer.accept(this);
   }
 
   bool visitYieldStatement(YieldStatement node) => true;

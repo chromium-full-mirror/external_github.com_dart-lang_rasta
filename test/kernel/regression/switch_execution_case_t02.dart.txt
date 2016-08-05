@@ -26,10 +26,7 @@ static method test(dynamic value) → dynamic {
       }
     #L5:
     default:
-      {
-        result = 4;
-        throw core::_fallThroughError();
-      }
+      result = 4;
   }
   return result;
 }
@@ -55,7 +52,7 @@ static method testEmptyCases(dynamic value) → dynamic {
     case 5:
     case 6:
     default:
-      throw core::_fallThroughError();
+      {}
   }
   return result;
 }
