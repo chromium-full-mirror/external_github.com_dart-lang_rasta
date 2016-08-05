@@ -527,13 +527,14 @@ class Kernel {
   ConstructorTarget computeEffectiveTarget(
       ConstructorElement constructor,
       DartType type) {
+    constructor = constructor.implementation;
     Set<ConstructorElement> seen = new Set<ConstructorElement>();
     functionToIr(constructor);
     while (constructor != constructor.effectiveTarget) {
       type = constructor.computeEffectiveTargetType(type);
       if (constructor.isGenerativeConstructor) break;
       if (!seen.add(constructor)) break;
-      constructor = constructor.effectiveTarget;
+      constructor = constructor.effectiveTarget.implementation;
       if (isSyntheticError(constructor)) break;
       functionToIr(constructor);
     }
