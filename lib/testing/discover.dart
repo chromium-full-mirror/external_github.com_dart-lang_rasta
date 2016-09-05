@@ -40,7 +40,7 @@ Stream<TestDescription> listTests(List<Uri> testRoots, {Pattern pattern}) {
             testRoot.list(recursive: true, followLinks: false);
         var subscription = stream.listen((FileSystemEntity entity) {
           TestDescription description =
-              TestDescription.from(entity, pattern: pattern);
+              TestDescription.from(testRootUri, entity, pattern: pattern);
           if (description != null) {
             controller.add(description);
           }

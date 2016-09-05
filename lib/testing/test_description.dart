@@ -9,19 +9,21 @@ import 'dart:io' show
     FileSystemEntity;
 
 class TestDescription implements Comparable<TestDescription> {
+  final Uri root;
   final File file;
   final Uri output;
 
-  TestDescription(this.file, {this.output});
+  TestDescription(this.root, this.file, {this.output});
 
   Uri get uri => file.uri;
 
   String get shortName {
-    String baseName = uri.path.split("/").last;
+    String baseName = "$uri".substring("$root".length);
     return baseName.substring(0, baseName.length - ".dart".length);
   }
 
-  static TestDescription from(FileSystemEntity entity, {Pattern pattern}) {
+  static TestDescription from(
+      Uri root, FileSystemEntity entity, {Pattern pattern}) {
     if (entity is! File) return null;
     pattern ??= "_test.dart";
     String path = entity.uri.path;
@@ -31,7 +33,7 @@ class TestDescription implements Comparable<TestDescription> {
     } else if (path.contains(pattern)) {
       hasMatch = true;
     }
-    return hasMatch ? new TestDescription(entity) : null;
+    return hasMatch ? new TestDescription(root, entity) : null;
   }
 
   int compareTo(TestDescription other) => "$uri".compareTo("${other.uri}");
