@@ -15,9 +15,6 @@ import 'package:kernel/ast.dart' as ir;
 import 'package:kernel/checks.dart' show
     CheckParentPointers;
 
-import 'package:kernel/frontend/super_calls.dart' show
-    moveSuperCallLast;
-
 import 'package:compiler/src/elements/elements.dart' show
     ClassElement,
     ConstructorElement,
@@ -208,9 +205,9 @@ class Kernel {
       cls.ensureResolved(compiler.resolution);
       compiler.enqueuer.resolution.emptyDeferredTaskQueue();
       String name = computeName(cls);
-      ir.NormalClass classNode = new ir.NormalClass(
-          null, name: name, isAbstract: cls.isAbstract,
-          typeParameters: null, implementedClasses: null, constructors: null,
+      ir.Class classNode = new ir.Class(
+          name: name, isAbstract: cls.isAbstract,
+          typeParameters: null, implementedTypes: null, constructors: null,
           procedures: null, fields: null);
       addWork(cls, () {
         if (cls.supertype != null) {
@@ -396,7 +393,6 @@ class Kernel {
           for (ir.Initializer initializer in irFunction.initializers) {
             initializer.parent = constructor;
           }
-          moveSuperCallLast(constructor);
         } else {
           assert(irFunction.kind != null);
           procedure.function = irFunction.node;

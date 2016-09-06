@@ -16,12 +16,12 @@ class Super extends core::Object {
 class Sub extends self::Super {
   field dynamic field;
   constructor arg0() → dynamic
-    : self::Sub::field = 42, super self::Super::arg0()
+    : super self::Super::arg0(), self::Sub::field = 42
     ;
   constructor arg1(dynamic a) → dynamic
-    : final dynamic #t1 = a, self::Sub::field = 42, super self::Super::arg1(#t1)
+    : super self::Super::arg1(a), self::Sub::field = 42
     ;
   constructor arg2(dynamic a, dynamic b) → dynamic
-    : final dynamic #t2 = a, final dynamic #t3 = b, self::Sub::field = 42, super self::Super::arg2(#t2, #t3)
+    : super self::Super::arg2(a, b), self::Sub::field = 42
     ;
 }

@@ -47,7 +47,8 @@ Stream<TestDescription> readTestsFromStream(Stream<List<int>> input) async* {
     } else {
       Uri input = Uri.base.resolve(line.substring(0, splitPoint));
       Uri output = Uri.base.resolve(line.substring(splitPoint + 1));
-      yield new TestDescription(new File.fromUri(input), output: output);
+      yield new TestDescription(
+          Uri.base.resolve("/"), new File.fromUri(input), output: output);
     }
   }
 }

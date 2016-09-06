@@ -2397,7 +2397,7 @@ class KernelVisitor extends Object
       Node argument,
       _) {
     return new ir.SuperMethodInvocation(
-        kernel.functionToIr(function),
+        kernel.irName(operator.selectorName, currentElement),
         new ir.Arguments(<ir.Expression>[visitForValue(argument)]));
   }
 
@@ -2437,7 +2437,7 @@ class KernelVisitor extends Object
       FunctionElement function,
       Node argument) {
     return new ir.SuperMethodInvocation(
-        kernel.functionToIr(function),
+        kernel.irName(function.name, function),
         new ir.Arguments(
             <ir.Expression>[visitForValue(argument)],
             types: null, named: null));
@@ -2526,27 +2526,17 @@ class KernelVisitor extends Object
   }
 
   Accessor buildSuperPropertyAccessor(Element getter, [Element setter]) {
-    if (setter == null && getter.isField && !getter.isFinal &&
-        !getter.isConst) {
-      setter = getter;
+    if (getter == null) {
+      getter = setter;
     }
-    return new SuperPropertyAccessor(
-        (getter == null) ? null : kernel.elementToIr(getter),
-        (setter == null) ? null : kernel.elementToIr(setter));
+    return new SuperPropertyAccessor(kernel.irName(getter.name, getter));
   }
 
   Accessor buildSuperIndexAccessor(
       Expression index,
       Element getter,
       [Element setter]) {
-    if (setter == null && getter.isField && !getter.isFinal &&
-        !getter.isConst) {
-      setter = getter;
-    }
-    return new SuperIndexAccessor(
-        visitForValue(index),
-        (getter == null) ? null : kernel.elementToIr(getter),
-        (setter == null) ? null : kernel.elementToIr(setter));
+    return new SuperIndexAccessor(visitForValue(index));
   }
 
   @override
@@ -2645,7 +2635,7 @@ class KernelVisitor extends Object
       MethodElement method,
       NodeList arguments) {
     return new ir.SuperMethodInvocation(
-        kernel.functionToIr(method), buildArguments(arguments));
+        kernel.irName(method.name, method), buildArguments(arguments));
   }
 
   @override
@@ -2718,7 +2708,7 @@ class KernelVisitor extends Object
       FunctionElement function,
       _) {
     return new ir.SuperMethodInvocation(
-        kernel.functionToIr(function), new ir.Arguments.empty());
+        kernel.irName(function.name, function), new ir.Arguments.empty());
   }
 
   @override

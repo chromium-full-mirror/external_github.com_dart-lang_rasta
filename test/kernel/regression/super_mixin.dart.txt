@@ -45,7 +45,7 @@ abstract class Super+Mixin#0<T  extends  core::Object> extends self::Super<dynam
   method g(self::Super+Mixin#0::T a) → self::Super+Mixin#0::T
     return null;
   method foo() → dynamic
-    return super.self::Super::foo().+(mix::f());
+    return super.foo().+(mix::f());
 }
 abstract class Super+Mixin#1<T  extends  core::Object, V  extends  core::Object> extends self::Super<self::Super+Mixin#1::V> implements mix::Mixin<self::Super+Mixin#1::V> {
   field self::Super+Mixin#1::T t;
@@ -65,7 +65,7 @@ abstract class Super+Mixin#1<T  extends  core::Object, V  extends  core::Object>
   method g(self::Super+Mixin#1::T a) → self::Super+Mixin#1::T
     return null;
   method foo() → dynamic
-    return super.self::Super::foo().+(mix::f());
+    return super.foo().+(mix::f());
 }
 abstract class Super+Mixin#2<T  extends  core::Object> extends self::Super<dynamic> implements mix::Mixin<dynamic> {
   field self::Super+Mixin#2::T t;
@@ -85,7 +85,7 @@ abstract class Super+Mixin#2<T  extends  core::Object> extends self::Super<dynam
   method g(self::Super+Mixin#2::T a) → self::Super+Mixin#2::T
     return null;
   method foo() → dynamic
-    return super.self::Super::foo().+(mix::f());
+    return super.foo().+(mix::f());
 }
 abstract class Super+Mixin#3<T  extends  core::Object, V  extends  core::Object> extends self::Super<self::Super+Mixin#3::V> implements mix::Mixin<self::Super+Mixin#3::V> {
   field self::Super+Mixin#3::T t;
@@ -105,7 +105,7 @@ abstract class Super+Mixin#3<T  extends  core::Object, V  extends  core::Object>
   method g(self::Super+Mixin#3::T a) → self::Super+Mixin#3::T
     return null;
   method foo() → dynamic
-    return super.self::Super::foo().+(mix::f());
+    return super.foo().+(mix::f());
 }
 static method main() → dynamic {
   core::print(new self::C::•<dynamic>().foo());

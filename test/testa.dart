@@ -34,14 +34,15 @@ main() async {
   sb.writeln("library testa_combined;\n");
   sb.writeln("import '${Platform.script.path}' show runTests;\n");
   for (TestDescription description in descriptions) {
+    String shortName = description.shortName.replaceAll("/", "__");
     sb.writeln(
-        "import '${description.uri.path}' as ${description.shortName} "
+        "import '${description.uri.path}' as $shortName "
         "show main;");
   }
   sb.writeln("\nvoid main() {");
   sb.writeln("  runTests(<String, Function> {");
   for (TestDescription description in descriptions) {
-    String shortName = description.shortName;
+    String shortName = description.shortName.replaceAll("/", "__");
     sb.writeln(
         '    "$shortName": $shortName.main,');
   }

@@ -6,9 +6,9 @@ class E extends core::Object {
   constructor •() → self::E
     : super core::Object::•();
   method foo() → dynamic {
-    let final dynamic #t1 = 4 in throw core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t1, 42], <dynamic, dynamic>{}, null);
-    let final dynamic #t2 = 4 in throw core::_unresolvedSuperMethodError(this, #[]=, <dynamic>[#t2, (throw core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t2], <dynamic, dynamic>{}, null)).+(5)], <dynamic, dynamic>{}, null);
-    return let final dynamic #t3 = 2 in throw core::_unresolvedSuperMethodError(this, #[], <dynamic>[#t3], <dynamic, dynamic>{}, null);
+    super.[]=(4, 42);
+    let final dynamic #t1 = 4 in super.[]=(#t1, super.[](#t1).+(5));
+    return super.[](2);
   }
 }
 static method beforeTestMissingTry() → dynamic {

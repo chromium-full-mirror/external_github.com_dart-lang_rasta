@@ -87,27 +87,19 @@ class ClassStaticAccessor extends ir_accessors.StaticAccessor {
 class SuperPropertyAccessor extends ir_accessors.SuperPropertyAccessor {
   final RastaUnresolved builder;
 
-  /// Name of the property attempted to be accessed, used to generate an
-  /// error if unresolved.
-  final String name;
-
-  SuperPropertyAccessor(
-    this.builder,
-    this.name,
-    ir.Member readTarget,
-    ir.Member writeTarget)
-      : super(readTarget, writeTarget);
+  SuperPropertyAccessor(this.builder, ir.Name name)
+      : super(name);
 
   @override
   makeInvalidRead() {
     // TODO(asgerf): Technically, we should invoke 'super.noSuchMethod' for
     //   this and the other invalid super cases.
-    return builder.buildThrowUnresolvedSuperGetter(name);
+    return builder.buildThrowUnresolvedSuperGetter(name.name);
   }
 
   @override
   makeInvalidWrite(ir.Expression value) {
-    return builder.buildThrowUnresolvedSuperSetter(name, value);
+    return builder.buildThrowUnresolvedSuperSetter(name.name, value);
   }
 }
 
@@ -116,12 +108,8 @@ class SuperIndexAccessor extends ir_accessors.SuperIndexAccessor {
 
   Kernel get kernel => builder.kernel;
 
-  SuperIndexAccessor(
-    this.builder,
-    ir.Expression index,
-    ir.Member readTarget,
-    ir.Member writeTarget)
-      : super(index, readTarget, writeTarget);
+  SuperIndexAccessor(this.builder, ir.Expression index)
+      : super(index);
 
   @override
   makeInvalidRead() {

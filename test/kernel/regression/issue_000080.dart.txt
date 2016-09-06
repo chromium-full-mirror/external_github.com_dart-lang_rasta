@@ -13,9 +13,9 @@ class Foo extends self::Object+Mixin#0 {
   constructor •() → self::Foo
     : super self::Object+Mixin#0::•();
   method foo() → dynamic
-    return super.self::Object+Mixin#0::foo();
+    return super.foo();
   method bar() → dynamic
-    return super.self::Object+Mixin#0::field;
+    return super.field;
 }
 abstract class Object+Mixin#0 extends core::Object implements self::Mixin {
   field dynamic field;
