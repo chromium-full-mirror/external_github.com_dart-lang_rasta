@@ -167,6 +167,19 @@ abstract class RastaUnresolved {
         new ir.Arguments(<ir.Expression>[new ir.StringLiteral(errorMessage)])));
   }
 
+  SuperIndexAccessor buildUnresolvedSuperIndexAccessor(
+      Node index, Element element) {
+    ir.Member member = possiblyErroneousFunctionToIr(element);
+    return new SuperIndexAccessor(this, visitForValue(index), member, member);
+  }
+
+  SuperPropertyAccessor buildUnresolvedSuperPropertyAccessor(
+      String name, Element getter) {
+    return new SuperPropertyAccessor(
+        this, kernel.irName(name, currentElement),
+        getter == null ? null : possiblyErroneousFunctionToIr(getter), null);
+  }
+
   ir.Expression visitUnresolvedClassConstructorInvoke(
       NewExpression node,
       ErroneousElement element,
@@ -395,9 +408,9 @@ abstract class RastaUnresolved {
       AssignmentOperator operator,
       Node rhs,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildCompoundAssignment(new ir.Name(operator.selectorName),
-        visitForValue(rhs));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildCompoundAssignment(new ir.Name(operator.selectorName),
+                                 visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperGet(
@@ -480,7 +493,7 @@ abstract class RastaUnresolved {
       Element element,
       Node index,
       _) {
-    return new SuperIndexAccessor(this, visitForValue(index))
+    return buildUnresolvedSuperIndexAccessor(index, element)
         .buildSimpleRead();
   }
 
@@ -490,7 +503,7 @@ abstract class RastaUnresolved {
       Node index,
       IncDecOperator operator,
       _) {
-    return new SuperIndexAccessor(this, visitForValue(index))
+    return buildUnresolvedSuperIndexAccessor(index, element)
         .buildSimpleRead();
   }
 
@@ -500,7 +513,7 @@ abstract class RastaUnresolved {
       Node index,
       IncDecOperator operator,
       _) {
-    return new SuperIndexAccessor(this, visitForValue(index))
+    return buildUnresolvedSuperIndexAccessor(index, element)
         .buildSimpleRead();
   }
 
@@ -510,7 +523,7 @@ abstract class RastaUnresolved {
       Node index,
       Node rhs,
       _) {
-    return new SuperIndexAccessor(this, visitForValue(index))
+    return buildUnresolvedSuperIndexAccessor(index, element)
         .buildAssignment(visitForValue(rhs));
   }
 
@@ -559,10 +572,9 @@ abstract class RastaUnresolved {
       AssignmentOperator operator,
       Node rhs,
       _) {
-    var accessor = new SuperPropertyAccessor(
-        this, kernel.irName('${node.selector}', currentElement));
-    return accessor.buildCompoundAssignment(
-        new ir.Name(operator.selectorName), visitForValue(rhs));
+    return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
+        .buildCompoundAssignment(
+            new ir.Name(operator.selectorName), visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperSetterCompoundIndexSet(
@@ -573,10 +585,10 @@ abstract class RastaUnresolved {
       AssignmentOperator operator,
       Node rhs,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildCompoundAssignment(
-        new ir.Name(operator.selectorName),
-        visitForValue(rhs));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildCompoundAssignment(
+            new ir.Name(operator.selectorName),
+            visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexPostfix(
@@ -586,8 +598,8 @@ abstract class RastaUnresolved {
       Node index,
       IncDecOperator operator,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexPrefix(
@@ -597,8 +609,8 @@ abstract class RastaUnresolved {
       Node index,
       IncDecOperator operator,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
   ir.Expression visitUnresolvedSuperSetterPostfix(
@@ -607,9 +619,8 @@ abstract class RastaUnresolved {
       Element element,
       IncDecOperator operator,
       _) {
-    var accessor = new SuperPropertyAccessor(
-        this, kernel.irName('${node.selector}', currentElement));
-    return accessor.buildPostfixIncrement(new ir.Name(operator.selectorName));
+    return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
+        .buildPostfixIncrement(new ir.Name(operator.selectorName));
   }
 
   ir.Expression visitUnresolvedSuperSetterPrefix(
@@ -618,9 +629,8 @@ abstract class RastaUnresolved {
       Element element,
       IncDecOperator operator,
       _) {
-    var accessor = new SuperPropertyAccessor(
-        this, kernel.irName('${node.selector}', currentElement));
-    return accessor.buildPrefixIncrement(new ir.Name(operator.selectorName));
+    return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
+        .buildPrefixIncrement(new ir.Name(operator.selectorName));
   }
 
   ir.Expression visitUnresolvedSuperSetterSetIfNull(
@@ -629,9 +639,8 @@ abstract class RastaUnresolved {
       Element element,
       Node rhs,
       _) {
-    var accessor = new SuperPropertyAccessor(
-        this, kernel.irName('${node.selector}', currentElement));
-    return accessor.buildNullAwareAssignment(visitForValue(rhs));
+    return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
+        .buildNullAwareAssignment(visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperUnary(
@@ -749,8 +758,8 @@ abstract class RastaUnresolved {
       Node index,
       Node rhs,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildNullAwareAssignment(visitForValue(rhs));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildNullAwareAssignment(visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexSetIfNull(
@@ -760,8 +769,8 @@ abstract class RastaUnresolved {
       Node index,
       Node rhs,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildNullAwareAssignment(visitForValue(rhs));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildNullAwareAssignment(visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperIndexSetIfNull(
@@ -770,8 +779,8 @@ abstract class RastaUnresolved {
       Node index,
       Node rhs,
       _) {
-    var accessor = new SuperIndexAccessor(this, visitForValue(index));
-    return accessor.buildNullAwareAssignment(visitForValue(rhs));
+    return buildUnresolvedSuperIndexAccessor(index, element)
+        .buildNullAwareAssignment(visitForValue(rhs));
   }
 
   ir.Expression visitUnresolvedSuperSet(

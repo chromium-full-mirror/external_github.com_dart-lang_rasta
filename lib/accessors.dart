@@ -87,8 +87,9 @@ class ClassStaticAccessor extends ir_accessors.StaticAccessor {
 class SuperPropertyAccessor extends ir_accessors.SuperPropertyAccessor {
   final RastaUnresolved builder;
 
-  SuperPropertyAccessor(this.builder, ir.Name name)
-      : super(name);
+  SuperPropertyAccessor(
+      this.builder, ir.Name name, ir.Member getter, ir.Member setter)
+      : super(name, getter, setter);
 
   @override
   makeInvalidRead() {
@@ -108,8 +109,9 @@ class SuperIndexAccessor extends ir_accessors.SuperIndexAccessor {
 
   Kernel get kernel => builder.kernel;
 
-  SuperIndexAccessor(this.builder, ir.Expression index)
-      : super(index);
+  SuperIndexAccessor(
+      this.builder, ir.Expression index, ir.Member getter, ir.Member setter)
+      : super(index, getter, setter);
 
   @override
   makeInvalidRead() {
