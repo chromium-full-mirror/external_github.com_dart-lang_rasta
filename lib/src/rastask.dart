@@ -108,26 +108,20 @@ abstract class Rastask extends CompilerTask {
     if (generateLibrary == null) {
       generateLibrary = !kernel.hasMainMethod(options.input);
     }
-    if (!generateLibrary && !kernel.hasMainMethod(options.input)) {
-      throw "No main method in ${options.input}.";
-    }
 
-    ir.Program program;
-    if (!generateLibrary) {
-      Iterable<ir.Procedure> mainMethods = library.procedures.where(
-          (ir.Procedure function) => function.name.name == "main");
-      program = new ir.Program(kernel.libraryDependencies(options.input))
-          ..mainMethod = mainMethods.single;
+    Iterable<ir.Procedure> mainMethods = library.procedures.where(
+        (ir.Procedure function) => function.name.name == "main");
+    ir.Program program =
+        new ir.Program(kernel.libraryDependencies(options.input));
+
+    if (mainMethods.isNotEmpty) {
+      program.mainMethod = mainMethods.single;
     }
     compiler.printVerboseTimings(setupDuration);
     if (options.output != null) {
       await openWrite(options.output, (IOSink sink) {
         BinaryPrinter printer = new BinaryPrinter(sink);
-        if (generateLibrary) {
-          printer.writeLibraryFile(library);
-        } else {
-          printer.writeProgramFile(program);
-        }
+        printer.writeProgramFile(program);
       });
     } else {
       StringBuffer buffer = new StringBuffer();

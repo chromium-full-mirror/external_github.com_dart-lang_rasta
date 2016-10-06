@@ -14,27 +14,27 @@ class C3 extends core::Object {
   constructor •() → self::C3
     : super core::Object::•();
 }
-class A<T  extends  core::Object> extends core::Object {
+class A<T extends core::Object> extends core::Object {
   constructor internal() → dynamic
     : super core::Object::•()
     ;
-  static factory a<T  extends  core::Object>() → self::A<self::A::a::T>
+  static factory a<T extends core::Object>() → self::A<self::A::a::T>
     invalid-statement;
-  static factory b<T  extends  core::Object>() → self::A<self::A::b::T>
+  static factory b<T extends core::Object>() → self::A<self::A::b::T>
     invalid-statement;
-  static factory c<T  extends  core::Object>() → self::A<self::A::c::T>
+  static factory c<T extends core::Object>() → self::A<self::A::c::T>
     invalid-statement;
 }
-class B<S  extends  core::Object> extends self::A<self::B::S> {
+class B<S extends core::Object> extends self::A<self::B::S> {
   constructor internal() → dynamic
     : super self::A::internal()
     ;
-  static factory a<S  extends  core::Object>() → self::B<self::B::a::S>
+  static factory a<S extends core::Object>() → self::B<self::B::a::S>
     invalid-statement;
-  static factory b<S  extends  core::Object>() → self::B<self::B::b::S>
+  static factory b<S extends core::Object>() → self::B<self::B::b::S>
     invalid-statement;
 }
-class C<U  extends  core::Object> extends self::B<self::C::U> {
+class C<U extends core::Object> extends self::B<self::C::U> {
   constructor •() → dynamic
     : super self::B::internal()
     ;

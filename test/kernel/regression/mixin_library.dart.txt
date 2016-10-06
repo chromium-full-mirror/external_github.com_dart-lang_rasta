@@ -2,7 +2,7 @@ library test.mixin_library;
 import self as self;
 import "dart:core" as core;
 
-class Mixin<T  extends  core::Object> extends core::Object {
+class Mixin<T extends core::Object> extends core::Object {
   field dynamic x;
   field dynamic y;
   field dynamic z;
@@ -10,7 +10,7 @@ class Mixin<T  extends  core::Object> extends core::Object {
   constructor •() → self::Mixin<self::Mixin::T>
     : self::Mixin::x = self::f(), super core::Object::•();
   method foo() → dynamic
-    return(throw core::_unresolvedSuperMethodError(this, #foo, <dynamic>[], <dynamic, dynamic>{}, null)).+(self::f());
+    return (throw core::_unresolvedSuperMethodError(this, #foo, <dynamic>[], <dynamic, dynamic>{}, null)).+(self::f());
   method g(self::Mixin::T a) → self::Mixin::T
     return null;
   method h() → dynamic

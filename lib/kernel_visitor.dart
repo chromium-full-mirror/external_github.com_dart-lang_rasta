@@ -1670,8 +1670,17 @@ class KernelVisitor extends Object
   }
 
   @override
-  ir.LogicalExpression visitIfNull(Send node, Node left, Node right, _) {
-    return buildLogicalExpression(left, node.selector, right);
+  ir.Expression visitIfNull(Send node, Node left, Node right, _) {
+    ir.VariableDeclaration variable = new ir.VariableDeclaration(
+        null, initializer: visitForValue(left));
+    ir.Name equals = kernel.irName('==', currentElement);
+    return new ir.Let(
+        variable,
+        new ir.ConditionalExpression(
+            makeBinary(new ir.VariableGet(variable), equals, null,
+                new ir.NullLiteral()),
+            visitForValue(right),
+            new ir.VariableGet(variable)));
   }
 
   @override
@@ -1882,6 +1891,7 @@ class KernelVisitor extends Object
         return accessor.buildCompoundAssignment(
             name, visitForValue(rhs.rhs), voidContext: isVoidContext);
     }
+    throw "Unexpected kind: '${rhs.kind}'.";
   }
 
   @override

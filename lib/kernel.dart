@@ -312,6 +312,7 @@ class Kernel {
       case TypeKind.VOID:
         return const ir.VoidType();
     }
+    throw "Unexpected type: '$type.kind'.";
   }
 
   ir.DartType typeLiteralToIr(TypeConstantExpression constant) {

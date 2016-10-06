@@ -183,13 +183,9 @@ $buffer""");
 Expectation checkRoundTrip(Uri uri) {
   print("Deserializing $uri");
   Repository repository = new Repository();
-  ir.TreeNode programOrLibrary =
-      new BinaryLoader(repository).loadProgramOrLibrary("$uri");
+  ir.Program program =
+      new BinaryLoader(repository).loadProgram(uri.toFilePath());
   Printer printer = new Printer(new StringBuffer());
-  if (programOrLibrary is ir.Program) {
-    printer.writeProgramFile(programOrLibrary);
-  } else {
-    printer.writeLibraryFile(programOrLibrary);
-  }
+  printer.writeProgramFile(program);
   return Expectation.PASS;
 }

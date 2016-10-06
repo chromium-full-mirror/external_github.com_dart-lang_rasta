@@ -12,9 +12,9 @@ class Sub extends self::Base {
   constructor •() → self::Sub
     : self::Sub::_hashCode = null, super self::Base::•();
   get hashCode() → dynamic
-    return let final dynamic #t1 = this._hashCode in #t1.==(null) ? this._hashCode = super.hashCode : #t1;
+    return let final dynamic #t1 = this._hashCode in #t1.==(null) ? this._hashCode = super.{self::Base::hashCode} : #t1;
   method foo() → dynamic {
-    this._hashCode.==(null) ? this._hashCode = super.hashCode : null;
+    this._hashCode.==(null) ? this._hashCode = super.{self::Base::hashCode} : null;
   }
 }
 static method main() → dynamic {

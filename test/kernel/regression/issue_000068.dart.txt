@@ -3,7 +3,7 @@ import self as self;
 import "dart:core" as core;
 import "package:expect/expect.dart" as exp;
 
-class G<T  extends  core::Object> extends core::Object {
+class G<T extends core::Object> extends core::Object {
   constructor •() → self::G<self::G::T>
     : super core::Object::•();
 }
