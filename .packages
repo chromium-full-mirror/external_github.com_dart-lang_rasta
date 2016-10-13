@@ -5,6 +5,8 @@ rasta:lib
 
 kernel:third_party/kernel/lib
 
+testing:third_party/testing/lib
+
 compiler:third_party/dart-sdk/pkg/compiler/lib
 expect:third_party/dart-sdk/pkg/expect/lib
 js_ast:third_party/dart-sdk/pkg/js_ast/lib

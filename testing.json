@@ -1,0 +1,41 @@
+{
+"":"Copyright (c) 2016, the Dart project authors. Please see the AUTHORS file",
+"":"for details. All rights reserved. Use of this source code is governed by a",
+"":"BSD-style license that can be found in the LICENSE.md file.",
+  "suites": [
+    {
+      "name": "test",
+      "path": "test/",
+      "kind": "Dart",
+      "pattern": [
+        "_test\\.dart$"
+      ],
+      "exclude": [
+        "/test/kernel/regression/",
+        "/test/kernel/kernel_test\\.dart$"
+      ]
+    },
+    {
+      "name": "kernel_test",
+      "kind": "Chain",
+      "source": "test/kernel/kernel_test.dart",
+      "path": "test/kernel/regression/",
+      "status": "test/rasta.status",
+      "pattern": [
+        "\\.dart$"
+      ],
+      "exclude": [
+      ]
+    }
+  ],
+  "analyze": {
+    "uris": [
+      "lib/",
+      "bin/"
+    ],
+    "exclude": [
+      "/third_party/dart-sdk/pkg/compiler/",
+      "/third_party/kernel/"
+    ]
+  }
+}

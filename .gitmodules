@@ -22,3 +22,6 @@
 [submodule "kernel"]
 	path = third_party/kernel
 	url = https://github.com/dart-lang/kernel.git
+[submodule "testing"]
+	path = third_party/testing
+	url = https://github.com/peter-ahe-google/testing.git

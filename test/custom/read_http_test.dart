@@ -8,7 +8,7 @@ import "dart:async";
 import "dart:convert";
 import "dart:io";
 
-import "package:rasta/testing.dart";
+import "package:testing/testing.dart";
 
 Future<Null> main() async {
   Uri serverScript = Uri.base.resolve("test/custom/read_http_server.dart");

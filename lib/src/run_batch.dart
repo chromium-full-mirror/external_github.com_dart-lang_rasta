@@ -23,7 +23,7 @@ import 'package:compiler/src/util/uri_extras.dart' show
 import '../custom_compiler.dart' show
     CustomCompiler;
 
-import '../testing.dart' show
+import 'package:testing/testing.dart' show
     TestDescription,
     listTests;
 
