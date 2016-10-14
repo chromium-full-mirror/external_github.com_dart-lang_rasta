@@ -118,20 +118,22 @@ abstract class Rastask extends CompilerTask {
       program.mainMethod = mainMethods.single;
     }
     compiler.printVerboseTimings(setupDuration);
-    if (options.output != null) {
-      await openWrite(options.output, (IOSink sink) {
-        BinaryPrinter printer = new BinaryPrinter(sink);
-        printer.writeProgramFile(program);
-      });
-    } else {
-      StringBuffer buffer = new StringBuffer();
-      Printer printer = new Printer(buffer);
-      if (generateLibrary) {
-        printer.writeLibraryFile(library);
+    if (!options.noOutput) {
+      if (options.output != null) {
+        await openWrite(options.output, (IOSink sink) {
+          BinaryPrinter printer = new BinaryPrinter(sink);
+          printer.writeProgramFile(program);
+        });
       } else {
-        printer.writeProgramFile(program);
+        StringBuffer buffer = new StringBuffer();
+        Printer printer = new Printer(buffer);
+        if (generateLibrary) {
+          printer.writeLibraryFile(library);
+        } else {
+          printer.writeProgramFile(program);
+        }
+        print("$buffer");
       }
-      print("$buffer");
     }
 
     if (options.dependenciesFile != null) {

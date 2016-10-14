@@ -31,6 +31,8 @@ const Map<String, OptionDescription> descriptions =
         Option.throwOnError, hasOptionalArgument: true),
 
     "--analyze": const OptionDescription(Option.analyze),
+
+    "--no-output": const OptionDescription(Option.noOutput),
 };
 
 const List<Option> supportedBatchOptions = const <Option>[
@@ -76,6 +78,9 @@ enum Option {
   /// `--analyze`.
   analyze,
 
+  /// `--no-output`.
+  noOutput,
+
   // `--` which signals option parsing should end (the rest are arguments).
   skip,
 
@@ -111,11 +116,13 @@ class Options {
   final bool throwOnError;
   final int throwOnErrorCount;
   final bool analyze;
+  final bool noOutput;
 
   Options(this.input, this.output,
           {this.dependenciesFile, this.targetSpecification,
            this.generateLibrary, this.isVerbose, this.isBatch, this.pattern,
-           this.throwOnError, this.throwOnErrorCount, this.analyze});
+           this.throwOnError, this.throwOnErrorCount, this.analyze,
+           this.noOutput});
 }
 
 class OptionParser {
@@ -139,6 +146,7 @@ class OptionParser {
     Uri targetSpecification;
     List<String> uris = <String>[];
     Pattern pattern;
+    bool noOutput;
     for (OptionValue value in values) {
       switch (value.option) {
         case Option.library:
@@ -180,6 +188,10 @@ class OptionParser {
 
         case Option.analyze:
           analyze = true;
+          break;
+
+        case Option.noOutput:
+          noOutput = true;
           break;
 
         case Option.skip:
@@ -244,7 +256,8 @@ class OptionParser {
         generateLibrary: generateLibrary, isVerbose: isVerbose ?? false,
         isBatch: isBatch ?? false, pattern: pattern,
         throwOnError: throwOnError ?? false,
-        throwOnErrorCount: throwOnErrorCount, analyze: analyze ?? false);
+        throwOnErrorCount: throwOnErrorCount, analyze: analyze ?? false,
+        noOutput: noOutput ?? false);
   }
 
   List<OptionValue> parseValues() {
