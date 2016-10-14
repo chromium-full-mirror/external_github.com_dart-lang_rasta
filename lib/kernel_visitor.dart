@@ -802,7 +802,7 @@ class KernelVisitor extends Object
       if (node.initializer != null) {
         initializer = visitForValue(node.initializer);
       }
-      variables = const <ir.VariableDeclaration>[];
+      variables = <ir.VariableDeclaration>[];
     }
     ir.Expression condition = visitForValue(node.condition);
     List<ir.Expression> updates = <ir.Expression>[];
@@ -1506,8 +1506,8 @@ class KernelVisitor extends Object
     if (kernel.hasHierarchyProblem(constructor.enclosingClass)) {
       constructorInitializers.add(new ir.InvalidInitializer());
     } else if (constructor.isSynthesized) {
-      List<ir.Expression> arguments = const <ir.Expression>[];
-      List<ir.NamedExpression> named = const <ir.NamedExpression>[];
+      List<ir.Expression> arguments = <ir.Expression>[];
+      List<ir.NamedExpression> named = <ir.NamedExpression>[];
       FunctionSignature signature = constructor.functionSignature;
       if (signature.parameterCount != 0) {
         // Mixin application implicit super call.

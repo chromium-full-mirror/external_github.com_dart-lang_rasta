@@ -252,7 +252,7 @@ class Kernel {
 
   // TODO(ahe): Remove this method when dart2js support generic type arguments.
   List<ir.TypeParameter> typeParametersNotImplemented() {
-    return const <ir.TypeParameter>[];
+    return <ir.TypeParameter>[];
   }
 
   ir.FunctionType functionTypeToIr(FunctionType type) {
