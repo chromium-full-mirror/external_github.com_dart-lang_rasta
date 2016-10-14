@@ -11,7 +11,14 @@ import 'dart:io' show
     File,
     Platform;
 
-import 'package:kernel/ast.dart' as ir;
+import 'package:kernel/ast.dart' show
+    Program;
+
+import 'package:kernel/repository.dart' show
+    Repository;
+
+import 'package:kernel/binary/loader.dart' show
+    BinaryLoader;
 
 import 'package:testing/testing.dart' show
     ChainContext,
@@ -45,14 +52,18 @@ abstract class RastaContext extends ChainContext {
   Uri get temp;
 }
 
-class RastaStep extends Step<TestDescription, ir.Program, RastaContext> {
+class RastaStep extends Step<TestDescription, Program, RastaContext> {
   final String prefix;
 
-  const RastaStep(this.prefix);
+  /// When true, return a copy of the program (by loading it from serialized
+  /// .dill file).
+  final bool reload;
+
+  const RastaStep(this.prefix, {this.reload: false});
 
   String get name => "rasta";
 
-  Future<Result<ir.Program>> run(
+  Future<Result<Program>> run(
       TestDescription description, RastaContext context) async {
     Uri source = description.uri;
     Rastask task = context.task;
@@ -71,12 +82,19 @@ class RastaStep extends Step<TestDescription, ir.Program, RastaContext> {
         generateLibrary: false,
         isVerbose: true, isBatch: false, pattern: null);
 
-    ir.Program program;
+    Program program;
     try {
       program = await task.runOne(options);
     } catch (e, t) {
       task.kernel.recoverFromCrash();
       return crash(e, t);
+    }
+
+    if (reload) {
+      // TODO(ahe): We need to load the serialized form as we otherwise
+      // attempt to modify an unmodifiable list.
+      Repository repository = new Repository();
+      program = new BinaryLoader(repository).loadProgram(dill.toFilePath());
     }
 
     return pass(program);
