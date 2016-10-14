@@ -410,7 +410,7 @@ abstract class RastaUnresolved {
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
         .buildCompoundAssignment(new ir.Name(operator.selectorName),
-                                 visitForValue(rhs));
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperGet(
@@ -524,7 +524,7 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildAssignment(visitForValue(rhs));
+        .buildAssignment(visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperInvoke(
@@ -574,7 +574,8 @@ abstract class RastaUnresolved {
       _) {
     return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
         .buildCompoundAssignment(
-            new ir.Name(operator.selectorName), visitForValue(rhs));
+            new ir.Name(operator.selectorName), visitForValue(rhs),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterCompoundIndexSet(
@@ -588,7 +589,7 @@ abstract class RastaUnresolved {
     return buildUnresolvedSuperIndexAccessor(index, element)
         .buildCompoundAssignment(
             new ir.Name(operator.selectorName),
-            visitForValue(rhs));
+            visitForValue(rhs), voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexPostfix(
@@ -599,7 +600,8 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildPostfixIncrement(new ir.Name(operator.selectorName));
+        .buildPostfixIncrement(new ir.Name(operator.selectorName),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexPrefix(
@@ -610,7 +612,8 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildPrefixIncrement(new ir.Name(operator.selectorName));
+        .buildPrefixIncrement(new ir.Name(operator.selectorName),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterPostfix(
@@ -620,7 +623,8 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
-        .buildPostfixIncrement(new ir.Name(operator.selectorName));
+        .buildPostfixIncrement(new ir.Name(operator.selectorName),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterPrefix(
@@ -630,7 +634,8 @@ abstract class RastaUnresolved {
       IncDecOperator operator,
       _) {
     return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
-        .buildPrefixIncrement(new ir.Name(operator.selectorName));
+        .buildPrefixIncrement(new ir.Name(operator.selectorName),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterSetIfNull(
@@ -640,7 +645,8 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     return buildUnresolvedSuperPropertyAccessor('${node.selector}', getter)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(visitForValue(rhs),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperUnary(
@@ -759,7 +765,8 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(visitForValue(rhs),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSetterIndexSetIfNull(
@@ -770,7 +777,8 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(visitForValue(rhs),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperIndexSetIfNull(
@@ -780,7 +788,8 @@ abstract class RastaUnresolved {
       Node rhs,
       _) {
     return buildUnresolvedSuperIndexAccessor(index, element)
-        .buildNullAwareAssignment(visitForValue(rhs));
+        .buildNullAwareAssignment(visitForValue(rhs),
+            voidContext: isVoidContext);
   }
 
   ir.Expression visitUnresolvedSuperSet(
