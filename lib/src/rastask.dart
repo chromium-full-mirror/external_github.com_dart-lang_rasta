@@ -113,6 +113,7 @@ abstract class Rastask extends CompilerTask {
         (ir.Procedure function) => function.name.name == "main");
     ir.Program program =
         new ir.Program(kernel.libraryDependencies(options.input));
+    kernel.addLineStartsTo(program);
 
     if (mainMethods.isNotEmpty) {
       program.mainMethod = mainMethods.single;

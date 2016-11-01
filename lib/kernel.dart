@@ -94,6 +94,9 @@ class Kernel {
   /// nodes are correct.
   final Queue<WorkItem> workQueue = new Queue<WorkItem>();
 
+  // TODO(ahe): this should be pruned when unloading libraries.
+  final Map<String, List<int>> lineStarts = <String, List<int>>{};
+
   Kernel(this.compiler);
 
   bool hasMainMethod(Uri uri) {
@@ -153,6 +156,16 @@ class Kernel {
     return libraryToIr(await compiler.libraryLoader.loadLibrary(uri));
   }
 
+  String fileUri(Element element) {
+    String fileUri = "${element.compilationUnit.script.resourceUri}";
+    lineStarts[fileUri] = <int>[0];
+    return fileUri;
+  }
+
+  void addLineStartsTo(ir.Program program) {
+    program.uriToLineStarts.addAll(lineStarts);
+  }
+
   ir.Library libraryToIr(LibraryElement library) {
     library = library.declaration;
     return libraries.putIfAbsent(library, () {
@@ -160,6 +173,7 @@ class Kernel {
       ir.Library libraryNode = new ir.Library(
           library.canonicalUri, name: name, classes: null, procedures: null,
           fields: null);
+      libraryNode.fileUri = fileUri(library);
       addWork(library, () {
         Queue<ir.Class> classes = new Queue<ir.Class>();
         Queue<ir.Member> members = new Queue<ir.Member>();
@@ -208,7 +222,7 @@ class Kernel {
       ir.Class classNode = new ir.Class(
           name: name, isAbstract: cls.isAbstract,
           typeParameters: null, implementedTypes: null, constructors: null,
-          procedures: null, fields: null);
+          procedures: null, fields: null, fileUri: fileUri(cls));
       addWork(cls, () {
         if (cls.supertype != null) {
           classNode.supertype = interfaceTypeToIr(cls.supertype);
@@ -376,6 +390,7 @@ class Kernel {
             isStatic: function.isStatic || function.isTopLevel
                 || function.isFactoryConstructor,
             isExternal: isNative || function.isExternal,
+            fileUri: fileUri(function),
             isConst: false); // TODO(ahe): When is this true?
       }
       addWork(function, () {
@@ -456,7 +471,7 @@ class Kernel {
       ir.Field fieldNode = new ir.Field(
           irName(field.memberName.text, field), type: type, initializer: null,
           isFinal: field.isFinal, isStatic: field.isStatic || field.isTopLevel,
-          isConst: field.isConst);
+          isConst: field.isConst, fileUri: fileUri(field));
       addWork(field, () {
         setParent(fieldNode, field);
         if (!field.isMalformed && !field.isInstanceMember &&
